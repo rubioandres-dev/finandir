@@ -144,7 +144,15 @@ export default async function DashboardPage() {
 
       <SmartCardSuggester recomendacion={recomendacion} hayTarjetas={tarjetas.length > 0} />
 
-      <SmartInput categorias={categorias.map((c) => ({ nombre: c.name, tipo: c.type }))} />
+      <SmartInput
+        categorias={categorias.map((c) => ({ nombre: c.name, tipo: c.type }))}
+        cuentas={cuentas.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          currency: c.currency,
+        }))}
+      />
 
       <AnalyticsChart
         gastos={gastosParaGrafico}

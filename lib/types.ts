@@ -99,6 +99,18 @@ export type MovimientoSugerido = {
   category_suggested: string
   description: string
   date: string
+  /** 1 = pago único. El importe es el TOTAL, que se reparte entre las cuotas. */
+  installment_total: number
+  /** Nombre de la cuenta que detectó la IA; se resuelve a un id en el cliente. */
+  account_name?: string | null
+}
+
+/** Cuenta elegible como origen de un movimiento. */
+export type CuentaElegible = {
+  id: string
+  name: string
+  type: TipoDeCuenta
+  currency: string
 }
 
 export const ETIQUETA_TIPO: Record<TipoTransaccion, string> = {

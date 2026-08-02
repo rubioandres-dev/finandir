@@ -2,26 +2,32 @@
 
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
-import { Loader2, Mic, Sparkles, Square } from 'lucide-react'
+import { CreditCard, Loader2, Mic, Sparkles, Square } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { VoiceMeter } from '@/components/voice-meter'
+import { repartirEnCuotas } from '@/lib/cuotas'
 import { useVoiceInput } from '@/lib/use-voice-input'
 import {
   ETIQUETA_TIPO,
   formatearMonto,
   hoyEnArgentina,
+  type CuentaElegible,
   type MovimientoSugerido,
   type TipoTransaccion,
 } from '@/lib/types'
 
 const EJEMPLOS = ['Gasté 1500 en la carnicería hoy', 'Cargué 25 lucas de nafta', 'Cobré el sueldo']
 
+const CUOTAS_COMUNES = [1, 3, 6, 9, 12, 18, 24]
+
 type Props = {
   /** Nombres de categorías del usuario, para poblar el select de la vista previa. */
   categorias: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[]
+  /** Cuentas y tarjetas disponibles como origen del movimiento. */
+  cuentas?: CuentaElegible[]
 }
 
-export function SmartInput({ categorias }: Props) {
+export function SmartInput({ categorias, cuentas = [] }: Props) {
   const router = useRouter()
   const [texto, setTexto] = useState('')
   const [analizando, setAnalizando] = useState(false)
@@ -38,6 +44,7 @@ export function SmartInput({ categorias }: Props) {
   /** Evita dos análisis simultáneos (botón + auto-disparo por voz). */
   const enVueloRef = useRef(false)
   const [analizadoPorVoz, setAnalizadoPorVoz] = useState(false)
+  const [cuentaId, setCuentaId] = useState<string>('')
 
   function escribir(valor: string) {
     textoRef.current = valor
@@ -59,7 +66,10 @@ export function SmartInput({ categorias }: Props) {
       const respuesta = await fetch('/api/ai-parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: limpio }),
+        body: JSON.stringify({
+          text: limpio,
+          accounts: cuentas.map((c) => ({ name: c.name, type: c.type, currency: c.currency })),
+        }),
       })
       const datos = await respuesta.json()
 
@@ -68,7 +78,15 @@ export function SmartInput({ categorias }: Props) {
         return
       }
 
-      setBorrador(datos as MovimientoSugerido)
+      const sugerido = datos as MovimientoSugerido
+      setBorrador(sugerido)
+
+      // La IA devuelve el nombre; acá lo resolvemos al id real.
+      const porNombre = sugerido.account_name?.trim().toLowerCase()
+      const coincidencia = porNombre
+        ? cuentas.find((c) => c.name.trim().toLowerCase() === porNombre)
+        : undefined
+      setCuentaId(coincidencia?.id ?? '')
     } catch {
       setError('No se pudo conectar con el servidor.')
     } finally {
@@ -106,6 +124,9 @@ export function SmartInput({ categorias }: Props) {
         category_suggested: borrador.category_suggested,
         description: borrador.description,
         date: borrador.date,
+        account_id: cuentaId || null,
+        // Sin tarjeta no hay plan de cuotas, aunque el borrador lo traiga.
+        installment_total: cuotas,
       })
 
       if (!resultado.ok) {
@@ -114,6 +135,7 @@ export function SmartInput({ categorias }: Props) {
       }
 
       setBorrador(null)
+      setCuentaId('')
       escribir('')
       setError(null)
       setExito('Movimiento guardado.')
@@ -131,6 +153,17 @@ export function SmartInput({ categorias }: Props) {
         ])
       ).sort((a, b) => a.localeCompare(b, 'es'))
     : []
+
+  // Solo se ofrecen cuentas de la misma moneda: la action las rechaza si no.
+  const cuentasCompatibles = borrador
+    ? cuentas.filter((c) => c.currency.trim() === borrador.currency)
+    : []
+
+  const cuentaElegida = cuentasCompatibles.find((c) => c.id === cuentaId)
+  const admiteCuotas = cuentaElegida?.type === 'CREDIT_CARD' && borrador?.type === 'EXPENSE'
+  const cuotas = admiteCuotas ? (borrador?.installment_total ?? 1) : 1
+  // Se muestra la primera cuota: las demás son iguales salvo el redondeo final.
+  const montoPorCuota = repartirEnCuotas(borrador?.amount ?? 0, cuotas)[0]
 
   function actualizar<K extends keyof MovimientoSugerido>(campo: K, valor: MovimientoSugerido[K]) {
     setBorrador((previo) => (previo ? { ...previo, [campo]: valor } : previo))
@@ -317,7 +350,7 @@ export function SmartInput({ categorias }: Props) {
               <select
                 value={borrador.type}
                 onChange={(e) => actualizar('type', e.target.value as TipoTransaccion)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
               >
                 {(Object.keys(ETIQUETA_TIPO) as TipoTransaccion[]).map((tipo) => (
                   <option key={tipo} value={tipo}>
@@ -333,7 +366,7 @@ export function SmartInput({ categorias }: Props) {
                 value={borrador.category_suggested}
                 disabled={borrador.type === 'TRANSFER'}
                 onChange={(e) => actualizar('category_suggested', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary disabled:opacity-45 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary disabled:opacity-45"
               >
                 {borrador.type === 'TRANSFER' ? (
                   <option value="">Sin categoría</option>
@@ -354,9 +387,58 @@ export function SmartInput({ categorias }: Props) {
                 value={borrador.date}
                 max={hoyEnArgentina()}
                 onChange={(e) => actualizar('date', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
               />
             </label>
+
+            {cuentasCompatibles.length > 0 && (
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+                Pagado con
+                <select
+                  value={cuentaId}
+                  onChange={(e) => setCuentaId(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                >
+                  <option value="">Cuenta por defecto</option>
+                  {cuentasCompatibles.map((cuenta) => (
+                    <option key={cuenta.id} value={cuenta.id}>
+                      {cuenta.type === 'CREDIT_CARD' ? `💳 ${cuenta.name}` : cuenta.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {/* Las cuotas solo tienen sentido en un gasto con tarjeta. */}
+            {admiteCuotas && (
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+                Cuotas
+                <select
+                  value={borrador.installment_total ?? 1}
+                  onChange={(e) => actualizar('installment_total', Number(e.target.value))}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm tabular-nums text-foreground outline-none focus:border-primary"
+                >
+                  {CUOTAS_COMUNES.map((n) => (
+                    <option key={n} value={n}>
+                      {n === 1 ? 'Un pago' : `${n} cuotas`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {cuotas > 1 && (
+              <p className="col-span-2 flex items-center gap-2 rounded-lg border border-wealth/25 bg-wealth/[0.07] px-3 py-2 text-xs text-wealth">
+                <CreditCard className="size-3.5 shrink-0" aria-hidden />
+                <span className="tabular-nums">
+                  {cuotas} cuotas de{' '}
+                  <strong className="font-semibold">
+                    {formatearMonto(montoPorCuota, borrador.currency)}
+                  </strong>
+                  /mes (Total: {formatearMonto(borrador.amount || 0, borrador.currency)})
+                </span>
+              </p>
+            )}
 
             <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-muted">
               Descripción
@@ -365,7 +447,7 @@ export function SmartInput({ categorias }: Props) {
                 value={borrador.description}
                 maxLength={120}
                 onChange={(e) => actualizar('description', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
               />
             </label>
           </div>

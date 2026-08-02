@@ -28,6 +28,17 @@ const CATEGORIES = [
 
 const requestSchema = z.object({
   text: z.string().trim().min(1, 'El texto no puede estar vacío').max(500),
+  /** Cuentas del usuario, para que el modelo pueda elegir con cuál se pagó. */
+  accounts: z
+    .array(
+      z.object({
+        name: z.string().max(80),
+        type: z.string().max(20),
+        currency: z.string().max(3),
+      })
+    )
+    .max(30)
+    .optional(),
 })
 
 const transactionSchema = z.object({
@@ -68,6 +79,23 @@ const transactionSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .describe('Fecha del movimiento en formato YYYY-MM-DD'),
+  installment_total: z
+    .number()
+    .int()
+    .min(1)
+    .max(60)
+    .describe(
+      'Cantidad de cuotas. 1 si es un pago único (lo habitual). ' +
+        'Devolvé otro número solo si la frase lo dice: "en 3 cuotas", "12 cuotas", ' +
+        '"6 pagos", "3x". Ojo: "3 cuotas de 5000" son 3 cuotas y el importe total es 15000.'
+    ),
+  account_name: z
+    .string()
+    .nullable()
+    .describe(
+      'Nombre EXACTO de la cuenta o tarjeta con la que se pagó, tomado de la ' +
+        'lista de cuentas disponibles. null si la frase no menciona ninguna.'
+    ),
 })
 
 export type ParsedTransaction = z.infer<typeof transactionSchema>
@@ -106,6 +134,17 @@ export async function POST(request: Request) {
   }
 
   const today = todayInBuenosAires()
+  const cuentas = parsedBody.data.accounts ?? []
+
+  // Se le pasan las cuentas por nombre para que pueda resolver "con la Visa".
+  const listaDeCuentas =
+    cuentas.length > 0
+      ? 'Cuentas disponibles del usuario (elegí una por su nombre exacto o null): ' +
+        cuentas
+          .map((c) => `"${c.name}" (${c.type === 'CREDIT_CARD' ? 'tarjeta de crédito' : 'cuenta'}, ${c.currency})`)
+          .join(', ') +
+        '.'
+      : 'El usuario no tiene cuentas cargadas: devolvé account_name en null.'
 
   try {
     const { object } = await generateObject({
@@ -123,6 +162,9 @@ export async function POST(request: Request) {
         'La moneda por defecto es el peso argentino (ARS): en Argentina "$" y "pesos" son ARS.',
         'Marcá USD únicamente si el texto lo aclara ("USD", "dólares", "u$s", "US$", "verdes").',
         'El importe va siempre sin símbolo, solo el número, en la moneda que detectaste.',
+        'Las cuotas van en installment_total: 1 salvo que la frase diga otra cantidad.',
+        'Si mencionan una tarjeta o cuenta ("con la Visa", "con Mercado Pago"), devolvé su nombre exacto en account_name.',
+        listaDeCuentas,
         'No inventes datos que no estén en la frase: si algo es ambiguo, elegí la opción más probable.',
       ].join(' '),
       prompt: parsedBody.data.text,
