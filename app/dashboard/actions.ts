@@ -29,6 +29,12 @@ const movimientoSchema = z.object({
 
 export type MovimientoAGuardar = z.infer<typeof movimientoSchema>
 
+// 42703 = la columna no existe; PGRST204 = no está en el schema cache de
+// PostgREST. Ambos significan lo mismo acá: falta correr migrations/004.
+function faltanColumnasDelPlan(codigo?: string) {
+  return codigo === '42703' || codigo === 'PGRST204'
+}
+
 export async function guardarTransaccion(
   entrada: MovimientoAGuardar
 ): Promise<ResultadoGuardado> {
@@ -113,8 +119,11 @@ export async function guardarTransaccion(
     currency: datos.data.currency,
     type: datos.data.type,
     description: datos.data.description,
-    // Metadatos del plan repetidos en cada cuota: así el desglose del recargo
-    // se puede mostrar desde cualquiera sin ir a buscar la madre.
+  }
+
+  // Metadatos del plan repetidos en cada cuota: así el desglose del recargo
+  // se puede mostrar desde cualquiera sin ir a buscar la madre.
+  const metadatosPlan = {
     has_interest: plan.tieneInteres,
     cash_price: cuotas > 1 ? plan.precioContado : null,
     total_financed_amount: cuotas > 1 ? plan.totalAPagar : null,
@@ -122,23 +131,42 @@ export async function guardarTransaccion(
   }
 
   // Primera cuota: es la "madre" a la que apuntan las demás.
-  const { data: primera, error: errorInsert } = await supabase
+  const primeraCuota = {
+    amount: montos[0],
+    amount_usd: calcularMontoUsd(montos[0], datos.data.currency, cotizacion),
+    date: datos.data.date,
+    installment_current: cuotas > 1 ? 1 : null,
+    installment_total: cuotas > 1 ? cuotas : null,
+  }
+
+  let { data: primera, error: errorInsert } = await supabase
     .from('transactions')
-    .insert({
-      ...comun,
-      amount: montos[0],
-      amount_usd: calcularMontoUsd(montos[0], datos.data.currency, cotizacion),
-      date: datos.data.date,
-      installment_current: cuotas > 1 ? 1 : null,
-      installment_total: cuotas > 1 ? cuotas : null,
-    })
+    .insert({ ...comun, ...metadatosPlan, ...primeraCuota })
     .select('id')
     .single()
 
-  if (errorInsert) {
+  // Sin migrations/004 las columnas del plan no existen y el insert falla, aun
+  // para un gasto simple. Reintentamos sin esos metadatos: el reparto en cuotas
+  // ya está resuelto en `montos`, así que lo único que se pierde es el desglose
+  // del recargo, que vuelve solo cuando se corra la migración.
+  let guardaMetadatos = true
+  if (errorInsert && faltanColumnasDelPlan(errorInsert.code)) {
+    guardaMetadatos = false
+    console.warn(
+      '[guardarTransaccion] Faltan las columnas de intereses; se guarda sin el',
+      'desglose del plan. Ejecutá migrations/004_installments_and_interest.sql.'
+    )
+    ;({ data: primera, error: errorInsert } = await supabase
+      .from('transactions')
+      .insert({ ...comun, ...primeraCuota })
+      .select('id')
+      .single())
+  }
+
+  if (errorInsert || !primera) {
     console.error('[guardarTransaccion]', errorInsert)
     // 23514 = la guarda de moneda del trigger de migrations/002.
-    if (errorInsert.code === '23514' && errorInsert.message?.includes('moneda')) {
+    if (errorInsert?.code === '23514' && errorInsert.message?.includes('moneda')) {
       return { ok: false, error: errorInsert.message }
     }
     return { ok: false, error: 'No se pudo guardar el movimiento. Intentá de nuevo.' }
@@ -148,6 +176,7 @@ export async function guardarTransaccion(
   if (cuotas > 1) {
     const restantes = montos.slice(1).map((monto, indice) => ({
       ...comun,
+      ...(guardaMetadatos ? metadatosPlan : {}),
       amount: monto,
       amount_usd: calcularMontoUsd(monto, datos.data.currency, cotizacion),
       date: sumarMeses(datos.data.date, indice + 1),
