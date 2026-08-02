@@ -141,7 +141,7 @@ export function SmartInput({ categorias }: Props) {
       <form onSubmit={analizar} className="flex flex-col gap-2.5">
         <div className="relative">
           <Sparkles
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-emerald-600 dark:text-emerald-400"
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-income"
             aria-hidden
           />
           <input
@@ -155,12 +155,12 @@ export function SmartInput({ categorias }: Props) {
             enterKeyHint="send"
             disabled={analizando || guardando}
             aria-label="Describí el movimiento en lenguaje natural"
-            className={`w-full rounded-xl border bg-white py-3.5 pl-10 text-base outline-none transition placeholder:text-black/35 focus:ring-2 disabled:opacity-60 dark:bg-white/[0.04] dark:placeholder:text-white/30 ${
+            className={`w-full rounded-2xl border bg-card py-3.5 pl-10 text-base tracking-tight outline-none transition placeholder:text-subtle disabled:opacity-60 ${
               voz.soportado ? 'pr-12' : 'pr-3.5'
             } ${
               voz.escuchando
-                ? 'border-red-500 ring-2 ring-red-500/25'
-                : 'border-black/12 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-white/15'
+                ? 'border-expense ring-2 ring-expense/25'
+                : 'border-border focus:border-primary focus:ring-1 focus:ring-primary/50'
             }`}
           />
 
@@ -182,14 +182,14 @@ export function SmartInput({ categorias }: Props) {
               aria-pressed={voz.escuchando}
               className={`absolute right-1.5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg transition disabled:opacity-40 ${
                 voz.escuchando
-                  ? 'bg-red-500 text-white'
-                  : 'text-black/40 hover:bg-black/5 hover:text-black/70 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/75'
+                  ? 'bg-expense text-white'
+                  : 'text-subtle hover:bg-foreground/5 hover:text-foreground'
               }`}
             >
               {voz.escuchando ? (
                 <>
                   {/* Halo pulsante detrás del botón mientras graba. */}
-                  <span className="absolute inset-0 animate-ping rounded-lg bg-red-500/40" aria-hidden />
+                  <span className="absolute inset-0 animate-ping rounded-lg bg-expense/40" aria-hidden />
                   <Square className="relative size-3.5 fill-current" aria-hidden />
                 </>
               ) : (
@@ -209,7 +209,7 @@ export function SmartInput({ categorias }: Props) {
         )}
 
         {voz.error && (
-          <p role="alert" className="text-xs text-amber-700 dark:text-amber-400">
+          <p role="alert" className="text-xs text-budget-warn">
             {voz.error}
           </p>
         )}
@@ -217,7 +217,7 @@ export function SmartInput({ categorias }: Props) {
         <button
           type="submit"
           disabled={analizando || guardando || !texto.trim()}
-          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
         >
           {analizando && <Loader2 className="size-4 animate-spin" aria-hidden />}
           {analizando ? 'Interpretando…' : 'Analizar con IA'}
@@ -254,7 +254,7 @@ export function SmartInput({ categorias }: Props) {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-700 dark:text-red-300"
+          className="rounded-2xl border border-expense/30 bg-expense/10 px-3.5 py-2.5 text-sm text-expense"
         >
           {error}
         </p>
@@ -263,20 +263,20 @@ export function SmartInput({ categorias }: Props) {
       {exito && !borrador && (
         <p
           role="status"
-          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-700 dark:text-emerald-300"
+          className="rounded-2xl border border-income/30 bg-income/10 px-3.5 py-2.5 text-sm text-income"
         >
           {exito}
         </p>
       )}
 
       {borrador && (
-        <div className="flex flex-col gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4">
+        <div className="flex flex-col gap-4 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-sm font-semibold">Revisá antes de guardar</h2>
             <span
               className={`text-lg font-semibold tabular-nums ${
                 borrador.type === 'INCOME'
-                  ? 'text-emerald-600 dark:text-emerald-400'
+                  ? 'text-income'
                   : 'text-black dark:text-white'
               }`}
             >
@@ -286,9 +286,9 @@ export function SmartInput({ categorias }: Props) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs font-medium text-black/60 dark:text-white/60">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted">
               Importe
-              <div className="flex overflow-hidden rounded-lg border border-black/12 bg-white focus-within:border-emerald-500 dark:border-white/15 dark:bg-white/[0.06]">
+              <div className="flex overflow-hidden rounded-lg border border-border bg-card focus-within:border-primary">
                 <input
                   type="number"
                   inputMode="decimal"
@@ -296,7 +296,7 @@ export function SmartInput({ categorias }: Props) {
                   step="0.01"
                   value={borrador.amount}
                   onChange={(e) => actualizar('amount', Number(e.target.value))}
-                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-black outline-none dark:text-white"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none"
                 />
                 {/* La moneda va pegada al importe: es una propiedad del monto,
                     no un campo aparte. */}
@@ -304,7 +304,7 @@ export function SmartInput({ categorias }: Props) {
                   value={borrador.currency}
                   onChange={(e) => actualizar('currency', e.target.value as 'ARS' | 'USD')}
                   aria-label="Moneda del movimiento"
-                  className="border-l border-black/10 bg-black/[0.03] px-2 text-xs font-medium tabular-nums text-black outline-none dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+                  className="border-l border-border bg-foreground/[0.03] px-2 text-xs font-medium tabular-nums text-foreground outline-none"
                 >
                   <option value="ARS">ARS</option>
                   <option value="USD">USD</option>
@@ -312,12 +312,12 @@ export function SmartInput({ categorias }: Props) {
               </div>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs font-medium text-black/60 dark:text-white/60">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted">
               Tipo
               <select
                 value={borrador.type}
                 onChange={(e) => actualizar('type', e.target.value as TipoTransaccion)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
               >
                 {(Object.keys(ETIQUETA_TIPO) as TipoTransaccion[]).map((tipo) => (
                   <option key={tipo} value={tipo}>
@@ -327,13 +327,13 @@ export function SmartInput({ categorias }: Props) {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs font-medium text-black/60 dark:text-white/60">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted">
               Categoría
               <select
                 value={borrador.category_suggested}
                 disabled={borrador.type === 'TRANSFER'}
                 onChange={(e) => actualizar('category_suggested', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-emerald-500 disabled:opacity-45 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary disabled:opacity-45 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
               >
                 {borrador.type === 'TRANSFER' ? (
                   <option value="">Sin categoría</option>
@@ -347,25 +347,25 @@ export function SmartInput({ categorias }: Props) {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs font-medium text-black/60 dark:text-white/60">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted">
               Fecha
               <input
                 type="date"
                 value={borrador.date}
                 max={hoyEnArgentina()}
                 onChange={(e) => actualizar('date', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
               />
             </label>
 
-            <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-black/60 dark:text-white/60">
+            <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-muted">
               Descripción
               <input
                 type="text"
                 value={borrador.description}
                 maxLength={120}
                 onChange={(e) => actualizar('description', e.target.value)}
-                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
+                className="rounded-lg border border-black/12 bg-white px-3 py-2 text-sm text-black outline-none focus:border-primary dark:border-white/15 dark:bg-white/[0.06] dark:text-white"
               />
             </label>
           </div>
@@ -375,7 +375,7 @@ export function SmartInput({ categorias }: Props) {
               type="button"
               onClick={confirmar}
               disabled={guardando || !borrador.amount || !borrador.description.trim()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
             >
               {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
               {guardando ? 'Guardando…' : 'Confirmar y guardar'}

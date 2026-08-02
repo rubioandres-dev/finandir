@@ -55,7 +55,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
     <div className="w-full max-w-sm">
       <div className="mb-8 flex flex-col gap-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">{t.titulo}</h1>
-        <p className="text-sm text-black/55 dark:text-white/55">{t.subtitulo}</p>
+        <p className="text-sm text-muted">{t.subtitulo}</p>
       </div>
 
       <form action={enviar} className="flex flex-col gap-4">
@@ -73,7 +73,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
             autoComplete="email"
             placeholder="vos@ejemplo.com"
             disabled={pendiente}
-            className="rounded-lg border border-black/15 bg-transparent px-4 py-3 text-base outline-none transition placeholder:text-black/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+            className="rounded-lg border border-black/15 bg-transparent px-4 py-3 text-base outline-none transition placeholder:text-foreground/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
           />
         </div>
 
@@ -91,7 +91,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
               autoComplete={t.autocomplete}
               placeholder="••••••••"
               disabled={pendiente}
-              className="w-full rounded-lg border border-black/15 bg-transparent py-3 pl-4 pr-12 text-base outline-none transition placeholder:text-black/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+              className="w-full rounded-lg border border-black/15 bg-transparent py-3 pl-4 pr-12 text-base outline-none transition placeholder:text-foreground/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
             />
             <button
               type="button"
@@ -103,7 +103,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
               aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               aria-pressed={verPassword}
               aria-controls="password"
-              className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-black/40 transition hover:text-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 disabled:opacity-40 dark:text-white/40 dark:hover:text-white/75"
+              className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-foreground/40 transition hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 disabled:opacity-40 dark:text-white/40 dark:hover:text-white/75"
             >
               {verPassword ? (
                 <EyeOff className="size-[18px]" aria-hidden />
@@ -113,14 +113,14 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
             </button>
           </div>
           {modo === 'signup' && (
-            <p className="text-xs text-black/45 dark:text-white/45">Mínimo 6 caracteres.</p>
+            <p className="text-xs text-subtle">Mínimo 6 caracteres.</p>
           )}
         </div>
 
         {estado.error && (
           <p
             role="alert"
-            className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-700 dark:text-red-300"
+            className="rounded-lg border border-expense/30 bg-expense/10 px-3.5 py-2.5 text-sm text-expense"
           >
             {estado.error}
           </p>
@@ -129,7 +129,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
         {estado.mensaje && (
           <p
             role="status"
-            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-700 dark:text-emerald-300"
+            className="rounded-lg border border-income/30 bg-income/10 px-3.5 py-2.5 text-sm text-income"
           >
             {estado.mensaje}
           </p>
@@ -140,15 +140,15 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
         <button
           type="submit"
           disabled={pendiente}
-          className="mt-1 rounded-lg bg-emerald-600 px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 rounded-lg bg-primary px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pendiente ? t.botonCargando : t.boton}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-black/55 dark:text-white/55">
+      <p className="mt-6 text-center text-sm text-muted">
         {t.pie}{' '}
-        <Link href={t.enlace} className="font-medium text-emerald-600 hover:underline dark:text-emerald-400">
+        <Link href={t.enlace} className="font-medium text-primary hover:underline">
           {t.textoEnlace}
         </Link>
       </p>

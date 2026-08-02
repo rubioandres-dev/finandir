@@ -30,9 +30,9 @@ export function ResendConfirmation({ email }: { email: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-black/10 bg-black/[0.02] px-3.5 py-3 dark:border-white/12 dark:bg-white/[0.03]">
-      <p className="flex items-start gap-2 text-xs text-black/60 dark:text-white/60">
-        <MailCheck className="mt-px size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3">
+      <p className="flex items-start gap-2 text-xs text-muted">
+        <MailCheck className="mt-px size-3.5 shrink-0 text-income" aria-hidden />
         <span>
           Enviado a <strong className="font-medium">{email}</strong>. Revisá también el correo no
           deseado.
@@ -44,8 +44,8 @@ export function ResendConfirmation({ email }: { email: string }) {
           role="status"
           className={`text-xs ${
             aviso.ok
-              ? 'text-emerald-700 dark:text-emerald-400'
-              : 'text-amber-700 dark:text-amber-400'
+              ? 'text-income'
+              : 'text-budget-warn'
           }`}
         >
           {aviso.texto}
@@ -57,7 +57,7 @@ export function ResendConfirmation({ email }: { email: string }) {
         onClick={reenviar}
         disabled={restante > 0 || enviando}
         aria-live="polite"
-        className="flex items-center justify-center gap-1.5 self-start rounded-md px-0 py-0.5 text-xs font-medium text-emerald-600 transition hover:underline disabled:cursor-not-allowed disabled:text-black/35 disabled:no-underline dark:text-emerald-400 dark:disabled:text-white/35"
+        className="flex items-center justify-center gap-1.5 self-start rounded-md px-0 py-0.5 text-xs font-medium text-emerald-600 transition hover:underline disabled:cursor-not-allowed disabled:text-foreground/35 disabled:no-underline dark:text-emerald-400 dark:disabled:text-white/35"
       >
         {enviando && <Loader2 className="size-3 animate-spin" aria-hidden />}
         {enviando

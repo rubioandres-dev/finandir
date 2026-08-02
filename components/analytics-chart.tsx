@@ -24,14 +24,14 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
   )
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-black/8 p-4 dark:border-white/10">
+    <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">Gastos por categoría</h2>
 
         <div
           role="group"
           aria-label="Período del gráfico"
-          className="flex rounded-lg border border-black/10 p-0.5 dark:border-white/12"
+          className="flex rounded-lg border border-border p-0.5"
         >
           {PERIODOS.map((opcion) => (
             <button
@@ -41,8 +41,8 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
               aria-pressed={periodo === opcion}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                 periodo === opcion
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white'
+                  ? 'bg-primary text-white'
+                  : 'text-muted hover:text-foreground'
               }`}
             >
               {ETIQUETA_PERIODO[opcion]}
@@ -52,7 +52,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
       </div>
 
       {porciones.length === 0 ? (
-        <p className="py-10 text-center text-sm text-black/45 dark:text-white/45">
+        <p className="py-10 text-center text-sm text-subtle">
           No hay gastos registrados en este período.
         </p>
       ) : (
@@ -83,10 +83,10 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
                   formatter={(valor) => formatoMoneda.format(Number(valor))}
                   contentStyle={{
                     borderRadius: 10,
-                    border: '1px solid rgba(120,120,120,0.25)',
-                    background: 'rgba(255,255,255,0.96)',
+                    border: '1px solid var(--border-strong)',
+                    background: 'var(--card)',
                     fontSize: 13,
-                    color: '#111',
+                    color: 'var(--foreground)',
                   }}
                 />
 
@@ -100,7 +100,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
 
             {/* Total al centro de la dona. */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[11px] uppercase tracking-wide text-black/40 dark:text-white/40">
+              <span className="text-[11px] uppercase tracking-wide text-subtle">
                 Total
               </span>
               <span className="text-lg font-semibold tabular-nums">
@@ -119,7 +119,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1 truncate">{porcion.nombre}</span>
-                <span className="shrink-0 text-xs tabular-nums text-black/45 dark:text-white/45">
+                <span className="shrink-0 text-xs tabular-nums text-subtle">
                   {porcion.porcentaje.toFixed(1)}%
                 </span>
                 <span className="shrink-0 tabular-nums font-medium">

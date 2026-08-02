@@ -1,26 +1,203 @@
 @import "tailwindcss";
 
+/* -----------------------------------------------------------------------------
+ * Modo oscuro por clase.
+ *
+ * OBLIGATORIO en Tailwind v4: la variante `dark:` mira `prefers-color-scheme`
+ * por defecto, así que sin esto el toggle de next-themes (que pone la clase
+ * .dark en <html>) no afectaría a ninguna utilidad `dark:`.
+ * -------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* -----------------------------------------------------------------------------
+ * Tokens del sistema de diseño
+ * -------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Superficies */
+  --background: #f8fafc;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+
+  /* Texto */
+  --foreground: #0f172a;
+  --muted: rgba(15, 23, 42, 0.62);
+  --subtle: rgba(15, 23, 42, 0.42);
+
+  /* Acentos semánticos */
+  --income: #10b981;   /* esmeralda: saldo e ingresos */
+  --expense: #f43f5e;  /* carmesí: gastos */
+  --wealth: #6366f1;   /* índigo: patrimonio */
+
+  --primary: var(--income);
+  --ring: rgba(16, 185, 129, 0.45);
+
+  /* Estados de presupuesto */
+  --budget-ok: #10b981;
+  --budget-warn: #f59e0b;
+  --budget-over: #f43f5e;
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: #090d16;
+  --card: #111827;
+  --elevated: #161f31;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --foreground: #f8fafc;
+  --muted: rgba(248, 250, 252, 0.62);
+  --subtle: rgba(248, 250, 252, 0.40);
+
+  --income: #10b981;
+  --expense: #f43f5e;
+  --wealth: #818cf8;
+
+  --primary: var(--income);
+  --ring: rgba(16, 185, 129, 0.45);
+
+  --budget-ok: #10b981;
+  --budget-warn: #f59e0b;
+  --budget-over: #f43f5e;
+
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-wealth: var(--wealth);
+  --color-primary: var(--primary);
+  --color-ring: var(--ring);
+
+  --color-budget-ok: var(--budget-ok);
+  --color-budget-warn: var(--budget-warn);
+  --color-budget-over: var(--budget-over);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* -----------------------------------------------------------------------------
+ * Base
+ * -------------------------------------------------------------------------- */
+html {
+  /* Sin esto, el rebote de scroll en iOS deja ver el fondo del navegador. */
+  background: var(--background);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Tipografía más nítida, al estilo Linear/Vercel. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* -----------------------------------------------------------------------------
+ * Optimizaciones PWA / móvil
+ * -------------------------------------------------------------------------- */
+
+/* El destello azul nativo al tocar delata que es una web, no una app. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Nada de selección accidental en controles: el texto sí se puede seleccionar. */
+button,
+a,
+label,
+select,
+summary,
+[role="button"],
+[role="tab"],
+[role="group"],
+svg {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* …salvo dentro de campos de texto, donde seleccionar es imprescindible. */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Áreas seguras del notch y de la barra de gestos. */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Scrollbars casi invisibles, visibles solo al pasar el mouse. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  transition: background-color 0.2s;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+}
+
+/* Foco visible y consistente para teclado, sin el outline por defecto. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Respeta a quien pidió menos movimiento en el sistema. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

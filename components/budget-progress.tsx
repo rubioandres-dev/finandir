@@ -23,12 +23,12 @@ export type PresupuestoDeCategoria = {
  */
 function estilosSegunAvance(porcentaje: number) {
   if (porcentaje >= 100) {
-    return { barra: 'bg-red-500', texto: 'text-red-600 dark:text-red-400' }
+    return { barra: 'bg-budget-over', texto: 'text-expense' }
   }
   if (porcentaje >= 75) {
-    return { barra: 'bg-amber-500', texto: 'text-amber-600 dark:text-amber-400' }
+    return { barra: 'bg-budget-warn', texto: 'text-budget-warn' }
   }
-  return { barra: 'bg-emerald-500', texto: 'text-emerald-600 dark:text-emerald-400' }
+  return { barra: 'bg-budget-ok', texto: 'text-income' }
 }
 
 function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
@@ -91,14 +91,14 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
                 if (e.key === 'Enter') guardar()
                 if (e.key === 'Escape') setEditando(false)
               }}
-              className="w-28 rounded-md border border-black/15 bg-white px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-emerald-500 dark:border-white/20 dark:bg-white/[0.06]"
+              className="w-28 rounded-md border border-border bg-card px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-primary"
             />
             <button
               type="button"
               onClick={guardar}
               disabled={guardando}
               aria-label="Guardar presupuesto"
-              className="grid size-7 place-items-center rounded-md text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50"
+              className="grid size-7 place-items-center rounded-md text-income hover:bg-primary/10 disabled:opacity-50"
             >
               {guardando ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -115,7 +115,7 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
               }}
               disabled={guardando}
               aria-label="Cancelar"
-              className="grid size-7 place-items-center rounded-md text-black/40 hover:bg-black/5 disabled:opacity-50 dark:text-white/40 dark:hover:bg-white/10"
+              className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5 disabled:opacity-50"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -124,7 +124,7 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
           <button
             type="button"
             onClick={() => setEditando(true)}
-            className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-black/50 transition hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+            className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-muted transition hover:bg-foreground/5 hover:text-foreground"
           >
             {categoria.presupuesto === null ? (
               'Definir presupuesto'
@@ -141,7 +141,7 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
       {categoria.presupuesto !== null && (
         <>
           <div
-            className="h-1.5 w-full overflow-hidden rounded-full bg-black/8 dark:bg-white/12"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/10"
             role="progressbar"
             aria-valuenow={Math.round(porcentaje)}
             aria-valuemin={0}
@@ -158,7 +158,7 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
             <span className={`font-medium tabular-nums ${estilos.texto}`}>
               {porcentaje.toFixed(0)}% usado
             </span>
-            <span className="tabular-nums text-black/45 dark:text-white/45">
+            <span className="tabular-nums text-subtle">
               {restante >= 0
                 ? `Quedan ${formatoMoneda.format(restante)}`
                 : `Excedido por ${formatoMoneda.format(Math.abs(restante))}`}
@@ -168,7 +168,7 @@ function FilaPresupuesto({ categoria }: { categoria: PresupuestoDeCategoria }) {
       )}
 
       {error && (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="text-xs text-expense">
           {error}
         </p>
       )}
@@ -194,24 +194,24 @@ export function BudgetProgress({
   })
 
   return (
-    <section className="flex flex-col gap-2 rounded-xl border border-black/8 p-4 dark:border-white/10">
+    <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold">Presupuestos del mes</h2>
-        <span className="text-xs text-black/40 dark:text-white/40">Tocá un monto para editarlo</span>
+        <span className="text-xs text-subtle">Tocá un monto para editarlo</span>
       </div>
 
       {faltaMigracion ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+        <p className="rounded-lg border border-budget-warn/30 bg-budget-warn/10 px-3.5 py-2.5 text-xs text-budget-warn">
           Para usar presupuestos, ejecutá{' '}
           <code className="font-mono">migrations/001_add_monthly_budget.sql</code> en el SQL Editor
           de Supabase.
         </p>
       ) : ordenadas.length === 0 ? (
-        <p className="py-6 text-center text-sm text-black/45 dark:text-white/45">
+        <p className="py-6 text-center text-sm text-subtle">
           Todavía no tenés categorías de gasto.
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-black/[0.07] dark:divide-white/8">
+        <ul className="flex flex-col divide-y divide-border">
           {ordenadas.map((categoria) => (
             <FilaPresupuesto key={categoria.id} categoria={categoria} />
           ))}
