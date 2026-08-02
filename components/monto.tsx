@@ -1,36 +1,78 @@
 'use client'
 
-import { useMoneda } from '@/components/currency-provider'
-import { formatearMonto, type MontoBimoneda } from '@/lib/types'
+import { useEquivalencias } from '@/components/currency-provider'
+import { formatearMonto, type Moneda } from '@/lib/types'
 
-type Props = MontoBimoneda & {
+type Props = {
+  valor: number
+  moneda: Moneda
   className?: string
-  /** Prefijo de signo, ej. '+' o '−'. No se muestra si el monto es null. */
+  /** Prefijo de signo, ej. '+' o '−'. */
   signo?: string
+  /**
+   * Equivalente aproximado en la otra moneda. Solo se muestra si el usuario
+   * activó las equivalencias, y siempre marcado con ≈: es una referencia,
+   * no un dato contable.
+   */
+  equivalente?: { valor: number; moneda: Moneda } | null
 }
 
 /**
- * Muestra un importe en la moneda que el usuario eligió en el toggle.
+ * Muestra un importe SIEMPRE en su moneda original.
  *
- * El servidor manda los dos valores ya calculados, así cambiar de moneda es
- * instantáneo: no hay round-trip ni recálculo.
+ * ARS y USD son libros separados: convertir para mostrar mezclaría dos
+ * unidades que no se suman entre sí.
  */
-export function Monto({ ars, usd, className, signo }: Props) {
-  const { moneda } = useMoneda()
-  const valor = moneda === 'ARS' ? ars : usd
-
-  if (valor === null) {
-    return (
-      <span className={className} title="No hay cotización para convertir este importe">
-        —
-      </span>
-    )
-  }
+export function Monto({ valor, moneda, className, signo, equivalente }: Props) {
+  const { mostrarEquivalencias } = useEquivalencias()
 
   return (
     <span className={className}>
       {signo}
       {formatearMonto(valor, moneda)}
+      {mostrarEquivalencias && equivalente && (
+        <span className="ml-1.5 text-[0.75em] font-normal text-subtle" title="Conversión aproximada">
+          ≈ {formatearMonto(equivalente.valor, equivalente.moneda)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * Métrica con una línea por moneda. Es la forma normal de mostrar totales:
+ * nunca se suma un total en pesos con uno en dólares.
+ */
+export function MontoPorMoneda({
+  totales,
+  className,
+  signo,
+  vacio = '—',
+}: {
+  totales: { moneda: Moneda; valor: number }[]
+  className?: string
+  signo?: string
+  vacio?: string
+}) {
+  const conMovimiento = totales.filter((t) => t.valor !== 0)
+
+  if (conMovimiento.length === 0) {
+    return <span className={className}>{vacio}</span>
+  }
+
+  return (
+    <span className="flex flex-col gap-0.5">
+      {conMovimiento.map((total) => (
+        <span key={total.moneda} className="flex items-baseline gap-1.5">
+          <span className="w-8 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-subtle">
+            {total.moneda}
+          </span>
+          <span className={className}>
+            {signo}
+            {formatearMonto(total.valor, total.moneda)}
+          </span>
+        </span>
+      ))}
     </span>
   )
 }

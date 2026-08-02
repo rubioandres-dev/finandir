@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { agruparGastosPorCategoria, type GastoParaGrafico } from '@/lib/analytics'
-import { ETIQUETA_PERIODO, formatoMoneda, type Periodo } from '@/lib/types'
+import { ETIQUETA_PERIODO, formatearMonto, type Moneda, type Periodo } from '@/lib/types'
 
 const PERIODOS: Periodo[] = ['mes', 'mesAnterior', 'anio']
+const MONEDAS: Moneda[] = ['ARS', 'USD']
 
 export type { GastoParaGrafico }
 
@@ -17,16 +18,35 @@ type Props = {
 
 export function AnalyticsChart({ gastos, categorias }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>('mes')
+  // Un gráfico por moneda: una torta que mezcle pesos y dólares no significa nada.
+  const [moneda, setMoneda] = useState<Moneda>('ARS')
 
   const { porciones, total } = useMemo(
-    () => agruparGastosPorCategoria(gastos, categorias, periodo),
-    [gastos, categorias, periodo]
+    () => agruparGastosPorCategoria(gastos, categorias, periodo, moneda),
+    [gastos, categorias, periodo, moneda]
   )
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Gastos por categoría</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold tracking-tight">Gastos por categoría</h2>
+          <div role="group" aria-label="Moneda del gráfico" className="flex rounded-lg border border-border p-0.5">
+            {MONEDAS.map((opcion) => (
+              <button
+                key={opcion}
+                type="button"
+                onClick={() => setMoneda(opcion)}
+                aria-pressed={moneda === opcion}
+                className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition ${
+                  moneda === opcion ? 'bg-foreground/10 text-foreground' : 'text-subtle hover:text-foreground'
+                }`}
+              >
+                {opcion}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div
           role="group"
@@ -53,7 +73,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
 
       {porciones.length === 0 ? (
         <p className="py-10 text-center text-sm text-subtle">
-          No hay gastos registrados en este período.
+          No hay gastos en {moneda} en este período.
         </p>
       ) : (
         <>
@@ -80,7 +100,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
                 <Tooltip
                   // Sin anotar los parámetros: recharts los tipa como
                   // `ValueType | undefined` y una firma explícita no encaja.
-                  formatter={(valor) => formatoMoneda.format(Number(valor))}
+                  formatter={(valor) => formatearMonto(Number(valor), moneda)}
                   contentStyle={{
                     borderRadius: 10,
                     border: '1px solid var(--border-strong)',
@@ -104,7 +124,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
                 Total
               </span>
               <span className="text-lg font-semibold tabular-nums">
-                {formatoMoneda.format(total)}
+                {formatearMonto(total, moneda)}
               </span>
             </div>
           </div>
@@ -123,7 +143,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
                   {porcion.porcentaje.toFixed(1)}%
                 </span>
                 <span className="shrink-0 tabular-nums font-medium">
-                  {formatoMoneda.format(porcion.total)}
+                  {formatearMonto(porcion.total, moneda)}
                 </span>
               </li>
             ))}

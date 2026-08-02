@@ -1,44 +1,49 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Cuenta, TipoCategoria } from './types'
 
-export const NOMBRE_CUENTA_POR_DEFECTO = 'Principal'
+export const MONEDAS = ['ARS', 'USD'] as const
+export type Moneda = (typeof MONEDAS)[number]
+
+export const NOMBRE_DE_CUENTA: Record<Moneda, string> = {
+  ARS: 'Pesos',
+  USD: 'Dólares',
+}
 
 /**
- * Devuelve la primera cuenta del usuario y, si no tiene ninguna, crea
- * "Principal".
+ * Devuelve la cuenta del usuario para esa moneda, creándola si hace falta.
  *
- * La unicidad (user_id, name) de schema.sql cubre la carrera entre dos
- * requests simultáneos: el segundo insert falla con 23505 y ahí releemos.
+ * Cada moneda tiene su propia cuenta con su propio saldo: un gasto en dólares
+ * nunca toca el saldo en pesos. La unicidad (user_id, currency) de
+ * migrations/002 cubre la carrera entre dos requests simultáneos: el segundo
+ * insert falla con 23505 y ahí releemos.
  */
-export async function obtenerOCrearCuentaPrincipal(
+export async function obtenerOCrearCuenta(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  moneda: Moneda
 ): Promise<{ cuenta: Cuenta | null; error: string | null }> {
-  const { data: existentes, error: errorLectura } = await supabase
+  const { data: existente, error: errorLectura } = await supabase
     .from('accounts')
     .select('*')
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('currency', moneda)
+    .maybeSingle()
 
   if (errorLectura) return { cuenta: null, error: errorLectura.message }
-  if (existentes && existentes.length > 0) {
-    return { cuenta: existentes[0] as Cuenta, error: null }
-  }
+  if (existente) return { cuenta: existente as Cuenta, error: null }
 
   const { data: creada, error: errorInsert } = await supabase
     .from('accounts')
-    .insert({ user_id: userId, name: NOMBRE_CUENTA_POR_DEFECTO, currency: 'ARS' })
+    .insert({ user_id: userId, name: NOMBRE_DE_CUENTA[moneda], currency: moneda })
     .select()
     .single()
 
   if (!errorInsert) return { cuenta: creada as Cuenta, error: null }
 
-  // 23505 = unique_violation: otro request la creó primero.
   if (errorInsert.code === '23505') {
     const { data: reintento, error: errorReintento } = await supabase
       .from('accounts')
       .select('*')
-      .eq('name', NOMBRE_CUENTA_POR_DEFECTO)
+      .eq('currency', moneda)
       .single()
 
     if (errorReintento) return { cuenta: null, error: errorReintento.message }
@@ -46,6 +51,18 @@ export async function obtenerOCrearCuentaPrincipal(
   }
 
   return { cuenta: null, error: errorInsert.message }
+}
+
+/** Todas las cuentas del usuario, indexadas por moneda. */
+export async function obtenerCuentasPorMoneda(
+  supabase: SupabaseClient
+): Promise<{ cuentas: Record<string, Cuenta>; error: string | null }> {
+  const { data, error } = await supabase.from('accounts').select('*')
+  if (error) return { cuentas: {}, error: error.message }
+
+  const cuentas: Record<string, Cuenta> = {}
+  for (const fila of (data ?? []) as Cuenta[]) cuentas[fila.currency] = fila
+  return { cuentas, error: null }
 }
 
 /**

@@ -2,18 +2,15 @@
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
 
-export type Moneda = 'ARS' | 'USD'
-
-const CLAVE = 'finandir:moneda'
-const POR_DEFECTO: Moneda = 'ARS'
+const CLAVE = 'finandir:equivalencias'
 
 type Contexto = {
-  moneda: Moneda
-  cambiar: (moneda: Moneda) => void
+  /** Si se muestran las conversiones aproximadas junto a cada importe. */
+  mostrarEquivalencias: boolean
   alternar: () => void
 }
 
-const CurrencyContext = createContext<Contexto | null>(null)
+const EquivalenciasContext = createContext<Contexto | null>(null)
 
 // --- store externo mínimo sobre localStorage -------------------------------
 // useSyncExternalStore en vez de useState + useEffect: el server no tiene
@@ -23,7 +20,6 @@ const suscriptores = new Set<() => void>()
 
 function suscribir(alCambiar: () => void) {
   suscriptores.add(alCambiar)
-  // 'storage' cubre el cambio hecho en otra pestaña.
   window.addEventListener('storage', alCambiar)
   return () => {
     suscriptores.delete(alCambiar)
@@ -31,21 +27,22 @@ function suscribir(alCambiar: () => void) {
   }
 }
 
-function leer(): Moneda {
+function leer(): boolean {
   try {
-    return window.localStorage.getItem(CLAVE) === 'USD' ? 'USD' : 'ARS'
+    return window.localStorage.getItem(CLAVE) === '1'
   } catch {
-    return POR_DEFECTO
+    return false
   }
 }
 
-function leerEnServidor(): Moneda {
-  return POR_DEFECTO
+/** Por defecto apagadas: la conversión es referencia, no el dato principal. */
+function leerEnServidor(): boolean {
+  return false
 }
 
-function escribir(moneda: Moneda) {
+function escribir(valor: boolean) {
   try {
-    window.localStorage.setItem(CLAVE, moneda)
+    window.localStorage.setItem(CLAVE, valor ? '1' : '0')
   } catch {
     // Modo incógnito con storage bloqueado: la preferencia dura la sesión.
   }
@@ -53,20 +50,24 @@ function escribir(moneda: Moneda) {
 }
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const moneda = useSyncExternalStore(suscribir, leer, leerEnServidor)
+  const mostrarEquivalencias = useSyncExternalStore(suscribir, leer, leerEnServidor)
 
-  const cambiar = useCallback((siguiente: Moneda) => escribir(siguiente), [])
-  const alternar = useCallback(() => escribir(leer() === 'ARS' ? 'USD' : 'ARS'), [])
+  const alternar = useCallback(() => escribir(!leer()), [])
 
-  const valor = useMemo(() => ({ moneda, cambiar, alternar }), [moneda, cambiar, alternar])
+  const valor = useMemo(
+    () => ({ mostrarEquivalencias, alternar }),
+    [mostrarEquivalencias, alternar]
+  )
 
-  return <CurrencyContext.Provider value={valor}>{children}</CurrencyContext.Provider>
+  return (
+    <EquivalenciasContext.Provider value={valor}>{children}</EquivalenciasContext.Provider>
+  )
 }
 
-export function useMoneda(): Contexto {
-  const contexto = useContext(CurrencyContext)
+export function useEquivalencias(): Contexto {
+  const contexto = useContext(EquivalenciasContext)
   if (!contexto) {
-    throw new Error('useMoneda debe usarse dentro de <CurrencyProvider>')
+    throw new Error('useEquivalencias debe usarse dentro de <CurrencyProvider>')
   }
   return contexto
 }

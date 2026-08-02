@@ -1,20 +1,26 @@
 -- =============================================================================
--- 002 · Soporte multi-moneda (ARS / USD)
+-- 002 · Multi-moneda por segregación (ARS / USD)
 -- =============================================================================
 -- Ejecutar en: Supabase Dashboard > SQL Editor. Idempotente.
 --
--- Las columnas y la tabla ya podrían existir en tu proyecto; lo que casi
--- seguro falta es la sección 3 (policies de exchange_rates) y la 4 (trigger
--- de saldo consciente de la moneda).
+-- MODELO: ARS y USD son dos libros paralelos, no una moneda convertida a otra.
+--   · Cada cuenta tiene su moneda y su propio saldo. No se suman entre sí.
+--   · Cada movimiento vive en la cuenta de SU moneda; nunca se convierte.
+--   · Cada categoría puede tener un presupuesto por moneda.
+--
+-- La conversión existe solo como referencia aproximada para mostrar (amount_usd
+-- y exchange_rates), nunca como dato contable.
 -- =============================================================================
 
 
 -- -----------------------------------------------------------------------------
--- 1. Columnas en transactions
+-- 1. Moneda del movimiento
 -- -----------------------------------------------------------------------------
 alter table public.transactions
   add column if not exists currency char(3) not null default 'ARS';
 
+-- Equivalente aproximado en USD al momento de guardar. Es informativo:
+-- ningún total contable se calcula con esta columna.
 alter table public.transactions
   add column if not exists amount_usd numeric(16,2);
 
@@ -27,31 +33,73 @@ begin
 end
 $$;
 
-comment on column public.transactions.currency   is 'Moneda en la que se registró el movimiento.';
-comment on column public.transactions.amount_usd is
-  'Equivalente en USD congelado al momento de guardar, con la cotización de ese día. NULL si no había cotización.';
+comment on column public.transactions.currency   is 'Moneda del movimiento. Debe coincidir con la de su cuenta.';
+comment on column public.transactions.amount_usd is 'Equivalente aproximado en USD, solo para mostrar. No es contable.';
 
 
 -- -----------------------------------------------------------------------------
--- 2. Histórico de cotizaciones (tabla global, no por usuario)
+-- 2. Una cuenta por moneda
 -- -----------------------------------------------------------------------------
-create table if not exists public.exchange_rates (
-  date       date        primary key,
-  source     text        not null default 'dolarapi:bolsa',
-  buy        numeric(12,4),
-  sell       numeric(12,4) not null check (sell > 0),
-  created_at timestamptz not null default now()
+-- Con un saldo por moneda, el saldo total en una sola cifra deja de existir:
+-- sumar pesos con dólares no significa nada.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'accounts_user_currency_unique') then
+    alter table public.accounts
+      add constraint accounts_user_currency_unique unique (user_id, currency);
+  end if;
+end
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. Presupuestos por categoría y moneda
+-- -----------------------------------------------------------------------------
+create table if not exists public.budgets (
+  id          uuid          primary key default extensions.uuid_generate_v4(),
+  user_id     uuid          not null references auth.users (id) on delete cascade,
+  category_id uuid          not null references public.categories (id) on delete cascade,
+  currency    char(3)       not null check (currency in ('ARS', 'USD')),
+  amount      numeric(16,2) not null check (amount >= 0),
+  created_at  timestamptz   not null default now(),
+
+  constraint budgets_categoria_moneda_unique unique (category_id, currency)
 );
 
-comment on table public.exchange_rates is
-  'Cotización diaria del dólar MEP. Compartida por todos los usuarios.';
+create index if not exists budgets_user_idx on public.budgets (user_id);
+
+alter table public.budgets enable row level security;
+
+drop policy if exists "budgets_todo" on public.budgets;
+create policy "budgets_todo" on public.budgets
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.budgets to authenticated;
+
+-- Migra los presupuestos que ya existían: eran todos en pesos.
+insert into public.budgets (user_id, category_id, currency, amount)
+select c.user_id, c.id, 'ARS', c.monthly_budget
+from public.categories c
+where c.monthly_budget is not null
+on conflict (category_id, currency) do nothing;
+
+comment on table public.budgets is
+  'Límite de gasto mensual por categoría y moneda. Cada moneda se compara solo contra los gastos de esa misma moneda.';
 
 
 -- -----------------------------------------------------------------------------
--- 3. RLS de exchange_rates
+-- 4. Cotizaciones (solo referencia, nunca contable)
 -- -----------------------------------------------------------------------------
--- Cualquier usuario logueado puede leerla y sembrar la del día; nadie puede
--- modificar ni borrar cotizaciones ya registradas.
+create table if not exists public.exchange_rates (
+  date       date          primary key,
+  source     text          not null default 'dolarapi:bolsa',
+  buy        numeric(12,4),
+  sell       numeric(12,4) not null check (sell > 0),
+  created_at timestamptz   not null default now()
+);
+
 alter table public.exchange_rates enable row level security;
 
 drop policy if exists "exchange_rates_select" on public.exchange_rates;
@@ -69,108 +117,43 @@ grant insert on public.exchange_rates to authenticated;
 
 
 -- -----------------------------------------------------------------------------
--- 4. Saldo de cuentas consciente de la moneda
+-- 5. Saldo: sin conversión, con guarda de coherencia
 -- -----------------------------------------------------------------------------
--- PROBLEMA QUE RESUELVE: el trigger original hacía `balance +/- amount` sin
--- mirar `currency`. Un gasto de USD 50 restaba 50 de un saldo en pesos.
-
-/** Cotización aplicable a una fecha: la del día, o la última anterior. */
-create or replace function public.tipo_de_cambio(p_fecha date)
-returns numeric
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(
-    (select sell from public.exchange_rates where date = p_fecha),
-    (select sell from public.exchange_rates where date < p_fecha order by date desc limit 1),
-    (select sell from public.exchange_rates order by date asc limit 1)
-  );
-$$;
-
-/** Convierte un importe entre ARS y USD usando la cotización de la fecha. */
-create or replace function public.convertir_monto(
-  p_monto numeric,
-  p_desde text,
-  p_hasta text,
-  p_fecha date
-)
-returns numeric
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  cotizacion numeric;
-begin
-  if p_desde is null or p_hasta is null or trim(p_desde) = trim(p_hasta) then
-    return p_monto;
-  end if;
-
-  cotizacion := public.tipo_de_cambio(p_fecha);
-
-  -- Sin cotización no inventamos un número: dejamos el importe como está.
-  if cotizacion is null or cotizacion <= 0 then
-    return p_monto;
-  end if;
-
-  if trim(p_desde) = 'USD' and trim(p_hasta) = 'ARS' then
-    return round(p_monto * cotizacion, 2);
-  elsif trim(p_desde) = 'ARS' and trim(p_hasta) = 'USD' then
-    return round(p_monto / cotizacion, 2);
-  end if;
-
-  return p_monto;
-end;
-$$;
-
-create or replace function public.apply_transaction_to_balance()
+-- Como cada movimiento va a la cuenta de su moneda, el saldo vuelve a ser una
+-- suma directa. La guarda impide el caso que rompía todo: un movimiento en USD
+-- restando de un saldo en pesos.
+create or replace function public.verificar_moneda_del_movimiento()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  moneda_cuenta text;
-  delta_old numeric(16,2) := 0;
-  delta_new numeric(16,2) := 0;
+  moneda_cuenta char(3);
 begin
-  if tg_op in ('UPDATE', 'DELETE') then
-    select currency into moneda_cuenta from public.accounts where id = old.account_id;
-    delta_old := public.convertir_monto(old.amount, old.currency, moneda_cuenta, old.date);
-    if old.type <> 'INCOME' then delta_old := -delta_old; end if;
-    update public.accounts set balance = balance - delta_old where id = old.account_id;
+  select currency into moneda_cuenta from public.accounts where id = new.account_id;
+
+  if moneda_cuenta is not null and trim(new.currency) <> trim(moneda_cuenta) then
+    raise exception
+      'El movimiento está en % pero la cuenta destino es en %. Cada moneda usa su propia cuenta.',
+      new.currency, moneda_cuenta
+      using errcode = '23514';
   end if;
 
-  if tg_op in ('INSERT', 'UPDATE') then
-    select currency into moneda_cuenta from public.accounts where id = new.account_id;
-    delta_new := public.convertir_monto(new.amount, new.currency, moneda_cuenta, new.date);
-    if new.type <> 'INCOME' then delta_new := -delta_new; end if;
-    update public.accounts set balance = balance + delta_new where id = new.account_id;
-  end if;
-
-  return coalesce(new, old);
+  return new;
 end;
 $$;
 
--- El trigger no cambia de nombre; solo se redefinió la función que ejecuta.
-drop trigger if exists transactions_apply_balance on public.transactions;
-create trigger transactions_apply_balance
-  after insert or update or delete on public.transactions
-  for each row execute function public.apply_transaction_to_balance();
+drop trigger if exists transactions_verificar_moneda on public.transactions;
+create trigger transactions_verificar_moneda
+  before insert or update on public.transactions
+  for each row execute function public.verificar_moneda_del_movimiento();
 
-
--- -----------------------------------------------------------------------------
--- 5. Recalcular los saldos existentes con la lógica nueva
--- -----------------------------------------------------------------------------
+-- Recalcula los saldos con la lógica simple (todo movimiento comparte la
+-- moneda de su cuenta, así que es una suma directa).
 update public.accounts a
 set balance = coalesce((
-  select sum(
-    case when t.type = 'INCOME' then 1 else -1 end
-    * public.convertir_monto(t.amount, t.currency, a.currency, t.date)
-  )
+  select sum(case when t.type = 'INCOME' then t.amount else -t.amount end)
   from public.transactions t
   where t.account_id = a.id
 ), 0);

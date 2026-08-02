@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { TransactionList } from '@/components/transaction-list'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
+import { equivalenteAproximado } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Movimientos' }
@@ -13,7 +14,10 @@ export default async function TransactionsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { categorias, movimientos, bimoneda, errorCarga } = await cargarDatosDelDashboard(user.id)
+  const { categorias, movimientos, cotizacion, errorCarga } = await cargarDatosDelDashboard()
+
+  const equivalente = (m: { amount: number; currency: 'ARS' | 'USD' }) =>
+    equivalenteAproximado(Number(m.amount), m.currency, cotizacion)
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,7 +40,7 @@ export default async function TransactionsPage() {
       <TransactionList
         movimientos={movimientos}
         categorias={categorias}
-        bimoneda={bimoneda}
+        equivalente={equivalente}
         vacio="Todavía no registraste movimientos."
       />
     </div>

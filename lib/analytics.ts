@@ -6,6 +6,7 @@ export type GastoParaGrafico = {
   amount: number
   date: string
   category_id: string | null
+  currency: 'ARS' | 'USD'
 }
 
 export type PorcionDeGasto = {
@@ -22,7 +23,9 @@ export type PorcionDeGasto = {
 export function agruparGastosPorCategoria(
   gastos: GastoParaGrafico[],
   categorias: { id: string; name: string; color: string }[],
-  periodo: Periodo
+  periodo: Periodo,
+  /** Solo se agregan gastos de esta moneda: pesos y dólares no se suman. */
+  moneda: 'ARS' | 'USD'
 ): { porciones: PorcionDeGasto[]; total: number } {
   const { desde, hasta } = rangoDelPeriodo(periodo)
   const porId = new Map(categorias.map((c) => [c.id, c]))
@@ -31,6 +34,7 @@ export function agruparGastosPorCategoria(
   let total = 0
 
   for (const gasto of gastos) {
+    if (gasto.currency !== moneda) continue
     // Las fechas son YYYY-MM-DD: la comparación lexicográfica es cronológica.
     if (gasto.date < desde || gasto.date > hasta) continue
 

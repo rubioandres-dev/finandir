@@ -13,12 +13,12 @@ export type FilaMovimiento = Pick<
 type Props = {
   movimientos: FilaMovimiento[]
   categorias: Categoria[]
-  /** Convierte un movimiento a sus dos monedas (lo calcula el Server Component). */
-  bimoneda: (t: FilaMovimiento) => { ars: number | null; usd: number | null }
+  /** Equivalente aproximado en la otra moneda; se muestra solo con ≈ activado. */
+  equivalente?: (t: FilaMovimiento) => { valor: number; moneda: 'ARS' | 'USD' } | null
   vacio?: React.ReactNode
 }
 
-export function TransactionList({ movimientos, categorias, bimoneda, vacio }: Props) {
+export function TransactionList({ movimientos, categorias, equivalente, vacio }: Props) {
   const porId = new Map(categorias.map((c) => [c.id, c]))
 
   if (movimientos.length === 0) {
@@ -59,18 +59,15 @@ export function TransactionList({ movimientos, categorias, bimoneda, vacio }: Pr
               </span>
             </div>
 
-            <span className="flex shrink-0 flex-col items-end">
-              <Monto
-                {...bimoneda(movimiento)}
-                signo={esIngreso ? '+' : '−'}
-                className={`text-sm font-semibold tabular-nums tracking-tight ${
-                  esIngreso ? 'text-income' : 'text-foreground'
-                }`}
-              />
-              {movimiento.currency === 'USD' && (
-                <span className="text-[10px] font-medium text-subtle">cargado en USD</span>
-              )}
-            </span>
+            <Monto
+              valor={Number(movimiento.amount)}
+              moneda={movimiento.currency}
+              equivalente={equivalente?.(movimiento) ?? null}
+              signo={esIngreso ? '+' : '−'}
+              className={`shrink-0 text-sm font-semibold tabular-nums tracking-tight ${
+                esIngreso ? 'text-income' : 'text-foreground'
+              }`}
+            />
           </li>
         )
       })}

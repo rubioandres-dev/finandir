@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { obtenerOCrearCategoria, obtenerOCrearCuentaPrincipal } from '@/lib/finanzas'
+import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
 
 export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
@@ -39,7 +39,11 @@ export async function guardarTransaccion(
     return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
   }
 
-  const { cuenta, error: errorCuenta } = await obtenerOCrearCuentaPrincipal(supabase, user.id)
+  const { cuenta, error: errorCuenta } = await obtenerOCrearCuenta(
+    supabase,
+    user.id,
+    datos.data.currency
+  )
   if (errorCuenta || !cuenta) {
     return { ok: false, error: errorCuenta ?? 'No se pudo determinar la cuenta.' }
   }
@@ -86,16 +90,25 @@ export async function guardarTransaccion(
 
 const presupuestoSchema = z.object({
   categoriaId: z.uuid('Categoría inválida.'),
-  // null = quitar el presupuesto.
+  moneda: z.enum(['ARS', 'USD']),
+  // null = quitar el presupuesto de esa moneda.
   monto: z.number().min(0, 'El presupuesto no puede ser negativo.').nullable(),
 })
 
-/** Define (o borra, con monto null) el presupuesto mensual de una categoría. */
+const FALTA_TABLA =
+  'Falta la tabla budgets. Ejecutá migrations/002_multi_moneda.sql en el SQL Editor.'
+
+/**
+ * Define (o borra, con monto null) el presupuesto mensual de una categoría
+ * en una moneda. Cada moneda lleva su propio límite y se compara solo contra
+ * los gastos de esa misma moneda.
+ */
 export async function guardarPresupuesto(
   categoriaId: string,
+  moneda: 'ARS' | 'USD',
   monto: number | null
 ): Promise<ResultadoGuardado> {
-  const datos = presupuestoSchema.safeParse({ categoriaId, monto })
+  const datos = presupuestoSchema.safeParse({ categoriaId, moneda, monto })
   if (!datos.success) {
     return { ok: false, error: datos.error.issues[0].message }
   }
@@ -107,24 +120,34 @@ export async function guardarPresupuesto(
 
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase
-    .from('categories')
-    .update({ monthly_budget: datos.data.monto })
-    .eq('id', datos.data.categoriaId)
+  const { error } =
+    datos.data.monto === null
+      ? await supabase
+          .from('budgets')
+          .delete()
+          .eq('category_id', datos.data.categoriaId)
+          .eq('currency', datos.data.moneda)
+      : await supabase.from('budgets').upsert(
+          {
+            user_id: user.id,
+            category_id: datos.data.categoriaId,
+            currency: datos.data.moneda,
+            amount: datos.data.monto,
+          },
+          { onConflict: 'category_id,currency' }
+        )
 
   if (error) {
-    // 42703 = columna inexistente: falta correr la migración.
-    if (error.code === '42703') {
-      return {
-        ok: false,
-        error: 'Falta la columna monthly_budget. Ejecutá migrations/001_add_monthly_budget.sql.',
-      }
+    // PGRST205 = la tabla no existe todavía en el esquema.
+    if (error.code === 'PGRST205' || error.code === '42P01') {
+      return { ok: false, error: FALTA_TABLA }
     }
     console.error('[guardarPresupuesto]', error)
     return { ok: false, error: 'No se pudo guardar el presupuesto.' }
   }
 
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/settings')
   return { ok: true }
 }
 

@@ -1,44 +1,37 @@
 'use client'
 
-import { useMoneda, type Moneda } from '@/components/currency-provider'
+import { ArrowLeftRight } from 'lucide-react'
+import { useEquivalencias } from '@/components/currency-provider'
 
-const OPCIONES: Moneda[] = ['ARS', 'USD']
-
+/**
+ * No cambia la moneda de los datos: ARS y USD se muestran siempre por
+ * separado. Este control solo enciende las conversiones aproximadas (≈) que
+ * acompañan a cada importe.
+ */
 export function CurrencyToggle({ cotizacion }: { cotizacion: number | null }) {
-  const { moneda, cambiar } = useMoneda()
+  const { mostrarEquivalencias, alternar } = useEquivalencias()
+
+  if (cotizacion === null) return null
+
+  const mep = cotizacion.toLocaleString('es-AR', { maximumFractionDigits: 0 })
 
   return (
-    <div className="flex items-center gap-2">
-      {cotizacion !== null && (
-        <span
-          className="hidden text-[11px] tabular-nums text-black/40 sm:inline dark:text-white/40"
-          title="Dólar MEP usado para convertir"
-        >
-          MEP {cotizacion.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-        </span>
-      )}
-
-      <div
-        role="group"
-        aria-label="Moneda de visualización"
-        className="flex rounded-lg border border-border p-0.5"
-      >
-        {OPCIONES.map((opcion) => (
-          <button
-            key={opcion}
-            type="button"
-            onClick={() => cambiar(opcion)}
-            aria-pressed={moneda === opcion}
-            className={`rounded-md px-2 py-1 text-xs font-medium tabular-nums transition ${
-              moneda === opcion
-                ? 'bg-primary text-white'
-                : 'text-muted hover:text-foreground'
-            }`}
-          >
-            {opcion}
-          </button>
-        ))}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={alternar}
+      aria-pressed={mostrarEquivalencias}
+      aria-label={
+        mostrarEquivalencias ? 'Ocultar equivalencias' : 'Mostrar equivalencias aproximadas'
+      }
+      title={`${mostrarEquivalencias ? 'Ocultar' : 'Mostrar'} equivalencias aproximadas · dólar MEP ${mep}`}
+      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium tabular-nums transition ${
+        mostrarEquivalencias
+          ? 'border-primary/40 bg-primary/10 text-primary'
+          : 'border-border text-muted hover:text-foreground'
+      }`}
+    >
+      <ArrowLeftRight className="size-3.5" aria-hidden />
+      <span className="hidden sm:inline">≈ {mep}</span>
+    </button>
   )
 }

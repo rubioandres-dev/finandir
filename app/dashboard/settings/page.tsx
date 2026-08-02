@@ -4,6 +4,7 @@ import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { createClient } from '@/lib/supabase/server'
+import { MONEDAS } from '@/lib/monedas'
 import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Ajustes' }
@@ -15,28 +16,33 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { categorias, delMes, cotizacion, faltaMigracion, bimoneda } =
-    await cargarDatosDelDashboard(user.id)
+  const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
+    await cargarDatosDelDashboard()
   const { desde } = rangoDelMesActual()
 
-  const gastadoPorCategoria = new Map<string, number>()
+  const gastado = new Map<string, number>()
   for (const movimiento of delMes) {
     if (movimiento.type !== 'EXPENSE' || !movimiento.category_id) continue
-    gastadoPorCategoria.set(
-      movimiento.category_id,
-      (gastadoPorCategoria.get(movimiento.category_id) ?? 0) + (bimoneda(movimiento).ars ?? 0)
-    )
+    const clave = `${movimiento.category_id}:${movimiento.currency}`
+    gastado.set(clave, (gastado.get(clave) ?? 0) + Number(movimiento.amount))
   }
 
-  const presupuestos: PresupuestoDeCategoria[] = categorias
+  const limitePorClave = new Map(
+    presupuestos.map((p) => [`${p.category_id}:${p.currency}`, Number(p.amount)])
+  )
+
+  const presupuestosPorCategoria: PresupuestoDeCategoria[] = categorias
     .filter((c) => c.type === 'EXPENSE')
     .map((c) => ({
       id: c.id,
       nombre: c.name,
       icono: c.icon,
       color: c.color,
-      presupuesto: c.monthly_budget === null ? null : Number(c.monthly_budget),
-      gastado: gastadoPorCategoria.get(c.id) ?? 0,
+      lineas: MONEDAS.map((moneda) => ({
+        moneda,
+        presupuesto: limitePorClave.get(`${c.id}:${moneda}`) ?? null,
+        gastado: gastado.get(`${c.id}:${moneda}`) ?? 0,
+      })),
     }))
 
   return (
@@ -89,7 +95,7 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      <BudgetProgress categorias={presupuestos} faltaMigracion={faltaMigracion} />
+      <BudgetProgress categorias={presupuestosPorCategoria} faltaMigracion={faltaMigracion} />
     </div>
   )
 }

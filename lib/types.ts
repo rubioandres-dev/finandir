@@ -17,8 +17,8 @@ export type Categoria = {
   type: TipoCategoria
   icon: string
   color: string
-  /** Límite de gasto mensual. NULL = sin presupuesto definido. */
-  monthly_budget: number | null
+  /** @deprecated Reemplazado por la tabla `budgets` (presupuesto por moneda). */
+  monthly_budget?: number | null
 }
 
 export type Transaccion = {
