@@ -1,12 +1,16 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { AnalyticsChart } from '@/components/analytics-chart'
 import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
 import { MontoPorMoneda } from '@/components/monto'
+import { SmartCardSuggester } from '@/components/smart-card-suggester'
 import { SmartInput } from '@/components/smart-input'
 import { TransactionList } from '@/components/transaction-list'
 import { Card, CardLabel } from '@/components/ui/card'
+import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { getBestCardToPay } from '@/lib/card-optimizer'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { MONEDAS, equivalenteAproximado } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
@@ -33,6 +37,15 @@ export default async function DashboardPage() {
     faltaMigracion,
     errorCarga,
   } = await cargarDatosDelDashboard()
+
+  // Recomendación de tarjeta: se calcula en el servidor y el widget solo muestra.
+  const { tarjetas, cuentas } = await cargarCuentasYDeudas(supabase)
+  const deudaPorTarjeta = new Map(
+    cuentas
+      .filter((c) => c.type === 'CREDIT_CARD')
+      .map((c) => [c.id, Math.max(0, -Number(c.balance ?? 0))])
+  )
+  const recomendacion = getBestCardToPay(tarjetas, 0, 'ARS', deudaPorTarjeta)
 
   // Gasto del mes por categoría y moneda: cada moneda se compara solo con su
   // propio presupuesto.
@@ -129,6 +142,8 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
+      <SmartCardSuggester recomendacion={recomendacion} hayTarjetas={tarjetas.length > 0} />
+
       <SmartInput categorias={categorias.map((c) => ({ nombre: c.name, tipo: c.type }))} />
 
       <AnalyticsChart
@@ -139,7 +154,15 @@ export default async function DashboardPage() {
       <BudgetProgress categorias={presupuestosPorCategoria} faltaMigracion={faltaMigracion} />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold tracking-tight">Movimientos recientes</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-tight">Movimientos recientes</h2>
+          <Link
+            href="/dashboard/transactions"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Ver todos
+          </Link>
+        </div>
         <TransactionList
           movimientos={movimientos.slice(0, 8)}
           categorias={categorias}

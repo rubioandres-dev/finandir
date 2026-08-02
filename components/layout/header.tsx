@@ -2,7 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeftRight, LayoutDashboard, Settings, TrendingUp } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  HandCoins,
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
 import { CurrencyToggle } from '@/components/currency-toggle'
 import { LogoutButton } from '@/components/logout-button'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -10,6 +17,8 @@ import { ThemeToggle } from '@/components/theme-toggle'
 const ENLACES = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { href: '/dashboard/fire', etiqueta: 'FIRE', Icono: TrendingUp },
+  { href: '/dashboard/accounts', etiqueta: 'Cuentas', Icono: Wallet },
+  { href: '/dashboard/debts', etiqueta: 'Deudas', Icono: HandCoins },
   { href: '/dashboard/transactions', etiqueta: 'Movimientos', Icono: ArrowLeftRight },
   { href: '/dashboard/settings', etiqueta: 'Ajustes', Icono: Settings },
 ] as const

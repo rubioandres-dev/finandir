@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
+import { repartirEnCuotas, sumarMeses } from '@/lib/cuotas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
 
 export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
@@ -15,7 +16,12 @@ const movimientoSchema = z.object({
   category_suggested: z.string().max(60),
   description: z.string().trim().min(1, 'Escribí una descripción.').max(120),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.'),
+  /** Cuenta o tarjeta destino. Si falta, se usa la cuenta líquida de la moneda. */
+  account_id: z.uuid().nullable().optional(),
+  /** 1 = pago único. `amount` es el TOTAL, que se reparte entre las cuotas. */
+  installment_total: z.number().int().min(1).max(60).optional(),
 })
+
 
 export type MovimientoAGuardar = z.infer<typeof movimientoSchema>
 
@@ -39,13 +45,31 @@ export async function guardarTransaccion(
     return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
   }
 
-  const { cuenta, error: errorCuenta } = await obtenerOCrearCuenta(
-    supabase,
-    user.id,
-    datos.data.currency
-  )
-  if (errorCuenta || !cuenta) {
-    return { ok: false, error: errorCuenta ?? 'No se pudo determinar la cuenta.' }
+  // Si el movimiento va a una tarjeta, la cuenta destino es la tarjeta: el
+  // saldo del banco no se toca y la deuda de la tarjeta crece.
+  let cuentaId: string
+  if (datos.data.account_id) {
+    const { data: elegida, error: errorElegida } = await supabase
+      .from('accounts')
+      .select('id, currency')
+      .eq('id', datos.data.account_id)
+      .single()
+
+    if (errorElegida || !elegida) return { ok: false, error: 'No se encontró la cuenta elegida.' }
+    if (elegida.currency.trim() !== datos.data.currency) {
+      return { ok: false, error: 'La moneda del movimiento no coincide con la de la cuenta.' }
+    }
+    cuentaId = elegida.id
+  } else {
+    const { cuenta, error: errorCuenta } = await obtenerOCrearCuenta(
+      supabase,
+      user.id,
+      datos.data.currency
+    )
+    if (errorCuenta || !cuenta) {
+      return { ok: false, error: errorCuenta ?? 'No se pudo determinar la cuenta.' }
+    }
+    cuentaId = cuenta.id
   }
 
   // El CHECK `transactions_transfer_has_no_category` obliga a que las
@@ -65,26 +89,66 @@ export async function guardarTransaccion(
   // Congelamos el equivalente en USD al momento de guardar: con la inflación
   // argentina, reconvertir con la cotización de hoy falsearía el histórico.
   const cotizacion = await obtenerCotizacionDelDia(supabase)
-  const montoUsd = calcularMontoUsd(datos.data.amount, datos.data.currency, cotizacion)
 
-  const { error: errorInsert } = await supabase.from('transactions').insert({
+  const cuotas = datos.data.installment_total ?? 1
+  const montos = repartirEnCuotas(datos.data.amount, cuotas)
+
+  const comun = {
     user_id: user.id,
-    account_id: cuenta.id,
+    account_id: cuentaId,
     category_id: categoriaId,
-    amount: datos.data.amount,
     currency: datos.data.currency,
-    amount_usd: montoUsd,
     type: datos.data.type,
     description: datos.data.description,
-    date: datos.data.date,
-  })
+  }
+
+  // Primera cuota: es la "madre" a la que apuntan las demás.
+  const { data: primera, error: errorInsert } = await supabase
+    .from('transactions')
+    .insert({
+      ...comun,
+      amount: montos[0],
+      amount_usd: calcularMontoUsd(montos[0], datos.data.currency, cotizacion),
+      date: datos.data.date,
+      installment_current: cuotas > 1 ? 1 : null,
+      installment_total: cuotas > 1 ? cuotas : null,
+    })
+    .select('id')
+    .single()
 
   if (errorInsert) {
     console.error('[guardarTransaccion]', errorInsert)
+    // 23514 = la guarda de moneda del trigger de migrations/002.
+    if (errorInsert.code === '23514' && errorInsert.message?.includes('moneda')) {
+      return { ok: false, error: errorInsert.message }
+    }
     return { ok: false, error: 'No se pudo guardar el movimiento. Intentá de nuevo.' }
   }
 
+  // Cuotas siguientes: una por mes, con su fecha real de imputación.
+  if (cuotas > 1) {
+    const restantes = montos.slice(1).map((monto, indice) => ({
+      ...comun,
+      amount: monto,
+      amount_usd: calcularMontoUsd(monto, datos.data.currency, cotizacion),
+      date: sumarMeses(datos.data.date, indice + 1),
+      installment_current: indice + 2,
+      installment_total: cuotas,
+      parent_transaction_id: primera.id,
+    }))
+
+    const { error: errorCuotas } = await supabase.from('transactions').insert(restantes)
+
+    if (errorCuotas) {
+      // Sin las cuotas restantes quedaría un plan a medias: deshacemos.
+      await supabase.from('transactions').delete().eq('id', primera.id)
+      console.error('[guardarTransaccion:cuotas]', errorCuotas)
+      return { ok: false, error: 'No se pudieron generar las cuotas. Intentá de nuevo.' }
+    }
+  }
+
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/transactions')
   return { ok: true }
 }
 

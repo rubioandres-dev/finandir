@@ -1,12 +1,61 @@
 export type TipoTransaccion = 'INCOME' | 'EXPENSE' | 'TRANSFER'
 export type TipoCategoria = 'INCOME' | 'EXPENSE'
 
+export type TipoDeCuenta = 'BANK' | 'WALLET' | 'CASH' | 'INVESTMENT' | 'CREDIT_CARD'
+
+export const ETIQUETA_TIPO_CUENTA: Record<TipoDeCuenta, string> = {
+  BANK: 'Banco',
+  WALLET: 'Billetera',
+  CASH: 'Efectivo',
+  INVESTMENT: 'Inversión',
+  CREDIT_CARD: 'Tarjeta de crédito',
+}
+
 export type Cuenta = {
   id: string
   user_id: string
   name: string
+  type: TipoDeCuenta
   currency: string
+  /** En tarjetas es negativo: ese negativo es la deuda acumulada. */
   balance: number
+  /** Falso en tarjetas (pasivo) e inversiones: no cuentan como disponible. */
+  is_liquid: boolean
+  created_at: string
+}
+
+export type DetalleTarjeta = {
+  account_id: string
+  /** Día del mes en que cierra el resumen. */
+  closing_day: number
+  /** Día del mes en que vence el pago. */
+  due_day: number
+  credit_limit: number | null
+  bank_name: string | null
+  last_four_digits: string | null
+}
+
+/** Cuenta de tipo tarjeta con sus datos de cierre y vencimiento. */
+export type Tarjeta = Cuenta & { detalle: DetalleTarjeta }
+
+export type TipoDeDeuda = 'OWED_BY_ME' | 'OWED_TO_ME'
+
+export const ETIQUETA_TIPO_DEUDA: Record<TipoDeDeuda, string> = {
+  OWED_BY_ME: 'Debo',
+  OWED_TO_ME: 'Me deben',
+}
+
+export type Deuda = {
+  id: string
+  user_id: string
+  counterparty_name: string
+  total_amount: number
+  remaining_amount: number
+  currency: Moneda
+  type: TipoDeDeuda
+  due_date: string | null
+  is_settled: boolean
+  description: string | null
   created_at: string
 }
 
@@ -35,6 +84,11 @@ export type Transaccion = {
   description: string | null
   date: string
   created_at: string
+  /** Número de cuota dentro del plan; null si es un pago único. */
+  installment_current: number | null
+  installment_total: number | null
+  /** Primera cuota del plan; null en la primera. */
+  parent_transaction_id: string | null
 }
 
 /** Lo que devuelve /api/ai-parse. */

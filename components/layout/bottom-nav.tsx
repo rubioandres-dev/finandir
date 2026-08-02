@@ -2,12 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeftRight, LayoutDashboard, Settings, TrendingUp } from 'lucide-react'
+import {
+  HandCoins,
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
 
 const PESTANAS = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { href: '/dashboard/fire', etiqueta: 'FIRE', Icono: TrendingUp },
-  { href: '/dashboard/transactions', etiqueta: 'Movimientos', Icono: ArrowLeftRight },
+  { href: '/dashboard/accounts', etiqueta: 'Cuentas', Icono: Wallet },
+  { href: '/dashboard/debts', etiqueta: 'Deudas', Icono: HandCoins },
   { href: '/dashboard/settings', etiqueta: 'Ajustes', Icono: Settings },
 ] as const
 

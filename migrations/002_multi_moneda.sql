@@ -38,15 +38,18 @@ comment on column public.transactions.amount_usd is 'Equivalente aproximado en U
 
 
 -- -----------------------------------------------------------------------------
--- 2. Una cuenta por moneda
+-- 2. Saldos por moneda
 -- -----------------------------------------------------------------------------
 -- Con un saldo por moneda, el saldo total en una sola cifra deja de existir:
 -- sumar pesos con dólares no significa nada.
+--
+-- NO se restringe a una cuenta por moneda: un usuario puede tener banco,
+-- billetera y tarjeta, todas en pesos (ver migrations/003). La unicidad que
+-- aplica es (user_id, name), que ya viene de schema.sql.
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'accounts_user_currency_unique') then
-    alter table public.accounts
-      add constraint accounts_user_currency_unique unique (user_id, currency);
+  if exists (select 1 from pg_constraint where conname = 'accounts_user_currency_unique') then
+    alter table public.accounts drop constraint accounts_user_currency_unique;
   end if;
 end
 $$;
