@@ -5,7 +5,7 @@ import { useRef, useState, useTransition } from 'react'
 import { CreditCard, Loader2, Mic, Sparkles, Square } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { VoiceMeter } from '@/components/voice-meter'
-import { repartirEnCuotas } from '@/lib/cuotas'
+import { resolverPlan } from '@/lib/cuotas'
 import { useVoiceInput } from '@/lib/use-voice-input'
 import {
   ETIQUETA_TIPO,
@@ -45,6 +45,10 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   const enVueloRef = useRef(false)
   const [analizadoPorVoz, setAnalizadoPorVoz] = useState(false)
   const [cuentaId, setCuentaId] = useState<string>('')
+  const [tieneInteres, setTieneInteres] = useState(false)
+  /** Base de financiación: el total, o el valor de cada cuota. */
+  const [modoInteres, setModoInteres] = useState<'total' | 'cuota'>('total')
+  const [montoFinanciado, setMontoFinanciado] = useState('')
 
   function escribir(valor: string) {
     textoRef.current = valor
@@ -127,6 +131,9 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
         account_id: cuentaId || null,
         // Sin tarjeta no hay plan de cuotas, aunque el borrador lo traiga.
         installment_total: cuotas,
+        total_financed_amount:
+          hayFinanciado && modoInteres === 'total' ? financiado : null,
+        installment_amount: hayFinanciado && modoInteres === 'cuota' ? financiado : null,
       })
 
       if (!resultado.ok) {
@@ -136,6 +143,8 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
 
       setBorrador(null)
       setCuentaId('')
+      setTieneInteres(false)
+      setMontoFinanciado('')
       escribir('')
       setError(null)
       setExito('Movimiento guardado.')
@@ -162,8 +171,20 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   const cuentaElegida = cuentasCompatibles.find((c) => c.id === cuentaId)
   const admiteCuotas = cuentaElegida?.type === 'CREDIT_CARD' && borrador?.type === 'EXPENSE'
   const cuotas = admiteCuotas ? (borrador?.installment_total ?? 1) : 1
-  // Se muestra la primera cuota: las demás son iguales salvo el redondeo final.
-  const montoPorCuota = repartirEnCuotas(borrador?.amount ?? 0, cuotas)[0]
+
+  // El plan se resuelve con la MISMA función que usa el servidor, así la
+  // vista previa y lo que se guarda no pueden divergir.
+  const financiado = Number(montoFinanciado.replace(',', '.'))
+  const hayFinanciado = tieneInteres && Number.isFinite(financiado) && financiado > 0
+
+  const plan = resolverPlan({
+    cuotas,
+    precioContado: borrador?.amount ?? 0,
+    totalFinanciado: hayFinanciado && modoInteres === 'total' ? financiado : null,
+    montoDeCuota: hayFinanciado && modoInteres === 'cuota' ? financiado : null,
+  })
+
+  const montoPorCuota = plan.montos[0] ?? 0
 
   function actualizar<K extends keyof MovimientoSugerido>(campo: K, valor: MovimientoSugerido[K]) {
     setBorrador((previo) => (previo ? { ...previo, [campo]: valor } : previo))
@@ -428,16 +449,80 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
             )}
 
             {cuotas > 1 && (
-              <p className="col-span-2 flex items-center gap-2 rounded-lg border border-wealth/25 bg-wealth/[0.07] px-3 py-2 text-xs text-wealth">
-                <CreditCard className="size-3.5 shrink-0" aria-hidden />
-                <span className="tabular-nums">
-                  {cuotas} cuotas de{' '}
-                  <strong className="font-semibold">
-                    {formatearMonto(montoPorCuota, borrador.currency)}
-                  </strong>
-                  /mes (Total: {formatearMonto(borrador.amount || 0, borrador.currency)})
-                </span>
-              </p>
+              <div className="col-span-2 flex flex-col gap-2.5">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                  <span className="text-xs font-medium text-muted">¿Tiene interés?</span>
+                  <input
+                    type="checkbox"
+                    checked={tieneInteres}
+                    onChange={(e) => setTieneInteres(e.target.checked)}
+                    className="size-4 accent-[var(--primary)]"
+                  />
+                </label>
+
+                {tieneInteres && (
+                  <div className="flex flex-col gap-2 rounded-lg border border-budget-warn/25 bg-budget-warn/[0.07] p-3">
+                    <div
+                      role="group"
+                      aria-label="Cómo informás el financiamiento"
+                      className="flex rounded-lg border border-border p-0.5"
+                    >
+                      {(['total', 'cuota'] as const).map((modo) => (
+                        <button
+                          key={modo}
+                          type="button"
+                          onClick={() => setModoInteres(modo)}
+                          aria-pressed={modoInteres === modo}
+                          className={`flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                            modoInteres === modo
+                              ? 'bg-foreground/10 text-foreground'
+                              : 'text-subtle hover:text-foreground'
+                          }`}
+                        >
+                          {modo === 'total' ? 'Monto financiado' : 'Monto de cuota'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={montoFinanciado}
+                      onChange={(e) => setMontoFinanciado(e.target.value)}
+                      placeholder={
+                        modoInteres === 'total'
+                          ? 'Total a pagar con recargo'
+                          : 'Valor de cada cuota'
+                      }
+                      className="rounded-lg border border-border bg-card px-3 py-2 text-sm tabular-nums text-foreground outline-none focus:border-primary"
+                    />
+
+                    {plan.recargo > 0 && (
+                      <p className="text-[11px] tabular-nums text-budget-warn">
+                        Recargo:{' '}
+                        <strong className="font-semibold">
+                          {formatearMonto(plan.recargo, borrador.currency)}
+                        </strong>
+                        {plan.recargoPorcentual !== null && ` (${plan.recargoPorcentual}%)`} sobre
+                        el contado
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <p className="flex items-center gap-2 rounded-lg border border-wealth/25 bg-wealth/[0.07] px-3 py-2 text-xs text-wealth">
+                  <CreditCard className="size-3.5 shrink-0" aria-hidden />
+                  <span className="tabular-nums">
+                    {cuotas} cuotas de{' '}
+                    <strong className="font-semibold">
+                      {formatearMonto(montoPorCuota, borrador.currency)}
+                    </strong>
+                    /mes (Total: {formatearMonto(plan.totalAPagar, borrador.currency)})
+                  </span>
+                </p>
+              </div>
             )}
 
             <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-muted">

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Banknote, CreditCard, Landmark, PiggyBank, Wallet } from 'lucide-react'
+import { Banknote, CreditCard, FileScan, Landmark, PiggyBank, TrendingDown, Wallet } from 'lucide-react'
 import { AccountForm } from '@/components/account-form'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
@@ -155,6 +156,25 @@ export default async function AccountsPage() {
           </section>
         )
       })}
+
+      {/* Accesos a las vistas que dependen de las tarjetas. */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href="/dashboard/commitments"
+          className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
+        >
+          <TrendingDown className="size-4 shrink-0 text-wealth" aria-hidden />
+          <span className="min-w-0 text-sm font-medium tracking-tight">Saldo comprometido</span>
+        </Link>
+
+        <Link
+          href="/dashboard/cards/import"
+          className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
+        >
+          <FileScan className="size-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 text-sm font-medium tracking-tight">Importar resumen</span>
+        </Link>
+      </div>
 
       {cuentas.length === 0 && !error && (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">

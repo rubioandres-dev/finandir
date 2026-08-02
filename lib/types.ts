@@ -89,6 +89,11 @@ export type Transaccion = {
   installment_total: number | null
   /** Primera cuota del plan; null en la primera. */
   parent_transaction_id: string | null
+  /** Metadatos del plan, repetidos en cada cuota. Ver migrations/004. */
+  has_interest: boolean
+  cash_price: number | null
+  total_financed_amount: number | null
+  installment_amount: number | null
 }
 
 /** Lo que devuelve /api/ai-parse. */

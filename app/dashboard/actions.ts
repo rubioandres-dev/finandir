@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
-import { repartirEnCuotas, sumarMeses } from '@/lib/cuotas'
+import { resolverPlan, sumarMeses } from '@/lib/cuotas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
 
 export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
@@ -20,6 +20,10 @@ const movimientoSchema = z.object({
   account_id: z.uuid().nullable().optional(),
   /** 1 = pago único. `amount` es el TOTAL, que se reparte entre las cuotas. */
   installment_total: z.number().int().min(1).max(60).optional(),
+  /** Total a pagar financiado; si viene, es la base del reparto. */
+  total_financed_amount: z.number().min(0).nullable().optional(),
+  /** Valor de cada cuota tal como lo publica el comercio. */
+  installment_amount: z.number().min(0).nullable().optional(),
 })
 
 
@@ -90,8 +94,17 @@ export async function guardarTransaccion(
   // argentina, reconvertir con la cotización de hoy falsearía el histórico.
   const cotizacion = await obtenerCotizacionDelDia(supabase)
 
-  const cuotas = datos.data.installment_total ?? 1
-  const montos = repartirEnCuotas(datos.data.amount, cuotas)
+  // `amount` es el precio de contado; si hay total financiado o monto de
+  // cuota, la base del reparto pasa a ser lo que realmente se va a pagar.
+  const plan = resolverPlan({
+    cuotas: datos.data.installment_total ?? 1,
+    precioContado: datos.data.amount,
+    totalFinanciado: datos.data.total_financed_amount ?? null,
+    montoDeCuota: datos.data.installment_amount ?? null,
+  })
+
+  const cuotas = plan.cuotas
+  const montos = plan.montos
 
   const comun = {
     user_id: user.id,
@@ -100,6 +113,12 @@ export async function guardarTransaccion(
     currency: datos.data.currency,
     type: datos.data.type,
     description: datos.data.description,
+    // Metadatos del plan repetidos en cada cuota: así el desglose del recargo
+    // se puede mostrar desde cualquiera sin ir a buscar la madre.
+    has_interest: plan.tieneInteres,
+    cash_price: cuotas > 1 ? plan.precioContado : null,
+    total_financed_amount: cuotas > 1 ? plan.totalAPagar : null,
+    installment_amount: cuotas > 1 ? montos[0] : null,
   }
 
   // Primera cuota: es la "madre" a la que apuntan las demás.

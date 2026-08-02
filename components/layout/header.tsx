@@ -7,6 +7,7 @@ import {
   HandCoins,
   LayoutDashboard,
   Settings,
+  TrendingDown,
   TrendingUp,
   Wallet,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ const ENLACES = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
   { href: '/dashboard/fire', etiqueta: 'FIRE', Icono: TrendingUp },
   { href: '/dashboard/accounts', etiqueta: 'Cuentas', Icono: Wallet },
+  { href: '/dashboard/commitments', etiqueta: 'Cuotas', Icono: TrendingDown },
   { href: '/dashboard/debts', etiqueta: 'Deudas', Icono: HandCoins },
   { href: '/dashboard/transactions', etiqueta: 'Movimientos', Icono: ArrowLeftRight },
   { href: '/dashboard/settings', etiqueta: 'Ajustes', Icono: Settings },
