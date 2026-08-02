@@ -33,6 +33,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# pwa (service worker generado por @ducanh2912/next-pwa)
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js
+/public/workbox-*.js
+/public/workbox-*.js.map
+/public/fallback-*.js
+
 # vercel
 .vercel
 

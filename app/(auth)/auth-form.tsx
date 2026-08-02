@@ -1,0 +1,157 @@
+'use client'
+
+import Link from 'next/link'
+import { useActionState, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import type { EstadoAuth } from './actions'
+import { ResendConfirmation } from './resend-confirmation'
+
+type Props = {
+  modo: 'login' | 'signup'
+  accion: (estado: EstadoAuth, formData: FormData) => Promise<EstadoAuth>
+  redirectTo?: string
+  /** Error que llega por querystring, ej. desde /auth/callback. */
+  errorInicial?: string
+}
+
+const TEXTOS = {
+  login: {
+    titulo: 'Iniciar sesión',
+    subtitulo: 'Entrá para ver tus finanzas.',
+    boton: 'Entrar',
+    botonCargando: 'Entrando…',
+    pie: '¿No tenés cuenta?',
+    enlace: '/signup',
+    textoEnlace: 'Creá una',
+    autocomplete: 'current-password',
+  },
+  signup: {
+    titulo: 'Crear cuenta',
+    subtitulo: 'Empezá a registrar tus gastos en segundos.',
+    boton: 'Crear cuenta',
+    botonCargando: 'Creando…',
+    pie: '¿Ya tenés cuenta?',
+    enlace: '/login',
+    textoEnlace: 'Iniciá sesión',
+    autocomplete: 'new-password',
+  },
+} as const
+
+export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
+  const [estado, ejecutar, pendiente] = useActionState<EstadoAuth, FormData>(accion, {
+    error: errorInicial,
+  })
+  const [verPassword, setVerPassword] = useState(false)
+  const t = TEXTOS[modo]
+
+  // Al enviar, la contraseña vuelve a ocultarse: que no quede a la vista en
+  // pantalla después de un intento fallido.
+  function enviar(formData: FormData) {
+    setVerPassword(false)
+    return ejecutar(formData)
+  }
+
+  return (
+    <div className="w-full max-w-sm">
+      <div className="mb-8 flex flex-col gap-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">{t.titulo}</h1>
+        <p className="text-sm text-black/55 dark:text-white/55">{t.subtitulo}</p>
+      </div>
+
+      <form action={enviar} className="flex flex-col gap-4">
+        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="email" className="text-sm font-medium">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="vos@ejemplo.com"
+            disabled={pendiente}
+            className="rounded-lg border border-black/15 bg-transparent px-4 py-3 text-base outline-none transition placeholder:text-black/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="password" className="text-sm font-medium">
+            Contraseña
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={verPassword ? 'text' : 'password'}
+              required
+              minLength={6}
+              autoComplete={t.autocomplete}
+              placeholder="••••••••"
+              disabled={pendiente}
+              className="w-full rounded-lg border border-black/15 bg-transparent py-3 pl-4 pr-12 text-base outline-none transition placeholder:text-black/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+            />
+            <button
+              type="button"
+              onClick={() => setVerPassword((v) => !v)}
+              disabled={pendiente}
+              // El input mantiene el foco: sin esto, hacer clic en el ojito
+              // saca el cursor de donde el usuario venía escribiendo.
+              onMouseDown={(e) => e.preventDefault()}
+              aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              aria-pressed={verPassword}
+              aria-controls="password"
+              className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-black/40 transition hover:text-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 disabled:opacity-40 dark:text-white/40 dark:hover:text-white/75"
+            >
+              {verPassword ? (
+                <EyeOff className="size-[18px]" aria-hidden />
+              ) : (
+                <Eye className="size-[18px]" aria-hidden />
+              )}
+            </button>
+          </div>
+          {modo === 'signup' && (
+            <p className="text-xs text-black/45 dark:text-white/45">Mínimo 6 caracteres.</p>
+          )}
+        </div>
+
+        {estado.error && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-700 dark:text-red-300"
+          >
+            {estado.error}
+          </p>
+        )}
+
+        {estado.mensaje && (
+          <p
+            role="status"
+            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-700 dark:text-emerald-300"
+          >
+            {estado.mensaje}
+          </p>
+        )}
+
+        {estado.emailPendiente && <ResendConfirmation email={estado.emailPendiente} />}
+
+        <button
+          type="submit"
+          disabled={pendiente}
+          className="mt-1 rounded-lg bg-emerald-600 px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {pendiente ? t.botonCargando : t.boton}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-black/55 dark:text-white/55">
+        {t.pie}{' '}
+        <Link href={t.enlace} className="font-medium text-emerald-600 hover:underline dark:text-emerald-400">
+          {t.textoEnlace}
+        </Link>
+      </p>
+    </div>
+  )
+}

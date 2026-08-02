@@ -1,0 +1,151 @@
+export type TipoTransaccion = 'INCOME' | 'EXPENSE' | 'TRANSFER'
+export type TipoCategoria = 'INCOME' | 'EXPENSE'
+
+export type Cuenta = {
+  id: string
+  user_id: string
+  name: string
+  currency: string
+  balance: number
+  created_at: string
+}
+
+export type Categoria = {
+  id: string
+  user_id: string
+  name: string
+  type: TipoCategoria
+  icon: string
+  color: string
+  /** Límite de gasto mensual. NULL = sin presupuesto definido. */
+  monthly_budget: number | null
+}
+
+export type Transaccion = {
+  id: string
+  user_id: string
+  account_id: string
+  category_id: string | null
+  amount: number
+  /** Moneda en la que se registró el movimiento. */
+  currency: 'ARS' | 'USD'
+  /** Equivalente en USD congelado al momento de guardar; null si no había cotización. */
+  amount_usd: number | null
+  type: TipoTransaccion
+  description: string | null
+  date: string
+  created_at: string
+}
+
+/** Lo que devuelve /api/ai-parse. */
+export type MovimientoSugerido = {
+  amount: number
+  type: TipoTransaccion
+  currency: 'ARS' | 'USD'
+  category_suggested: string
+  description: string
+  date: string
+}
+
+export const ETIQUETA_TIPO: Record<TipoTransaccion, string> = {
+  INCOME: 'Ingreso',
+  EXPENSE: 'Gasto',
+  TRANSFER: 'Transferencia',
+}
+
+export type Moneda = 'ARS' | 'USD'
+
+export const formatoMoneda = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
+  maximumFractionDigits: 2,
+})
+
+const formatoMonedaUsd = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+})
+
+export function formatearMonto(valor: number, moneda: Moneda): string {
+  return (moneda === 'USD' ? formatoMonedaUsd : formatoMoneda).format(valor)
+}
+
+/** Un movimiento expresado en las dos monedas; null = sin cotización. */
+export type MontoBimoneda = { ars: number | null; usd: number | null }
+
+export const ZONA_HORARIA = 'America/Argentina/Buenos_Aires'
+
+/** Fecha de hoy (YYYY-MM-DD) en hora de Argentina; el server suele correr en UTC. */
+export function hoyEnArgentina(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZONA_HORARIA,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+/** Primer y último día del mes actual, en formato YYYY-MM-DD. */
+export function rangoDelMesActual(): { desde: string; hasta: string } {
+  const hoy = hoyEnArgentina()
+  const [anio, mes] = hoy.split('-').map(Number)
+  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate()
+  const mm = String(mes).padStart(2, '0')
+  return {
+    desde: `${anio}-${mm}-01`,
+    hasta: `${anio}-${mm}-${String(ultimoDia).padStart(2, '0')}`,
+  }
+}
+
+export type Periodo = 'mes' | 'mesAnterior' | 'anio'
+
+export const ETIQUETA_PERIODO: Record<Periodo, string> = {
+  mes: 'Este mes',
+  mesAnterior: 'Mes anterior',
+  anio: 'Año',
+}
+
+function ultimoDiaDe(anio: number, mes: number): string {
+  const dias = new Date(Date.UTC(anio, mes, 0)).getUTCDate()
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(dias).padStart(2, '0')}`
+}
+
+/** Rango YYYY-MM-DD de un período, relativo a hoy en Argentina. */
+export function rangoDelPeriodo(periodo: Periodo): { desde: string; hasta: string } {
+  const [anio, mes] = hoyEnArgentina().split('-').map(Number)
+
+  if (periodo === 'anio') {
+    return { desde: `${anio}-01-01`, hasta: `${anio}-12-31` }
+  }
+
+  // En enero, el mes anterior es diciembre del año pasado.
+  const esAnterior = periodo === 'mesAnterior'
+  const mesObjetivo = esAnterior ? (mes === 1 ? 12 : mes - 1) : mes
+  const anioObjetivo = esAnterior && mes === 1 ? anio - 1 : anio
+
+  return {
+    desde: `${anioObjetivo}-${String(mesObjetivo).padStart(2, '0')}-01`,
+    hasta: ultimoDiaDe(anioObjetivo, mesObjetivo),
+  }
+}
+
+/**
+ * Fecha más temprana que necesita el dashboard: una sola query cubre los tres
+ * períodos del gráfico (en enero, "mes anterior" cae fuera del año actual).
+ */
+export function inicioDeLaVentanaDeDatos(): string {
+  const inicioAnio = rangoDelPeriodo('anio').desde
+  const inicioMesAnterior = rangoDelPeriodo('mesAnterior').desde
+  return inicioMesAnterior < inicioAnio ? inicioMesAnterior : inicioAnio
+}
+
+/** "2026-08-01" -> "1 de agosto" (sin pasar por Date, para no correr la zona horaria). */
+export function formatearFecha(fecha: string): string {
+  const [anio, mes, dia] = fecha.split('-').map(Number)
+  const nombreMes = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(
+    new Date(Date.UTC(anio, mes - 1, dia))
+  )
+  const esteAnio = Number(hoyEnArgentina().slice(0, 4))
+  return anio === esteAnio ? `${dia} de ${nombreMes}` : `${dia} de ${nombreMes} ${anio}`
+}
