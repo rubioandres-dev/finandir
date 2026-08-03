@@ -219,6 +219,24 @@ body {
   box-shadow: none;
 }
 
+/**
+ * Barra central del splash. En modo carga respira entre el 18% y el 82%:
+ * comunica actividad sin prometer un avance real que no podemos medir.
+ */
+@keyframes splash-avance {
+  0%,
+  100% {
+    width: 18%;
+  }
+  50% {
+    width: 82%;
+  }
+}
+
+.splash-bar-activa {
+  animation: splash-avance 2.4s ease-in-out infinite;
+}
+
 /* -----------------------------------------------------------------------------
  * Optimizaciones PWA / móvil
  * -------------------------------------------------------------------------- */
