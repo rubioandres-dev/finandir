@@ -1,72 +1,102 @@
 @import "tailwindcss";
 
 /* -----------------------------------------------------------------------------
- * Modo oscuro por clase.
+ * AUREM · Luxury Financial Noir
  *
- * OBLIGATORIO en Tailwind v4: la variante `dark:` mira `prefers-color-scheme`
- * por defecto, así que sin esto el toggle de next-themes (que pone la clase
- * .dark en <html>) no afectaría a ninguna utilidad `dark:`.
+ * Tailwind v4 no lee `tailwind.config.*`: el tema se declara acá con `@theme`.
+ * Cada `--color-x` genera automáticamente `bg-x`, `text-x`, `border-x`, etc.
  * -------------------------------------------------------------------------- */
+
+/* La app es noir siempre, pero medio código usa variantes `dark:` para su
+ * versión oscura. El layout raíz fuerza la clase .dark para que sigan valiendo. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* -----------------------------------------------------------------------------
- * Tokens del sistema de diseño
- * -------------------------------------------------------------------------- */
 :root {
-  /* Superficies */
-  --background: #f8fafc;
-  --card: #ffffff;
-  --elevated: #ffffff;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
+  /* --- Paleta AUREM ------------------------------------------------------ */
+  --midnight-navy: #0a0c14;
+  --charcoal: #1a1c26;
+  --gold-leaf: #f2ca4f;
+  --primary-container: #d4af35;
+  --surface-container: #231f17;
+  --on-background: #eae2d4;
+  --on-surface-variant: #d0c6af;
+  --success-emerald: #10b981;
+  --error-rose: #f43f5e;
+  --glass-stroke: rgba(212, 175, 53, 0.3);
 
-  /* Texto */
-  --foreground: #0f172a;
-  --muted: rgba(15, 23, 42, 0.62);
-  --subtle: rgba(15, 23, 42, 0.42);
+  /* --- Tokens semánticos: toda la app cuelga de acá --------------------- */
+  --background: var(--midnight-navy);
+  --card: var(--charcoal);
+  --elevated: var(--surface-container);
+  --border: rgba(212, 175, 53, 0.18);
+  --border-strong: var(--glass-stroke);
 
-  /* Acentos semánticos */
-  --income: #10b981;   /* esmeralda: saldo e ingresos */
-  --expense: #f43f5e;  /* carmesí: gastos */
-  --wealth: #6366f1;   /* índigo: patrimonio */
+  --foreground: var(--on-background);
+  --muted: var(--on-surface-variant);
+  --subtle: rgba(208, 198, 175, 0.55);
 
-  --primary: var(--income);
-  --ring: rgba(16, 185, 129, 0.45);
+  --income: var(--success-emerald);
+  --expense: var(--error-rose);
+  /* El oro es el acento patrimonial de AUREM: reemplaza al índigo anterior. */
+  --wealth: var(--gold-leaf);
 
-  /* Estados de presupuesto */
-  --budget-ok: #10b981;
+  --primary: var(--gold-leaf);
+  /* Sobre oro nunca va blanco: el contraste lo da el navy. */
+  --on-primary: var(--midnight-navy);
+  --ring: rgba(242, 202, 79, 0.45);
+
+  --budget-ok: var(--success-emerald);
   --budget-warn: #f59e0b;
-  --budget-over: #f43f5e;
+  --budget-over: var(--error-rose);
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
+/* Misma paleta bajo .dark: AUREM no tiene modo claro, y así las utilidades
+ * `dark:` que ya existen en los componentes no cambian de significado. */
 .dark {
-  --background: #090d16;
-  --card: #111827;
-  --elevated: #161f31;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --background: var(--midnight-navy);
+  --card: var(--charcoal);
+  --elevated: var(--surface-container);
+  --border: rgba(212, 175, 53, 0.18);
+  --border-strong: var(--glass-stroke);
 
-  --foreground: #f8fafc;
-  --muted: rgba(248, 250, 252, 0.62);
-  --subtle: rgba(248, 250, 252, 0.40);
+  --foreground: var(--on-background);
+  --muted: var(--on-surface-variant);
+  --subtle: rgba(208, 198, 175, 0.55);
 
-  --income: #10b981;
-  --expense: #f43f5e;
-  --wealth: #818cf8;
+  --income: var(--success-emerald);
+  --expense: var(--error-rose);
+  --wealth: var(--gold-leaf);
 
-  --primary: var(--income);
-  --ring: rgba(16, 185, 129, 0.45);
+  --primary: var(--gold-leaf);
+  --on-primary: var(--midnight-navy);
+  --ring: rgba(242, 202, 79, 0.45);
 
-  --budget-ok: #10b981;
+  --budget-ok: var(--success-emerald);
   --budget-warn: #f59e0b;
-  --budget-over: #f43f5e;
+  --budget-over: var(--error-rose);
 
   color-scheme: dark;
 }
 
 @theme inline {
+  /* Nombres AUREM, para usarlos explícitamente donde el diseño lo pide. */
+  --color-midnight-navy: var(--midnight-navy);
+  --color-background-dark: var(--midnight-navy);
+  --color-charcoal: var(--charcoal);
+  --color-charcoal-surface: var(--charcoal);
+  --color-gold-leaf: var(--gold-leaf);
+  --color-primary-container: var(--primary-container);
+  --color-surface-container: var(--surface-container);
+  --color-on-background: var(--on-background);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-success-emerald: var(--success-emerald);
+  --color-error-rose: var(--error-rose);
+  --color-danger-rose: var(--error-rose);
+  --color-glass-stroke: var(--glass-stroke);
+
+  /* Nombres semánticos heredados: siguen funcionando en toda la app. */
   --color-background: var(--background);
   --color-card: var(--card);
   --color-elevated: var(--elevated);
@@ -81,13 +111,16 @@
   --color-expense: var(--expense);
   --color-wealth: var(--wealth);
   --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
   --color-ring: var(--ring);
 
   --color-budget-ok: var(--budget-ok);
   --color-budget-warn: var(--budget-warn);
   --color-budget-over: var(--budget-over);
 
-  --font-sans: var(--font-geist-sans);
+  /* Montserrat para títulos y versalitas; Inter para el cuerpo. */
+  --font-display: var(--font-montserrat);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -96,18 +129,94 @@
  * -------------------------------------------------------------------------- */
 html {
   /* Sin esto, el rebote de scroll en iOS deja ver el fondo del navegador. */
-  background: var(--background);
+  background: #0a0c14;
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background: #0a0c14;
+  color: #eae2d4;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   /* Tipografía más nítida, al estilo Linear/Vercel. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* -----------------------------------------------------------------------------
+ * Utilidades AUREM
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Superficie de vidrio dorado. El pseudo-elemento agrega el destello radial
+ * de la esquina superior: sin él la card se ve plana y pierde la profundidad
+ * que define al sistema.
+ */
+.glass-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(242, 202, 79, 0.05);
+  border: 1px solid rgba(212, 175, 53, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 12% -20%,
+    rgba(242, 202, 79, 0.18) 0%,
+    rgba(242, 202, 79, 0) 60%
+  );
+}
+
+/* El contenido tiene que quedar por encima del destello. */
+.glass-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px rgba(242, 202, 79, 0.2);
+}
+
+.fire-gradient {
+  background: linear-gradient(135deg, #f2ca4f 0%, #d4af35 100%);
+}
+
+/** Versalitas de AUREM: Montserrat, muy espaciada, en oro apagado. */
+.aurem-caps {
+  font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+}
+
+/**
+ * Botón principal. Sobre oro el texto va en navy: blanco sobre #f2ca4f no
+ * llega ni a 2:1 de contraste.
+ */
+.btn-gold {
+  background: linear-gradient(135deg, #f2ca4f 0%, #d4af35 100%);
+  color: #0a0c14;
+  box-shadow: 0 0 15px rgba(242, 202, 79, 0.2);
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-gold:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px rgba(242, 202, 79, 0.35);
+}
+
+.btn-gold:active:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.btn-gold:disabled {
+  box-shadow: none;
 }
 
 /* -----------------------------------------------------------------------------

@@ -1,11 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+/** Cuerpo de texto: Inter, por su altura de x y sus cifras tabulares. */
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
+  display: 'swap',
+})
+
+/** Títulos y versalitas AUREM: Montserrat, geométrica y con carácter. */
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+  display: 'swap',
 })
 
 const geistMono = Geist_Mono({
@@ -26,10 +36,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // viewport-fit=cover habilita env(safe-area-inset-*) en pantallas con notch.
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
-    { media: '(prefers-color-scheme: dark)', color: '#090d16' },
-  ],
+  // AUREM es noir siempre: un solo color de barra de estado.
+  themeColor: '#0a0c14',
 }
 
 export default function RootLayout({
@@ -38,12 +46,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    // suppressHydrationWarning: next-themes fija la clase del tema con un
-    // script inline antes de que React hidrate.
+    // La clase .dark va fija: AUREM no tiene modo claro, pero muchas utilidades
+    // `dark:` del código existente dependen de ella para su versión oscura.
     <html
       lang="es-AR"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <ThemeProvider>{children}</ThemeProvider>

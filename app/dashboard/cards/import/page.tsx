@@ -22,8 +22,8 @@ export default async function ImportStatementPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <FileScan className="size-5 text-primary" aria-hidden />
+        <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-on-background">
+          <FileScan className="size-5 text-gold-leaf" aria-hidden />
           Importar resumen
         </h1>
         <p className="mt-1 text-sm text-muted">

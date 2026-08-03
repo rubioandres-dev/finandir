@@ -249,7 +249,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
           className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4"
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold tracking-tight">Nueva deuda</h3>
+            <h3 className="aurem-caps text-[11px] text-gold-leaf">Nueva deuda</h3>
             <button
               type="button"
               onClick={() => setAbierto(false)}
@@ -353,7 +353,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
           <button
             type="submit"
             disabled={enCurso || !nombre.trim() || !monto}
-            className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-primary/90 disabled:opacity-50"
+            className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
           >
             {enCurso && <Loader2 className="size-4 animate-spin" aria-hidden />}
             Guardar

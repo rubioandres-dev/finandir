@@ -57,7 +57,7 @@ export function ResendConfirmation({ email }: { email: string }) {
         onClick={reenviar}
         disabled={restante > 0 || enviando}
         aria-live="polite"
-        className="flex items-center justify-center gap-1.5 self-start rounded-md px-0 py-0.5 text-xs font-medium text-emerald-600 transition hover:underline disabled:cursor-not-allowed disabled:text-foreground/35 disabled:no-underline dark:text-emerald-400 dark:disabled:text-white/35"
+        className="flex items-center justify-center gap-1.5 self-start rounded-md px-0 py-0.5 text-xs font-medium text-gold-leaf transition hover:underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
       >
         {enviando && <Loader2 className="size-3 animate-spin" aria-hidden />}
         {enviando

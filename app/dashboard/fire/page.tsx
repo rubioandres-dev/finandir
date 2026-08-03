@@ -43,8 +43,8 @@ export default async function FirePage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <TrendingUp className="size-5 text-wealth" aria-hidden />
+        <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-on-background">
+          <TrendingUp className="size-5 text-gold-leaf" aria-hidden />
           Independencia financiera
         </h1>
         <p className="mt-1 text-sm text-muted">
@@ -78,12 +78,12 @@ export default async function FirePage() {
         </Card>
       </div>
 
-      <Card className="border-wealth/25 bg-wealth/[0.06] p-4">
-        <CardLabel className="text-wealth">Capital objetivo · regla del 4%</CardLabel>
+      <Card glass className="glow-gold p-4">
+        <CardLabel className="text-gold-leaf">Capital objetivo · regla del 4%</CardLabel>
         <div className="mt-2">
           <MontoPorMoneda
             totales={capitalObjetivo}
-            className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-wealth"
+            className="font-display text-2xl font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf"
           />
         </div>
         <p className="mt-2.5 text-xs text-muted">

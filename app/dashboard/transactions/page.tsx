@@ -22,7 +22,7 @@ export default async function TransactionsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">Movimientos</h1>
+        <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Movimientos</h1>
         <span className="text-xs text-subtle">
           {movimientos.length === 100 ? 'Últimos 100' : `${movimientos.length} en total`}
         </span>

@@ -19,7 +19,7 @@ export default async function DebtsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-lg font-semibold tracking-tight">Deudas y préstamos</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Deudas y préstamos</h1>
 
       {error && (
         <p

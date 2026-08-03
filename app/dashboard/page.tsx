@@ -99,42 +99,46 @@ export default async function DashboardPage() {
 
       {/* --- Resumen: una línea por moneda, nunca sumadas ------------------ */}
       <section className="grid grid-cols-2 gap-3">
-        <Card className="col-span-2 p-4">
+        <Card glass className="glow-gold col-span-2 p-5">
           <CardLabel>
-            <Wallet className="size-3.5" aria-hidden />
-            Balance
+            <Wallet className="size-3.5 text-gold-leaf" aria-hidden />
+            Balance total
           </CardLabel>
-          <MontoPorMoneda
-            totales={saldos}
-            className="text-[1.75rem] font-semibold leading-tight tracking-tight tabular-nums"
-            vacio="Sin movimientos todavía"
-          />
+          <div className="mt-2.5">
+            <MontoPorMoneda
+              totales={saldos}
+              className="font-display text-[2rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf"
+              vacio="Sin movimientos todavía"
+            />
+          </div>
+          {/* Filamento dorado al pie: cierra la card sin agregar otro borde. */}
+          <div className="fire-gradient mt-4 h-px w-full opacity-40" aria-hidden />
         </Card>
 
-        <Card className="p-4">
+        <Card glass className="p-4">
           <CardLabel>
-            <TrendingUp className="size-3.5 text-income" aria-hidden />
+            <TrendingUp className="size-3.5 text-success-emerald" aria-hidden />
             Ingresos
           </CardLabel>
           <div className="mt-2">
             <MontoPorMoneda
               totales={ingresosDelMes}
-              className="text-lg font-semibold tracking-tight tabular-nums text-income"
+              className="font-display text-lg font-bold tracking-tight tabular-nums text-success-emerald"
               vacio="—"
             />
           </div>
           <p className="mt-1.5 text-[11px] text-subtle">Este mes</p>
         </Card>
 
-        <Card className="p-4">
+        <Card glass className="p-4">
           <CardLabel>
-            <TrendingDown className="size-3.5 text-expense" aria-hidden />
+            <TrendingDown className="size-3.5 text-error-rose" aria-hidden />
             Gastos
           </CardLabel>
           <div className="mt-2">
             <MontoPorMoneda
               totales={gastosDelMes}
-              className="text-lg font-semibold tracking-tight tabular-nums text-expense"
+              className="font-display text-lg font-bold tracking-tight tabular-nums text-error-rose"
               vacio="—"
             />
           </div>
@@ -163,10 +167,12 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold tracking-tight">Movimientos recientes</h2>
+          <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
+            Movimientos recientes
+          </h2>
           <Link
             href="/dashboard/transactions"
-            className="text-xs font-medium text-primary hover:underline"
+            className="text-xs font-medium text-gold-leaf hover:underline"
           >
             Ver todos
           </Link>

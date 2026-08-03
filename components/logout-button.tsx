@@ -10,7 +10,7 @@ function Boton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium text-foreground/65 transition hover:border-black/25 hover:text-black disabled:opacity-50 dark:border-white/15 dark:text-white/65 dark:hover:border-white/30 dark:hover:text-white"
+      className="hidden rounded-xl border border-glass-stroke/50 px-3 py-1.5 text-xs font-medium text-on-surface-variant transition active:scale-90 hover:border-gold-leaf/60 hover:text-gold-leaf disabled:opacity-50 sm:block"
     >
       {pending ? 'Saliendo…' : 'Salir'}
     </button>

@@ -73,7 +73,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
             autoComplete="email"
             placeholder="vos@ejemplo.com"
             disabled={pendiente}
-            className="rounded-lg border border-black/15 bg-transparent px-4 py-3 text-base outline-none transition placeholder:text-foreground/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+            className="rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-4 py-3 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60"
           />
         </div>
 
@@ -91,7 +91,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
               autoComplete={t.autocomplete}
               placeholder="••••••••"
               disabled={pendiente}
-              className="w-full rounded-lg border border-black/15 bg-transparent py-3 pl-4 pr-12 text-base outline-none transition placeholder:text-foreground/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 disabled:opacity-60 dark:border-white/20 dark:placeholder:text-white/30"
+              className="w-full rounded-lg border border-glass-stroke/50 bg-charcoal/60 py-3 pl-4 pr-12 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60"
             />
             <button
               type="button"
@@ -103,7 +103,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
               aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               aria-pressed={verPassword}
               aria-controls="password"
-              className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-foreground/40 transition hover:text-foreground/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 disabled:opacity-40 dark:text-white/40 dark:hover:text-white/75"
+              className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-on-surface-variant/60 transition hover:text-gold-leaf focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-leaf disabled:opacity-40"
             >
               {verPassword ? (
                 <EyeOff className="size-[18px]" aria-hidden />
@@ -140,7 +140,7 @@ export function AuthForm({ modo, accion, redirectTo, errorInicial }: Props) {
         <button
           type="submit"
           disabled={pendiente}
-          className="mt-1 rounded-lg bg-primary px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-gold mt-1 rounded-lg px-4 py-3 font-display text-sm font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pendiente ? t.botonCargando : t.boton}
         </button>

@@ -47,7 +47,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-lg font-semibold tracking-tight">Ajustes</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Ajustes</h1>
 
       <Card>
         <CardContent className="flex flex-col gap-3">
