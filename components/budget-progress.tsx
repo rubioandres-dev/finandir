@@ -221,7 +221,7 @@ export function BudgetProgress({
   return (
     <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-tight">Presupuestos del mes</h2>
+        <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Presupuestos del mes</h2>
         <span className="text-xs text-subtle">Un límite por moneda</span>
       </div>
 

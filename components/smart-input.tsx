@@ -195,7 +195,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
       <form onSubmit={analizar} className="flex flex-col gap-2.5">
         <div className="relative">
           <Sparkles
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-income"
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gold-leaf"
             aria-hidden
           />
           <input
@@ -209,12 +209,12 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
             enterKeyHint="send"
             disabled={analizando || guardando}
             aria-label="Describí el movimiento en lenguaje natural"
-            className={`w-full rounded-2xl border bg-card py-3.5 pl-10 text-base tracking-tight outline-none transition placeholder:text-subtle disabled:opacity-60 ${
+            className={`w-full rounded-2xl border bg-charcoal py-3.5 pl-10 text-base tracking-tight outline-none transition placeholder:text-subtle disabled:opacity-60 ${
               voz.soportado ? 'pr-12' : 'pr-3.5'
             } ${
               voz.escuchando
-                ? 'border-expense ring-2 ring-expense/25'
-                : 'border-border focus:border-primary focus:ring-1 focus:ring-primary/50'
+                ? 'border-error-rose ring-2 ring-error-rose/25'
+                : 'border-glass-stroke/60 focus:border-gold-leaf focus:ring-1 focus:ring-gold-leaf/40'
             }`}
           />
 
@@ -271,7 +271,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
         <button
           type="submit"
           disabled={analizando || guardando || !texto.trim()}
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-base font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
+          className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-display text-sm font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-45"
         >
           {analizando && <Loader2 className="size-4 animate-spin" aria-hidden />}
           {analizando ? 'Interpretando…' : 'Analizar con IA'}
@@ -285,7 +285,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
               key={ejemplo}
               type="button"
               onClick={() => escribir(ejemplo)}
-              className="rounded-full border border-black/10 px-2.5 py-1 text-xs text-black/55 transition hover:border-emerald-500/50 hover:text-emerald-700 dark:border-white/12 dark:text-white/55 dark:hover:text-emerald-400"
+              className="rounded-full border border-glass-stroke/50 px-2.5 py-1 text-xs text-on-surface-variant/75 transition hover:border-gold-leaf/60 hover:text-gold-leaf"
             >
               {ejemplo}
             </button>
@@ -296,7 +296,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
       {analizando && (
         <div
           role="status"
-          className="flex animate-pulse items-center gap-2 rounded-xl border border-black/8 bg-black/[0.02] px-4 py-3 text-sm text-black/50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50"
+          className="flex animate-pulse items-center gap-2 rounded-xl border border-glass-stroke/40 bg-gold-leaf/[0.04] px-4 py-3 text-sm text-on-surface-variant/70"
         >
           <Loader2 className="size-4 animate-spin" aria-hidden />
           {analizadoPorVoz
@@ -324,14 +324,12 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
       )}
 
       {borrador && (
-        <div className="flex flex-col gap-4 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4">
+        <div className="glass-card flex flex-col gap-4 rounded-2xl p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-semibold">Revisá antes de guardar</h2>
+            <h2 className="aurem-caps text-[10px] text-gold-leaf">Revisá antes de guardar</h2>
             <span
-              className={`text-lg font-semibold tabular-nums ${
-                borrador.type === 'INCOME'
-                  ? 'text-income'
-                  : 'text-black dark:text-white'
+              className={`font-display text-lg font-bold tabular-nums ${
+                borrador.type === 'INCOME' ? 'text-success-emerald' : 'text-on-background'
               }`}
             >
               {borrador.type === 'INCOME' ? '+' : '−'}
@@ -450,22 +448,24 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
 
             {cuotas > 1 && (
               <div className="col-span-2 flex flex-col gap-2.5">
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-                  <span className="text-xs font-medium text-muted">¿Tiene interés?</span>
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-glass-stroke/60 px-3 py-2">
+                  <span className="text-xs font-medium text-on-surface-variant">
+                    ¿Tiene interés?
+                  </span>
                   <input
                     type="checkbox"
                     checked={tieneInteres}
                     onChange={(e) => setTieneInteres(e.target.checked)}
-                    className="size-4 accent-[var(--primary)]"
+                    className="size-4 accent-[var(--gold-leaf)]"
                   />
                 </label>
 
                 {tieneInteres && (
-                  <div className="flex flex-col gap-2 rounded-lg border border-budget-warn/25 bg-budget-warn/[0.07] p-3">
+                  <div className="flex flex-col gap-2.5 rounded-lg border border-budget-warn/25 bg-budget-warn/[0.07] p-3">
                     <div
                       role="group"
                       aria-label="Cómo informás el financiamiento"
-                      className="flex rounded-lg border border-border p-0.5"
+                      className="flex rounded-lg border border-glass-stroke/60 p-0.5"
                     >
                       {(['total', 'cuota'] as const).map((modo) => (
                         <button
@@ -475,11 +475,11 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
                           aria-pressed={modoInteres === modo}
                           className={`flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition ${
                             modoInteres === modo
-                              ? 'bg-foreground/10 text-foreground'
-                              : 'text-subtle hover:text-foreground'
+                              ? 'fire-gradient text-midnight-navy'
+                              : 'text-subtle hover:text-gold-leaf'
                           }`}
                         >
-                          {modo === 'total' ? 'Monto financiado' : 'Monto de cuota'}
+                          {modo === 'total' ? 'Monto financiado total' : 'Valor de cada cuota'}
                         </button>
                       ))}
                     </div>
@@ -496,8 +496,31 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
                           ? 'Total a pagar con recargo'
                           : 'Valor de cada cuota'
                       }
-                      className="rounded-lg border border-border bg-card px-3 py-2 text-sm tabular-nums text-foreground outline-none focus:border-primary"
+                      className="rounded-lg border border-glass-stroke/60 bg-charcoal px-3 py-2 text-sm tabular-nums text-foreground outline-none focus:border-gold-leaf"
                     />
+
+                    {/* Comparativa contado vs financiado: es la única forma de
+                        ver qué cuesta realmente pagar en cuotas. */}
+                    {hayFinanciado && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-glass-stroke/40 bg-surface-container/60 px-2.5 py-2">
+                          <p className="aurem-caps text-[8px] text-on-surface-variant/70">
+                            Precio contado
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold tabular-nums text-on-background">
+                            {formatearMonto(plan.precioContado ?? 0, borrador.currency)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-budget-warn/30 bg-budget-warn/10 px-2.5 py-2">
+                          <p className="aurem-caps text-[8px] text-budget-warn/80">
+                            Financiado total
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold tabular-nums text-budget-warn">
+                            {formatearMonto(plan.totalAPagar, borrador.currency)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {plan.recargo > 0 && (
                       <p className="text-[11px] tabular-nums text-budget-warn">
@@ -512,14 +535,15 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
                   </div>
                 )}
 
-                <p className="flex items-center gap-2 rounded-lg border border-wealth/25 bg-wealth/[0.07] px-3 py-2 text-xs text-wealth">
+                <p className="flex items-center gap-2 rounded-lg border border-glass-stroke bg-gold-leaf/[0.07] px-3 py-2 text-xs text-gold-leaf">
                   <CreditCard className="size-3.5 shrink-0" aria-hidden />
                   <span className="tabular-nums">
                     {cuotas} cuotas de{' '}
                     <strong className="font-semibold">
                       {formatearMonto(montoPorCuota, borrador.currency)}
                     </strong>
-                    /mes (Total: {formatearMonto(plan.totalAPagar, borrador.currency)})
+                    /mes (Total Financiado:{' '}
+                    {formatearMonto(plan.totalAPagar, borrador.currency)})
                   </span>
                 </p>
               </div>
@@ -542,7 +566,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
               type="button"
               onClick={confirmar}
               disabled={guardando || !borrador.amount || !borrador.description.trim()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
+              className="btn-gold flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-45"
             >
               {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
               {guardando ? 'Guardando…' : 'Confirmar y guardar'}
@@ -554,7 +578,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
                 setError(null)
               }}
               disabled={guardando}
-              className="rounded-lg border border-black/12 px-4 py-2.5 text-sm font-medium text-black/65 transition hover:border-black/25 disabled:opacity-45 dark:border-white/15 dark:text-white/65"
+              className="rounded-lg border border-glass-stroke/50 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-gold-leaf/50 hover:text-gold-leaf disabled:opacity-45"
             >
               Descartar
             </button>

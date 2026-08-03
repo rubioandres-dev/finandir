@@ -83,7 +83,7 @@ export default async function AccountsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-lg font-semibold tracking-tight">Cuentas y tarjetas</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Cuentas y tarjetas</h1>
 
       {error && (
         <p
@@ -118,13 +118,13 @@ export default async function AccountsPage() {
           </div>
         </Card>
 
-        <Card className="col-span-2 border-wealth/25 bg-wealth/[0.06] p-4">
-          <CardLabel className="text-wealth">Patrimonio neto</CardLabel>
+        <Card glass className="glow-gold col-span-2 p-4">
+          <CardLabel className="text-gold-leaf">Patrimonio neto</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {patrimonio.patrimonioNeto.map((t) => (
               <span
                 key={t.moneda}
-                className="text-xl font-semibold tabular-nums tracking-tight text-wealth"
+                className="font-display text-xl font-bold tabular-nums tracking-tighter text-gold-leaf"
               >
                 {formatearMonto(t.valor, t.moneda)}
               </span>
@@ -143,7 +143,7 @@ export default async function AccountsPage() {
 
         return (
           <section key={moneda} className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold tracking-tight">Cuentas en {moneda}</h2>
+            <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Cuentas en {moneda}</h2>
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
               {deLaMoneda.map((cuenta) => (
                 <FilaCuenta

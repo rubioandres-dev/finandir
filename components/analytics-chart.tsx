@@ -30,7 +30,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold tracking-tight">Gastos por categoría</h2>
+          <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Gastos por categoría</h2>
           <div role="group" aria-label="Moneda del gráfico" className="flex rounded-lg border border-border p-0.5">
             {MONEDAS.map((opcion) => (
               <button
@@ -61,8 +61,8 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
               aria-pressed={periodo === opcion}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                 periodo === opcion
-                  ? 'bg-primary text-white'
-                  : 'text-muted hover:text-foreground'
+                  ? 'fire-gradient text-midnight-navy'
+                  : 'text-muted hover:text-gold-leaf'
               }`}
             >
               {ETIQUETA_PERIODO[opcion]}

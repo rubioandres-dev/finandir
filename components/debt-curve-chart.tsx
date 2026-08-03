@@ -29,17 +29,19 @@ export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
   const hayDatos = maximo > 0
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+    <section className="glass-card flex flex-col gap-4 rounded-2xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Curva de desendeudamiento</h2>
+          <h2 className="font-display text-sm font-bold tracking-tight text-on-background">
+            Curva de desendeudamiento
+          </h2>
           <p className="mt-0.5 text-xs text-subtle">Cuotas a pagar en los próximos 12 meses</p>
         </div>
 
         <div
           role="group"
           aria-label="Moneda de la curva"
-          className="flex rounded-lg border border-border p-0.5"
+          className="flex rounded-lg border border-glass-stroke/60 p-0.5"
         >
           {MONEDAS.map((opcion) => (
             <button
@@ -47,10 +49,10 @@ export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
               type="button"
               onClick={() => setMoneda(opcion)}
               aria-pressed={moneda === opcion}
-              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition ${
+              className={`rounded-md px-1.5 py-0.5 font-display text-[10px] font-bold uppercase tracking-widest transition active:scale-90 ${
                 moneda === opcion
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-subtle hover:text-foreground'
+                  ? 'fire-gradient text-midnight-navy'
+                  : 'text-subtle hover:text-gold-leaf'
               }`}
             >
               {opcion}
@@ -66,7 +68,14 @@ export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={datos} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <defs>
+              {/* Barra AUREM: oro pleno arriba, apagándose hacia la base. */}
+              <linearGradient id="aurem-barra" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f2ca4f" stopOpacity={1} />
+                <stop offset="100%" stopColor="#d4af35" stopOpacity={0.35} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="rgba(212, 175, 53, 0.12)" />
             <XAxis
               dataKey="etiqueta"
               tickLine={false}
@@ -75,23 +84,23 @@ export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
               interval={0}
             />
             <Tooltip
-              cursor={{ fill: 'var(--border)' }}
+              cursor={{ fill: 'rgba(242, 202, 79, 0.08)' }}
               formatter={(valor) => [formatearMonto(Number(valor), moneda), 'A pagar']}
               contentStyle={{
                 borderRadius: 10,
-                border: '1px solid var(--border-strong)',
-                background: 'var(--card)',
+                border: '1px solid var(--glass-stroke)',
+                background: 'var(--charcoal)',
                 fontSize: 13,
                 color: 'var(--foreground)',
               }}
             />
             <Bar dataKey="valor" radius={[4, 4, 0, 0]} animationDuration={500}>
               {datos.map((punto, indice) => (
-                // El degradado hacia el final refuerza la idea de desendeudarse.
+                // Se apagan hacia el final: refuerza la idea de desendeudarse.
                 <Cell
                   key={punto.etiqueta}
-                  fill="var(--wealth)"
-                  fillOpacity={0.35 + (0.65 * (datos.length - indice)) / datos.length}
+                  fill="url(#aurem-barra)"
+                  fillOpacity={0.45 + (0.55 * (datos.length - indice)) / datos.length}
                 />
               ))}
             </Bar>

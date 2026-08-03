@@ -2,20 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  HandCoins,
-  LayoutDashboard,
-  Settings,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react'
+import { CalendarDays, LayoutDashboard, TrendingDown, Wallet } from 'lucide-react'
 
 const PESTANAS = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
-  { href: '/dashboard/fire', etiqueta: 'FIRE', Icono: TrendingUp },
   { href: '/dashboard/accounts', etiqueta: 'Cuentas', Icono: Wallet },
-  { href: '/dashboard/debts', etiqueta: 'Deudas', Icono: HandCoins },
-  { href: '/dashboard/settings', etiqueta: 'Ajustes', Icono: Settings },
+  { href: '/dashboard/commitments', etiqueta: 'Cuotas', Icono: TrendingDown },
+  { href: '/dashboard/calendar', etiqueta: 'Calendario', Icono: CalendarDays },
 ] as const
 
 export function BottomNav() {
@@ -24,7 +17,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/80 backdrop-blur-lg md:hidden"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-glass-stroke bg-midnight-navy/80 backdrop-blur-xl lg:hidden"
     >
       <ul className="mx-auto flex w-full max-w-2xl items-stretch">
         {PESTANAS.map(({ href, etiqueta, Icono }) => {
@@ -36,10 +29,17 @@ export function BottomNav() {
               <Link
                 href={href}
                 aria-current={activa ? 'page' : undefined}
-                className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition ${
-                  activa ? 'text-primary' : 'text-subtle hover:text-foreground'
+                className={`relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-wide transition active:scale-90 ${
+                  activa ? 'text-gold-leaf' : 'text-on-surface-variant/70 hover:text-gold-leaf/80'
                 }`}
               >
+                {/* Filamento dorado sobre la pestaña activa. */}
+                {activa && (
+                  <span
+                    className="fire-gradient glow-gold absolute inset-x-5 top-0 h-0.5 rounded-full"
+                    aria-hidden
+                  />
+                )}
                 <Icono className="size-[22px]" strokeWidth={activa ? 2.4 : 1.8} aria-hidden />
                 {etiqueta}
               </Link>
