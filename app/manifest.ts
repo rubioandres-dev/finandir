@@ -12,8 +12,12 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait',
     lang: 'es-AR',
     dir: 'ltr',
-    background_color: '#0F172A',
-    theme_color: '#10B981',
+    // Noir de AUREM. La pantalla de arranque que arma Android al abrir la PWA
+    // se pinta con estos dos colores, así que tienen que coincidir con el
+    // --midnight-navy del ícono y con el themeColor del layout: si no, la
+    // transición hasta la portada pega un flash de otro color.
+    background_color: '#0a0c14',
+    theme_color: '#0a0c14',
     categories: ['finance', 'productivity'],
     icons: [
       {

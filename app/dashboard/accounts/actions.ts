@@ -44,6 +44,10 @@ export type CuentaAGuardar = z.input<typeof cuentaSchema>
 const FALTA_MIGRACION =
   'Falta el esquema de cuentas. Ejecutá migrations/003_accounts_cards_debts.sql.'
 
+const FALTA_POLITICA =
+  'La base rechazó la escritura por una política de seguridad. ' +
+  'Ejecutá migrations/005_rls_tarjetas_deudas.sql.'
+
 /**
  * Códigos que significan "el esquema no está al día".
  *
@@ -57,6 +61,20 @@ function esFaltaDeEsquema(codigo?: string) {
     codigo === '42P01' ||
     codigo === '42703'
   )
+}
+
+/**
+ * Causa accionable del rechazo, o null si no la reconocemos.
+ *
+ * 42501 es RLS: la tabla tiene la seguridad activa y ninguna política que
+ * aplique, o una que no coincide. El texto de Postgres ("new row violates
+ * row-level security policy") no le dice a nadie qué hacer, y el problema
+ * nunca está en el dato que cargó el usuario sino en la base.
+ */
+function causaConocida(codigo?: string): string | null {
+  if (esFaltaDeEsquema(codigo)) return FALTA_MIGRACION
+  if (codigo === '42501') return FALTA_POLITICA
+  return null
 }
 
 type ErrorDeSupabase = {
@@ -108,9 +126,8 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
     : await supabase.from('accounts').update(fila).eq('id', datos.data.id!).select('id').single()
 
   if (error) {
-    if (esFaltaDeEsquema(error.code)) {
-      return { ok: false, error: `${FALTA_MIGRACION} (${detalleDelError(error)})` }
-    }
+    const causa = causaConocida(error.code)
+    if (causa) return { ok: false, error: `${causa} (${detalleDelError(error)})` }
     if (error.code === '23505') return { ok: false, error: 'Ya tenés una cuenta con ese nombre.' }
     console.error('[guardarCuenta]', error)
     return { ok: false, error: `No se pudo guardar la cuenta: ${detalleDelError(error)}` }
@@ -139,9 +156,8 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
       if (esAlta) await supabase.from('accounts').delete().eq('id', cuenta.id)
 
       console.error('[guardarCuenta:detalle]', errorDetalle)
-      const motivo = esFaltaDeEsquema(errorDetalle.code)
-        ? FALTA_MIGRACION
-        : 'No se pudieron guardar los datos de la tarjeta'
+      const motivo =
+        causaConocida(errorDetalle.code) ?? 'No se pudieron guardar los datos de la tarjeta'
       return {
         ok: false,
         error: `${motivo}: ${detalleDelError(errorDetalle)}${
@@ -240,9 +256,8 @@ export async function guardarDeuda(entrada: DeudaAGuardar): Promise<ResultadoGua
     : await supabase.from('debts').insert(fila)
 
   if (error) {
-    if (esFaltaDeEsquema(error.code)) {
-      return { ok: false, error: `${FALTA_MIGRACION} (${detalleDelError(error)})` }
-    }
+    const causa = causaConocida(error.code)
+    if (causa) return { ok: false, error: `${causa} (${detalleDelError(error)})` }
     console.error('[guardarDeuda]', error)
     return { ok: false, error: `No se pudo guardar la deuda: ${detalleDelError(error)}` }
   }
