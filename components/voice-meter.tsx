@@ -5,13 +5,16 @@ import { NIVELES, type EstadoVoz, type PermisoMicrofono } from '@/lib/use-voice-
 
 type Props = {
   estado: EstadoVoz
-  /** Volumen de entrada, de 0 a NIVELES. */
+  /** Actividad de entrada informada por el motor, de 0 a NIVELES. */
   nivel: number
   sinSenal: boolean
   permiso: PermisoMicrofono
+  /** Pico de amplitud de la prueba previa; null si todavía no se probó. */
+  picoDePrueba?: number | null
 }
 
 const TEXTO: Record<Exclude<EstadoVoz, 'inactivo'>, string> = {
+  verificando: 'Probando el micrófono…',
   iniciando: 'Abriendo el micrófono…',
   activo: 'Micrófono activo — hablá',
   sonido: 'Detectando sonido…',
@@ -19,13 +22,14 @@ const TEXTO: Record<Exclude<EstadoVoz, 'inactivo'>, string> = {
 }
 
 const COLOR_PUNTO: Record<Exclude<EstadoVoz, 'inactivo'>, string> = {
+  verificando: 'bg-budget-warn',
   iniciando: 'bg-budget-warn',
   activo: 'bg-budget-warn',
   sonido: 'bg-income',
   hablando: 'bg-expense',
 }
 
-export function VoiceMeter({ estado, nivel, sinSenal, permiso }: Props) {
+export function VoiceMeter({ estado, nivel, sinSenal, permiso, picoDePrueba }: Props) {
   if (permiso === 'denied') {
     return (
       <p
@@ -41,6 +45,10 @@ export function VoiceMeter({ estado, nivel, sinSenal, permiso }: Props) {
 
   if (estado === 'inactivo') return null
 
+  // La prueba previa es la verificación real del dispositivo: si midió audio,
+  // el micrófono anda, aunque el motor todavía no haya reconocido palabras.
+  const dispositivoVerificado = picoDePrueba != null && !sinSenal && estado !== 'verificando'
+
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2">
       <div className="flex items-center gap-2.5">
@@ -53,15 +61,15 @@ export function VoiceMeter({ estado, nivel, sinSenal, permiso }: Props) {
 
         <span className="text-xs font-medium">{TEXTO[estado]}</span>
 
-        {/* Medidor de volumen real: si estas barras no se mueven al hablar,
-            el navegador no está recibiendo audio de tu micrófono. */}
+        {/* Actividad informada por el motor de voz: encendida cuando está
+            entrando sonido, al máximo cuando lo reconoce como voz. */}
         <div
           className="ml-auto flex items-end gap-[3px]"
           role="meter"
           aria-valuenow={nivel}
           aria-valuemin={0}
           aria-valuemax={NIVELES}
-          aria-label="Nivel de entrada del micrófono"
+          aria-label="Actividad de entrada del micrófono"
         >
           {Array.from({ length: NIVELES }, (_, indice) => {
             const encendida = indice < nivel
@@ -81,6 +89,12 @@ export function VoiceMeter({ estado, nivel, sinSenal, permiso }: Props) {
           })}
         </div>
       </div>
+
+      {dispositivoVerificado && (
+        <p className="text-[11px] leading-snug text-income">
+          Micrófono verificado: está entrando audio.
+        </p>
+      )}
 
       {sinSenal && (
         <p className="flex items-start gap-1.5 text-[11px] leading-snug text-budget-warn">

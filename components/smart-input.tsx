@@ -259,6 +259,7 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
             nivel={voz.nivel}
             sinSenal={voz.sinSenal}
             permiso={voz.permiso}
+            picoDePrueba={voz.picoDePrueba}
           />
         )}
 

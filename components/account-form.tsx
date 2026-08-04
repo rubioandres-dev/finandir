@@ -4,7 +4,13 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
 import { guardarCuenta, type CuentaAGuardar } from '@/app/dashboard/accounts/actions'
-import { ETIQUETA_TIPO_CUENTA, type Moneda, type TipoDeCuenta } from '@/lib/types'
+import {
+  ETIQUETA_TIPO_CUENTA,
+  type Cuenta,
+  type DetalleTarjeta,
+  type Moneda,
+  type TipoDeCuenta,
+} from '@/lib/types'
 
 const TIPOS: TipoDeCuenta[] = ['BANK', 'WALLET', 'CASH', 'INVESTMENT', 'CREDIT_CARD']
 const DIAS = Array.from({ length: 31 }, (_, i) => i + 1)
@@ -13,30 +19,80 @@ const ETIQUETA_CAMPO = 'flex flex-col gap-1 text-xs font-medium text-muted'
 const CAMPO =
   'rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
 
-export function AccountForm() {
+type Props = {
+  /** Presente = modo edición: el formulario arranca abierto y precargado. */
+  cuenta?: Cuenta
+  /** Datos de tarjeta de `cuenta`, si los tiene. */
+  detalle?: DetalleTarjeta
+  /** Solo en modo edición: cerrar sin guardar. */
+  onCerrar?: () => void
+}
+
+/** "-1234.5" -> -1234.5; vacío o basura -> null. */
+function aNumero(valor: string): number | null {
+  const limpio = valor.trim().replace(',', '.')
+  if (limpio === '') return null
+  const numero = Number(limpio)
+  return Number.isFinite(numero) ? numero : null
+}
+
+export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
   const router = useRouter()
-  const [abierto, setAbierto] = useState(false)
+  const editando = cuenta != null
+
+  const [abierto, setAbierto] = useState(editando)
   const [guardando, iniciarGuardado] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [tipo, setTipo] = useState<TipoDeCuenta>('BANK')
-  const [nombre, setNombre] = useState('')
-  const [moneda, setMoneda] = useState<Moneda>('ARS')
-  const [cierre, setCierre] = useState(20)
-  const [vencimiento, setVencimiento] = useState(10)
-  const [limite, setLimite] = useState('')
-  const [banco, setBanco] = useState('')
-  const [ultimos, setUltimos] = useState('')
+  const [tipo, setTipo] = useState<TipoDeCuenta>(cuenta?.type ?? 'BANK')
+  const [nombre, setNombre] = useState(cuenta?.name ?? '')
+  const [moneda, setMoneda] = useState<Moneda>(
+    cuenta?.currency.trim() === 'USD' ? 'USD' : 'ARS'
+  )
+  const [cierre, setCierre] = useState(detalle?.closing_day ?? 20)
+  const [vencimiento, setVencimiento] = useState(detalle?.due_day ?? 10)
+  const [limite, setLimite] = useState(
+    detalle?.credit_limit != null ? String(detalle.credit_limit) : ''
+  )
+  const [banco, setBanco] = useState(detalle?.bank_name ?? '')
+  const [ultimos, setUltimos] = useState(detalle?.last_four_digits ?? '')
 
   const esTarjeta = tipo === 'CREDIT_CARD'
+
+  // En una tarjeta el saldo se guarda negativo (es deuda), pero se edita en
+  // positivo: nadie piensa su deuda en negativo.
+  const saldoOriginal = Number(cuenta?.balance ?? 0)
+  const [saldo, setSaldo] = useState(
+    cuenta ? String(cuenta.type === 'CREDIT_CARD' ? Math.abs(saldoOriginal) : saldoOriginal) : ''
+  )
 
   function enviar(evento: React.FormEvent) {
     evento.preventDefault()
 
+    const saldoIngresado = aNumero(saldo)
+    if (saldo.trim() !== '' && saldoIngresado === null) {
+      setError('El saldo tiene que ser un número.')
+      return
+    }
+
+    // Negativo = deuda cuando es tarjeta.
+    const saldoAGuardar =
+      saldoIngresado === null
+        ? null
+        : esTarjeta
+          ? -Math.abs(saldoIngresado)
+          : saldoIngresado
+
     const entrada: CuentaAGuardar = {
+      ...(cuenta ? { id: cuenta.id } : {}),
       name: nombre,
       type: tipo,
       currency: moneda,
+      // Al editar solo se manda si cambió, para no pisar lo que hicieron los
+      // triggers de movimientos entre que se abrió el formulario y se guardó.
+      ...(saldoAGuardar !== null && (!editando || saldoAGuardar !== saldoOriginal)
+        ? { balance: saldoAGuardar }
+        : {}),
       ...(esTarjeta
         ? {
             closing_day: cierre,
@@ -55,13 +111,25 @@ export function AccountForm() {
         return
       }
       setError(null)
-      setNombre('')
-      setLimite('')
-      setBanco('')
-      setUltimos('')
-      setAbierto(false)
+
+      if (editando) {
+        onCerrar?.()
+      } else {
+        setNombre('')
+        setSaldo('')
+        setLimite('')
+        setBanco('')
+        setUltimos('')
+        setAbierto(false)
+      }
       router.refresh()
     })
+  }
+
+  function cerrar() {
+    setError(null)
+    if (editando) onCerrar?.()
+    else setAbierto(false)
   }
 
   if (!abierto) {
@@ -83,10 +151,12 @@ export function AccountForm() {
       className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4"
     >
       <div className="flex items-center justify-between">
-        <h3 className="aurem-caps text-[11px] text-gold-leaf">Nueva cuenta</h3>
+        <h3 className="aurem-caps text-[11px] text-gold-leaf">
+          {editando ? 'Editar cuenta' : 'Nueva cuenta'}
+        </h3>
         <button
           type="button"
-          onClick={() => setAbierto(false)}
+          onClick={cerrar}
           aria-label="Cerrar"
           className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5"
         >
@@ -132,6 +202,29 @@ export function AccountForm() {
             <option value="ARS">ARS</option>
             <option value="USD">USD</option>
           </select>
+        </label>
+
+        <label className={`col-span-2 ${ETIQUETA_CAMPO}`}>
+          {esTarjeta
+            ? 'Deuda actual'
+            : editando
+              ? 'Saldo actual'
+              : 'Saldo inicial (opcional)'}
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            {...(esTarjeta ? { min: '0' } : {})}
+            value={saldo}
+            onChange={(e) => setSaldo(e.target.value)}
+            placeholder="0"
+            className={`${CAMPO} tabular-nums`}
+          />
+          <span className="text-[10px] font-normal leading-snug text-subtle">
+            {esTarjeta
+              ? 'En positivo: lo que debés hoy en esta tarjeta.'
+              : 'Después lo mantienen los movimientos; editalo solo para corregirlo.'}
+          </span>
         </label>
 
         {esTarjeta && (
@@ -218,7 +311,7 @@ export function AccountForm() {
         className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
       >
         {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-        Guardar
+        {editando ? 'Guardar cambios' : 'Guardar'}
       </button>
     </form>
   )

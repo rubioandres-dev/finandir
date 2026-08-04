@@ -13,6 +13,16 @@ const cuentaSchema = z
     name: z.string().trim().min(1, 'Poné un nombre.').max(80),
     type: z.enum(TIPOS),
     currency: z.enum(['ARS', 'USD']),
+    /**
+     * Saldo de apertura al crear, o corrección del saldo al editar. Si no
+     * viene, la columna no se toca: la mantienen los triggers de transactions.
+     * En una tarjeta es negativo, porque ese negativo es la deuda.
+     */
+    balance: z
+      .number()
+      .refine(Number.isFinite, 'Poné un saldo válido.')
+      .nullable()
+      .optional(),
     // Solo para tarjetas:
     closing_day: z.number().int().min(1).max(31).nullable().optional(),
     due_day: z.number().int().min(1).max(31).nullable().optional(),
@@ -34,8 +44,38 @@ export type CuentaAGuardar = z.input<typeof cuentaSchema>
 const FALTA_MIGRACION =
   'Falta el esquema de cuentas. Ejecutá migrations/003_accounts_cards_debts.sql.'
 
-function esFaltaDeTabla(codigo?: string) {
-  return codigo === 'PGRST205' || codigo === '42P01' || codigo === '42703'
+/**
+ * Códigos que significan "el esquema no está al día".
+ *
+ * PGRST204 es el que más engaña: la columna existe en la base pero no en el
+ * cache de PostgREST. Faltaba en esta lista y caía en el error genérico.
+ */
+function esFaltaDeEsquema(codigo?: string) {
+  return (
+    codigo === 'PGRST204' ||
+    codigo === 'PGRST205' ||
+    codigo === '42P01' ||
+    codigo === '42703'
+  )
+}
+
+type ErrorDeSupabase = {
+  code?: string
+  message?: string
+  details?: string | null
+  hint?: string | null
+}
+
+/**
+ * Texto con el motivo real del rechazo.
+ *
+ * Tragarse el error de Postgres detrás de un "no se pudo guardar" dejaba al
+ * usuario sin ninguna pista de qué corregir; acá se muestra tal cual.
+ */
+function detalleDelError(error: ErrorDeSupabase): string {
+  const partes = [error.message, error.details, error.hint].filter(Boolean)
+  const cuerpo = partes.join(' · ') || 'error desconocido'
+  return error.code ? `${cuerpo} [${error.code}]` : cuerpo
 }
 
 export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoGuardado> {
@@ -49,7 +89,9 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   const esTarjeta = datos.data.type === 'CREDIT_CARD'
-  const fila = {
+  const esAlta = !datos.data.id
+
+  const fila: Record<string, unknown> = {
     user_id: user.id,
     name: datos.data.name,
     type: datos.data.type,
@@ -57,16 +99,25 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
     // Ni las tarjetas ni las inversiones cuentan como disponible.
     is_liquid: !esTarjeta && datos.data.type !== 'INVESTMENT',
   }
+  // Solo se escribe si el formulario lo mandó: así editar el nombre no pisa
+  // un saldo que los triggers pudieron mover mientras tanto.
+  if (datos.data.balance != null) fila.balance = datos.data.balance
 
-  const { data: cuenta, error } = datos.data.id
-    ? await supabase.from('accounts').update(fila).eq('id', datos.data.id).select().single()
-    : await supabase.from('accounts').insert(fila).select().single()
+  const { data: cuenta, error } = esAlta
+    ? await supabase.from('accounts').insert(fila).select('id').single()
+    : await supabase.from('accounts').update(fila).eq('id', datos.data.id!).select('id').single()
 
   if (error) {
-    if (esFaltaDeTabla(error.code)) return { ok: false, error: FALTA_MIGRACION }
+    if (esFaltaDeEsquema(error.code)) {
+      return { ok: false, error: `${FALTA_MIGRACION} (${detalleDelError(error)})` }
+    }
     if (error.code === '23505') return { ok: false, error: 'Ya tenés una cuenta con ese nombre.' }
     console.error('[guardarCuenta]', error)
-    return { ok: false, error: 'No se pudo guardar la cuenta.' }
+    return { ok: false, error: `No se pudo guardar la cuenta: ${detalleDelError(error)}` }
+  }
+
+  if (!cuenta) {
+    return { ok: false, error: 'No se encontró la cuenta que querés editar.' }
   }
 
   if (esTarjeta) {
@@ -83,10 +134,24 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
     )
 
     if (errorDetalle) {
-      if (esFaltaDeTabla(errorDetalle.code)) return { ok: false, error: FALTA_MIGRACION }
+      // Un alta a medias es peor que ninguna: dejaba una cuenta con el nombre
+      // y nada más, imposible de completar porque el nombre ya estaba tomado.
+      if (esAlta) await supabase.from('accounts').delete().eq('id', cuenta.id)
+
       console.error('[guardarCuenta:detalle]', errorDetalle)
-      return { ok: false, error: 'La cuenta se guardó pero fallaron los datos de la tarjeta.' }
+      const motivo = esFaltaDeEsquema(errorDetalle.code)
+        ? FALTA_MIGRACION
+        : 'No se pudieron guardar los datos de la tarjeta'
+      return {
+        ok: false,
+        error: `${motivo}: ${detalleDelError(errorDetalle)}${
+          esAlta ? '. No se creó la cuenta.' : ''
+        }`,
+      }
     }
+  } else if (!esAlta) {
+    // Dejó de ser tarjeta: el detalle viejo ya no describe nada.
+    await supabase.from('credit_card_details').delete().eq('account_id', cuenta.id)
   }
 
   revalidatePath('/dashboard/accounts')
@@ -116,10 +181,11 @@ export async function borrarCuenta(id: string): Promise<ResultadoGuardado> {
   const { error } = await supabase.from('accounts').delete().eq('id', id)
   if (error) {
     console.error('[borrarCuenta]', error)
-    return { ok: false, error: 'No se pudo borrar la cuenta.' }
+    return { ok: false, error: `No se pudo borrar la cuenta: ${detalleDelError(error)}` }
   }
 
   revalidatePath('/dashboard/accounts')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -174,9 +240,11 @@ export async function guardarDeuda(entrada: DeudaAGuardar): Promise<ResultadoGua
     : await supabase.from('debts').insert(fila)
 
   if (error) {
-    if (esFaltaDeTabla(error.code)) return { ok: false, error: FALTA_MIGRACION }
+    if (esFaltaDeEsquema(error.code)) {
+      return { ok: false, error: `${FALTA_MIGRACION} (${detalleDelError(error)})` }
+    }
     console.error('[guardarDeuda]', error)
-    return { ok: false, error: 'No se pudo guardar la deuda.' }
+    return { ok: false, error: `No se pudo guardar la deuda: ${detalleDelError(error)}` }
   }
 
   revalidatePath('/dashboard/debts')

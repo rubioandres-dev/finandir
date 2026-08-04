@@ -1,70 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Banknote, CreditCard, FileScan, Landmark, PiggyBank, TrendingDown, Wallet } from 'lucide-react'
+import { FileScan, TrendingDown } from 'lucide-react'
 import { AccountForm } from '@/components/account-form'
+import { AccountRow } from '@/components/account-row'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { MONEDAS } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
-import {
-  ETIQUETA_TIPO_CUENTA,
-  formatearMonto,
-  type Cuenta,
-  type Moneda,
-  type TipoDeCuenta,
-} from '@/lib/types'
+import { formatearMonto } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Cuentas' }
-
-const ICONO: Record<TipoDeCuenta, typeof Wallet> = {
-  BANK: Landmark,
-  WALLET: Wallet,
-  CASH: Banknote,
-  INVESTMENT: PiggyBank,
-  CREDIT_CARD: CreditCard,
-}
-
-function FilaCuenta({ cuenta, detalle }: { cuenta: Cuenta; detalle?: string }) {
-  const Icono = ICONO[cuenta.type] ?? Wallet
-  const esTarjeta = cuenta.type === 'CREDIT_CARD'
-  const saldo = Number(cuenta.balance ?? 0)
-  // En una tarjeta el saldo negativo es deuda: se muestra en positivo.
-  const mostrado = esTarjeta ? Math.abs(saldo) : saldo
-
-  return (
-    <li className="flex items-center gap-3 px-3.5 py-3">
-      <span
-        className={`grid size-9 shrink-0 place-items-center rounded-full ${
-          esTarjeta ? 'bg-expense/10 text-expense' : 'bg-primary/10 text-primary'
-        }`}
-      >
-        <Icono className="size-4" aria-hidden />
-      </span>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium tracking-tight">{cuenta.name}</span>
-        <span className="truncate text-xs text-subtle">
-          {ETIQUETA_TIPO_CUENTA[cuenta.type]}
-          {detalle && ` · ${detalle}`}
-        </span>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end">
-        <span
-          className={`text-sm font-semibold tabular-nums tracking-tight ${
-            esTarjeta && saldo < 0 ? 'text-expense' : ''
-          }`}
-        >
-          {formatearMonto(mostrado, cuenta.currency as Moneda)}
-        </span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-subtle">
-          {esTarjeta ? 'Deuda' : cuenta.is_liquid ? 'Líquido' : 'No líquido'}
-        </span>
-      </div>
-    </li>
-  )
-}
 
 export default async function AccountsPage() {
   const supabase = await createClient()
@@ -74,12 +20,7 @@ export default async function AccountsPage() {
   if (!user) redirect('/login')
 
   const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase)
-  const detallePorCuenta = new Map(
-    tarjetas.map((t) => [
-      t.id,
-      `cierra el ${t.detalle.closing_day} · vence el ${t.detalle.due_day}`,
-    ])
-  )
+  const detallePorCuenta = new Map(tarjetas.map((t) => [t.id, t.detalle]))
 
   return (
     <div className="flex flex-col gap-5">
@@ -146,7 +87,7 @@ export default async function AccountsPage() {
             <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Cuentas en {moneda}</h2>
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
               {deLaMoneda.map((cuenta) => (
-                <FilaCuenta
+                <AccountRow
                   key={cuenta.id}
                   cuenta={cuenta}
                   detalle={detallePorCuenta.get(cuenta.id)}
