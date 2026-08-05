@@ -1,9 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { Camera, FileUp, PenLine, Plus } from 'lucide-react'
 import { DocumentScannerModal } from '@/components/document-scanner-modal'
+import { QuickEntryModal } from '@/components/quick-entry-modal'
 import type { CuentaElegible } from '@/lib/types'
 
 /** Mismo tope que la API: rechazarlo acá ahorra subir 20 MB para nada. */
@@ -54,11 +54,11 @@ export function FloatingActionButton({
   categorias,
   cuentas = [],
 }: {
-  categorias: string[]
+  categorias: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[]
   cuentas?: CuentaElegible[]
 }) {
-  const router = useRouter()
   const [abierto, setAbierto] = useState(false)
+  const [cargaRapida, setCargaRapida] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -139,8 +139,7 @@ export function FloatingActionButton({
               retraso={0}
               alTocar={() => {
                 setAbierto(false)
-                // El Smart Input vive en el dashboard; el hash lo enfoca al llegar.
-                router.push('/dashboard#smart-input')
+                setCargaRapida(true)
               }}
             />
             <AccionDial
@@ -175,10 +174,20 @@ export function FloatingActionButton({
         </button>
       </div>
 
+      {cargaRapida && (
+        <QuickEntryModal
+          categorias={categorias}
+          cuentas={cuentas}
+          onCerrar={() => setCargaRapida(false)}
+        />
+      )}
+
       {archivo && (
         <DocumentScannerModal
           archivo={archivo}
-          categorias={categorias}
+          // El escáner solo necesita los nombres: son la lista de la que la IA
+          // elige, y el tipo lo fija el comprobante (siempre es un gasto).
+          categorias={categorias.map((c) => c.nombre)}
           cuentas={cuentas}
           onCerrar={() => setArchivo(null)}
         />

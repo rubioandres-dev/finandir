@@ -27,12 +27,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     obtenerCotizacionDelDia(supabase),
     cargarCuentasYDeudas(supabase),
     cargarContextoDeMonedas(),
-    // Solo los nombres: es lo único que necesita el escáner del FAB para que
-    // la IA elija de las categorías reales del usuario y no de una lista fija.
-    supabase.from('categories').select('name').order('name'),
+    // Nombre y tipo: es lo que necesitan los dos modales del FAB. El escáner
+    // usa los nombres para que la IA elija de las categorías reales del
+    // usuario, y la carga rápida necesita el tipo para filtrar el select
+    // según sea gasto o ingreso.
+    supabase.from('categories').select('name, type').order('name'),
   ])
 
-  const nombresDeCategorias = (resCategorias.data ?? []).map((c) => c.name as string)
+  const categoriasDelFab = (resCategorias.data ?? []).map((c) => ({
+    nombre: c.name as string,
+    tipo: c.type as 'INCOME' | 'EXPENSE',
+  }))
 
   const { nivel, avisos } = await cargarDatosDeCabecera(supabase, tarjetas, hoyEnArgentina())
 
@@ -74,7 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           No se muestra durante el onboarding, que es modal y obligatorio. */}
       {!mostrarOnboarding && (
         <FloatingActionButton
-          categorias={nombresDeCategorias}
+          categorias={categoriasDelFab}
           cuentas={cuentas.map((c) => ({
             id: c.id,
             name: c.name,

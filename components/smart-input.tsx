@@ -28,9 +28,24 @@ type Props = {
   categorias: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[]
   /** Cuentas y tarjetas disponibles como origen del movimiento. */
   cuentas?: CuentaElegible[]
+  /**
+   * `id` de la sección, que además es el ancla de `#smart-input`.
+   *
+   * `null` cuando el componente se renderiza en un modal: el del dashboard ya
+   * ocupa ese id y dos elementos con el mismo id en el documento rompen tanto
+   * el scroll al ancla como los lectores de pantalla.
+   */
+  ancla?: string | null
+  /** Enfoca el campo al montar. Lo usa el modal del botón flotante. */
+  autoFoco?: boolean
 }
 
-export function SmartInput({ categorias, cuentas = [] }: Props) {
+export function SmartInput({
+  categorias,
+  cuentas = [],
+  ancla = 'smart-input',
+  autoFoco = false,
+}: Props) {
   const router = useRouter()
   const [texto, setTexto] = useState('')
   const [analizando, setAnalizando] = useState(false)
@@ -41,18 +56,15 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   /**
-   * Enfoca el campo si se llegó con `#smart-input`, que es lo que hace el
-   * botón flotante desde cualquier otra pantalla.
+   * Enfoca el campo al abrir en modal, o al llegar con `#smart-input`.
    *
    * Sin esto el hash solo scrollea y el usuario tiene que tocar el campo: dos
-   * gestos para lo que debería ser uno. Corre una sola vez al montar; volver a
-   * tocar la acción estando ya en el dashboard no cambia la ruta, así que el
-   * navegador scrollea al ancla por su cuenta.
+   * gestos para lo que debería ser uno. Corre una sola vez al montar.
    */
   useEffect(() => {
-    if (window.location.hash !== '#smart-input') return
+    if (!autoFoco && window.location.hash !== `#${ancla}`) return
     inputRef.current?.focus({ preventScroll: true })
-  }, [])
+  }, [ancla, autoFoco])
 
   /**
    * Espejo de `texto` para leerlo sin depender del closure: el dictado y el
@@ -209,10 +221,9 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   }
 
   return (
-    // El id es el destino de "Nuevo movimiento" del botón flotante:
-    // `/dashboard#smart-input` scrollea hasta acá y el efecto de arriba enfoca
-    // el campo. `scroll-mt-24` deja el header sticky sin taparlo.
-    <section id="smart-input" className="flex scroll-mt-24 flex-col gap-3">
+    // `scroll-mt-24` deja que el header sticky no tape la sección cuando se
+    // llega por el ancla.
+    <section id={ancla ?? undefined} className="flex scroll-mt-24 flex-col gap-3">
       <form onSubmit={analizar} className="flex flex-col gap-2.5">
         <div className="relative">
           <Sparkles
