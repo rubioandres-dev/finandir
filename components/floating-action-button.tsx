@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { Camera, FileUp, PenLine, Plus } from 'lucide-react'
 import { DocumentScannerModal } from '@/components/document-scanner-modal'
+import type { CuentaElegible } from '@/lib/types'
 
 /** Mismo tope que la API: rechazarlo acá ahorra subir 20 MB para nada. */
 const TAMANO_MAXIMO = 8 * 1024 * 1024
@@ -49,7 +50,13 @@ function AccionDial({
  * En escritorio `capture` se ignora y los dos abren el explorador; la opción
  * de cámara igual sirve si hay webcam.
  */
-export function FloatingActionButton({ categorias }: { categorias: string[] }) {
+export function FloatingActionButton({
+  categorias,
+  cuentas = [],
+}: {
+  categorias: string[]
+  cuentas?: CuentaElegible[]
+}) {
   const router = useRouter()
   const [abierto, setAbierto] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
@@ -172,6 +179,7 @@ export function FloatingActionButton({ categorias }: { categorias: string[] }) {
         <DocumentScannerModal
           archivo={archivo}
           categorias={categorias}
+          cuentas={cuentas}
           onCerrar={() => setArchivo(null)}
         />
       )}

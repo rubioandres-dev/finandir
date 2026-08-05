@@ -8,7 +8,12 @@ import { guardarTransaccion } from '@/app/dashboard/actions'
 import { useModoMoneda } from '@/components/currency-provider'
 import { CurrencyOptions } from '@/components/currency-options'
 import type { ComprobanteParseado } from '@/app/api/ai/parse-document/route'
-import { formatearMonto, hoyEnArgentina, type Moneda } from '@/lib/types'
+import {
+  formatearMonto,
+  hoyEnArgentina,
+  type CuentaElegible,
+  type Moneda,
+} from '@/lib/types'
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-3 py-2 text-sm outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -49,11 +54,14 @@ function aBorrador(datos: ComprobanteParseado): Borrador {
 export function DocumentScannerModal({
   archivo,
   categorias,
+  cuentas = [],
   onCerrar,
 }: {
   archivo: File
   /** Nombres de las categorías del usuario, para que la IA elija de ahí. */
   categorias: string[]
+  /** Cuentas y tarjetas disponibles como destino del gasto. */
+  cuentas?: CuentaElegible[]
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -61,6 +69,7 @@ export function DocumentScannerModal({
   const hoja = useRef<HTMLDivElement>(null)
 
   const [borrador, setBorrador] = useState<Borrador | null>(null)
+  const [cuentaId, setCuentaId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [analizando, setAnalizando] = useState(true)
   const [guardando, iniciarGuardado] = useTransition()
@@ -144,6 +153,7 @@ export function DocumentScannerModal({
         category_suggested: borrador.categoria || 'Otros',
         description: borrador.descripcion,
         date: borrador.fecha,
+        account_id: cuentaId || null,
         installment_total: borrador.cuotas,
       })
 
@@ -158,8 +168,15 @@ export function DocumentScannerModal({
   }
 
   function editar<C extends keyof Borrador>(campo: C, valor: Borrador[C]) {
+    // Cambiar de moneda invalida la cuenta elegida: `guardarTransaccion`
+    // rechaza el par si no coinciden, y el select ya no la va a listar.
+    if (campo === 'moneda') setCuentaId('')
     setBorrador((previo) => (previo ? { ...previo, [campo]: valor } : previo))
   }
+
+  const cuentasCompatibles = borrador
+    ? cuentas.filter((c) => c.currency.trim() === borrador.moneda)
+    : []
 
   if (typeof document === 'undefined') return null
 
@@ -320,6 +337,31 @@ export function DocumentScannerModal({
                   disabled={guardando}
                   className={CAMPO}
                 />
+              </label>
+
+              {/* Solo cuentas de la misma moneda: la action rechaza el resto.
+                  Un ticket en cuotas casi siempre se pagó con tarjeta, y sin
+                  este selector el gasto caía en la cuenta líquida por defecto. */}
+              <label className={`col-span-2 ${ETIQUETA}`}>
+                Cuenta
+                <select
+                  value={cuentaId}
+                  onChange={(e) => setCuentaId(e.target.value)}
+                  disabled={guardando || cuentasCompatibles.length === 0}
+                  className={CAMPO}
+                >
+                  <option value="">
+                    {cuentasCompatibles.length === 0
+                      ? `Sin cuentas en ${borrador.moneda}`
+                      : 'Cuenta por defecto'}
+                  </option>
+                  {cuentasCompatibles.map((cuenta) => (
+                    <option key={cuenta.id} value={cuenta.id}>
+                      {cuenta.name}
+                      {cuenta.type === 'CREDIT_CARD' ? ' (tarjeta)' : ''}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 

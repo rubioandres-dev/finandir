@@ -23,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // el HTML ya viene filtrado y el cliente arranca con el mismo valor: sin
   // parpadeo ni mismatch. `cargarContextoDeMonedas` está memoizado por
   // request, así que las páginas de abajo lo vuelven a pedir sin costo.
-  const [cotizacion, { tarjetas }, contexto, resCategorias] = await Promise.all([
+  const [cotizacion, { tarjetas, cuentas }, contexto, resCategorias] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
     cargarCuentasYDeudas(supabase),
     cargarContextoDeMonedas(),
@@ -72,7 +72,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Fuera del <div> del layout y no adentro del <main>: es `fixed` y no
           tiene que competir con el scroll ni con el ancho máximo del contenido.
           No se muestra durante el onboarding, que es modal y obligatorio. */}
-      {!mostrarOnboarding && <FloatingActionButton categorias={nombresDeCategorias} />}
+      {!mostrarOnboarding && (
+        <FloatingActionButton
+          categorias={nombresDeCategorias}
+          cuentas={cuentas.map((c) => ({
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            currency: c.currency,
+          }))}
+        />
+      )}
 
       {mostrarOnboarding && (
         <OnboardingModal
