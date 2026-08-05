@@ -61,7 +61,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-5 py-12 sm:py-16">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Finandir</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">AUREM</h1>
         <p className="text-sm text-black/60 dark:text-white/60">
           Escribí un movimiento en lenguaje natural y la IA lo convierte en datos estructurados.
         </p>

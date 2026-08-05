@@ -374,6 +374,34 @@ body {
 }
 
 /**
+ * Entrada de cada acción del speed dial: sube y aparece.
+ *
+ * `backwards` es lo que importa: sin él, el escalonado por `animation-delay`
+ * dejaría los botones visibles y en su posición final hasta que les toca el
+ * turno, que es justo el parpadeo que la animación viene a evitar.
+ */
+@keyframes fab-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fab-accion {
+  animation: fab-entrada 0.16s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab-accion {
+    animation-duration: 0.01ms;
+  }
+}
+
+/**
  * Barra central del splash. En modo carga respira entre el 18% y el 82%:
  * comunica actividad sin prometer un avance real que no podemos medir.
  */

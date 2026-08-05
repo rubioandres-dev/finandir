@@ -82,7 +82,7 @@ export default async function GuidePage() {
       {/* --- Conceptos del modelo de datos ------------------------------- */}
       <section className="flex flex-col gap-3">
         <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
-          Cómo piensa Finandir
+          Cómo piensa AUREM
         </h2>
 
         <Card className="flex flex-col divide-y divide-border p-0">

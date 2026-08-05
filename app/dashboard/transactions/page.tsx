@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { CategoriesManagerButton } from '@/components/categories-manager-modal'
 import { TransactionFeedTabs } from '@/components/transaction-feed-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
@@ -59,7 +60,10 @@ export default async function TransactionsPage() {
         <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
           Movimientos
         </h1>
-        <span className="shrink-0 text-xs text-subtle">en {modo}</span>
+        <div className="flex shrink-0 items-baseline gap-3">
+          <CategoriesManagerButton categorias={categorias} />
+          <span className="text-xs text-subtle">en {modo}</span>
+        </div>
       </div>
 
       {error && (

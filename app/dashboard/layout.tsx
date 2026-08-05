@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { CurrencyProvider } from '@/components/currency-provider'
+import { FloatingActionButton } from '@/components/floating-action-button'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Header } from '@/components/layout/header'
 import { OnboardingModal } from '@/components/onboarding-modal'
@@ -22,11 +23,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // el HTML ya viene filtrado y el cliente arranca con el mismo valor: sin
   // parpadeo ni mismatch. `cargarContextoDeMonedas` está memoizado por
   // request, así que las páginas de abajo lo vuelven a pedir sin costo.
-  const [cotizacion, { tarjetas }, contexto] = await Promise.all([
+  const [cotizacion, { tarjetas }, contexto, resCategorias] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
     cargarCuentasYDeudas(supabase),
     cargarContextoDeMonedas(),
+    // Solo los nombres: es lo único que necesita el escáner del FAB para que
+    // la IA elija de las categorías reales del usuario y no de una lista fija.
+    supabase.from('categories').select('name').order('name'),
   ])
+
+  const nombresDeCategorias = (resCategorias.data ?? []).map((c) => c.name as string)
 
   const { nivel, avisos } = await cargarDatosDeCabecera(supabase, tarjetas, hoyEnArgentina())
 
@@ -62,6 +68,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         <BottomNav />
       </div>
+
+      {/* Fuera del <div> del layout y no adentro del <main>: es `fixed` y no
+          tiene que competir con el scroll ni con el ancho máximo del contenido.
+          No se muestra durante el onboarding, que es modal y obligatorio. */}
+      {!mostrarOnboarding && <FloatingActionButton categorias={nombresDeCategorias} />}
 
       {mostrarOnboarding && (
         <OnboardingModal

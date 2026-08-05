@@ -7,7 +7,7 @@ export type ModoDeEjecucion = 'instalada' | 'navegador'
 /**
  * Los `display-mode` que cuentan como "corriendo como app".
  *
- * `standalone` es el del manifest de Finandir; los otros tres se incluyen
+ * `standalone` es el del manifest de AUREM; los otros tres se incluyen
  * porque un mismo manifest puede abrirse en otro modo según la plataforma
  * (`window-controls-overlay` es el de las PWA de escritorio con barra de
  * título propia) y en todos esos casos no hay UI de navegador a la vista.

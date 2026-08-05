@@ -86,17 +86,34 @@ export async function registrarse(
     }
   }
 
-  // Con confirmación de email activada, signUp NO devuelve sesión: Supabase
-  // manda el mail y el usuario entra recién al hacer clic en el enlace.
-  if (!data.session) {
-    return {
-      mensaje: 'Te mandamos un email de confirmación. Abrí el enlace para activar tu cuenta.',
-      emailPendiente: datos.data.email,
-    }
+  // Con la confirmación de email DESACTIVADA en Supabase, signUp ya devuelve
+  // sesión y se entra derecho.
+  if (data.session) {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  // Sin sesión hay dos escenarios distintos y conviene no confundirlos:
+  //
+  //   · la confirmación sigue activada en el proyecto de Supabase, o
+  //   · está desactivada pero este cliente no recibió la sesión.
+  //
+  // Se intenta entrar directo. Si la confirmación está activa, esto falla con
+  // `email_not_confirmed` y caemos al mensaje de siempre. Es lo más que puede
+  // hacer el código: el interruptor real es del Dashboard de Supabase
+  // (Authentication → Sign In / Providers → Email → "Confirm email"), y ningún
+  // parámetro de `signUp` lo pisa desde acá.
+  const { error: errorLogin } = await supabase.auth.signInWithPassword(datos.data)
+
+  if (!errorLogin) {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
+  }
+
+  return {
+    mensaje: 'Te mandamos un email de confirmación. Abrí el enlace para activar tu cuenta.',
+    emailPendiente: datos.data.email,
+  }
 }
 
 export type ResultadoReenvio = {

@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Finandir',
-    short_name: 'Finandir',
+    name: 'AUREM',
+    short_name: 'AUREM',
     description: 'Gestión de finanzas personales: cuentas, gastos e ingresos.',
     id: '/',
     start_url: '/',

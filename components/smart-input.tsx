@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { CreditCard, Loader2, Mic, Sparkles, Square } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { CurrencyOptions } from '@/components/currency-options'
@@ -39,6 +39,21 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * Enfoca el campo si se llegó con `#smart-input`, que es lo que hace el
+   * botón flotante desde cualquier otra pantalla.
+   *
+   * Sin esto el hash solo scrollea y el usuario tiene que tocar el campo: dos
+   * gestos para lo que debería ser uno. Corre una sola vez al montar; volver a
+   * tocar la acción estando ya en el dashboard no cambia la ruta, así que el
+   * navegador scrollea al ancla por su cuenta.
+   */
+  useEffect(() => {
+    if (window.location.hash !== '#smart-input') return
+    inputRef.current?.focus({ preventScroll: true })
+  }, [])
+
   /**
    * Espejo de `texto` para leerlo sin depender del closure: el dictado y el
    * análisis automático ocurren en callbacks asíncronos del reconocedor.
@@ -194,7 +209,10 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    // El id es el destino de "Nuevo movimiento" del botón flotante:
+    // `/dashboard#smart-input` scrollea hasta acá y el efecto de arriba enfoca
+    // el campo. `scroll-mt-24` deja el header sticky sin taparlo.
+    <section id="smart-input" className="flex scroll-mt-24 flex-col gap-3">
       <form onSubmit={analizar} className="flex flex-col gap-2.5">
         <div className="relative">
           <Sparkles

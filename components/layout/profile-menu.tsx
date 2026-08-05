@@ -5,8 +5,10 @@ import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
 import { useFormStatus } from 'react-dom'
 import {
+  Coins,
   Download,
   Globe,
+  Info,
   LogOut,
   Monitor,
   Moon,
@@ -16,6 +18,7 @@ import {
   UserCog,
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
+import { AboutModal } from '@/components/about-modal'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { usePwaInstall } from '@/lib/use-pwa-install'
 
@@ -191,6 +194,7 @@ function SelectorDeTema() {
 
 export function ProfileMenu({ email, nombre }: { email: string; nombre: string | null }) {
   const [abierto, setAbierto] = useState(false)
+  const [acercaDeAbierto, setAcercaDeAbierto] = useState(false)
   const boton = useRef<HTMLButtonElement>(null)
   const cerrar = useCallback(() => setAbierto(false), [])
 
@@ -240,14 +244,39 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
             className={`${FILA} text-on-surface-variant`}
           >
             <UserCog className="size-4 shrink-0" aria-hidden />
-            Editar perfil
+            Ajustes y perfil
           </Link>
+
+          <Link
+            href="/dashboard/settings#divisas"
+            onClick={cerrar}
+            className={`${FILA} text-on-surface-variant`}
+          >
+            <Coins className="size-4 shrink-0" aria-hidden />
+            Preferencias de moneda
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              cerrar()
+              setAcercaDeAbierto(true)
+            }}
+            className={`${FILA} text-on-surface-variant`}
+          >
+            <Info className="size-4 shrink-0" aria-hidden />
+            Acerca de AUREM
+          </button>
 
           <form action={cerrarSesion}>
             <BotonSalir />
           </form>
         </FloatingPanel>
       )}
+
+      {/* Fuera del panel: el panel se desmonta al cerrarse y se llevaría el
+          modal con él. */}
+      {acercaDeAbierto && <AboutModal onCerrar={() => setAcercaDeAbierto(false)} />}
     </>
   )
 }

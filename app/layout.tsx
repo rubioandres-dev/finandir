@@ -25,12 +25,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Finandir',
-    // Cualquier página que defina su propio título queda como "X · Finandir".
-    template: '%s · Finandir',
+    default: 'AUREM',
+    // Cualquier página que defina su propio título queda como "X · AUREM".
+    template: '%s · AUREM',
   },
   description: 'Gestión de finanzas personales: cuentas, gastos e ingresos.',
-  applicationName: 'Finandir',
+  applicationName: 'AUREM',
 }
 
 export const viewport: Viewport = {

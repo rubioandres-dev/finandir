@@ -24,6 +24,9 @@ import type { Moneda } from './types'
  * el grafo de módulos arrastraría igual la API de servidor y el build falla.
  * El lector de la cookie vive aparte, en `currency-mode-server.ts`.
  */
+// El nombre conserva la marca vieja a propósito: renombrarla a `aurem:` haría
+// que todos los navegadores dejen de encontrar su cookie y vuelvan a la moneda
+// por defecto de golpe. Es un identificador interno, no algo que el usuario vea.
 export const COOKIE_MONEDA = 'finandir:moneda'
 
 /** Un año: es una preferencia, no una sesión. */
