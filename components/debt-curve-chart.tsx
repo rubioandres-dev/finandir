@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
-import { useModoMoneda } from '@/components/currency-provider'
+import { useFormatoRegional, useModoMoneda } from '@/components/currency-provider'
 import type { PuntoDeCurva } from '@/lib/commitments-service'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { type Moneda } from '@/lib/types'
 
 
 /**
@@ -14,16 +14,20 @@ import { formatearMonto, type Moneda } from '@/lib/types'
  * dólares en una misma barra no significaría nada.
  */
 export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
+  const { formatearMonto, formatearMesCorto } = useFormatoRegional()
   const { monedasSeleccionadas, modo } = useModoMoneda()
   const [moneda, setMoneda] = useState<Moneda>(modo)
 
+  // La etiqueta se arma acá y no en el servicio: es lo único que depende de
+  // la región. `formatearMesCorto` devuelve "Sep 26" en es-* y "Sep 26" en
+  // en-US, cada uno con el nombre de mes de su idioma.
   const datos = useMemo(
     () =>
       curva.map((punto) => ({
-        etiqueta: punto.etiqueta,
+        etiqueta: formatearMesCorto(punto.mes),
         valor: punto.porMoneda.find((m) => m.moneda === moneda)?.valor ?? 0,
       })),
-    [curva, moneda]
+    [curva, moneda, formatearMesCorto]
   )
 
   const maximo = Math.max(...datos.map((d) => d.valor), 0)

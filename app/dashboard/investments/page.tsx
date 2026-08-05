@@ -8,7 +8,7 @@ import { Card, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarInversiones, distribucionPorTipo } from '@/lib/investments-service'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto } from '@/lib/types'
+import { crearFormateadores } from '@/lib/formatters'
 
 export const metadata: Metadata = { title: 'Inversiones' }
 
@@ -19,7 +19,8 @@ export default async function InvestmentsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { monedas } = await cargarContextoDeMonedas()
+  const { monedas, locale } = await cargarContextoDeMonedas()
+  const { formatearMonto } = crearFormateadores(locale)
   const { inversiones, resumen, error } = await cargarInversiones(supabase, monedas)
 
   // Un reparto por moneda: los libros no se mezclan, igual que en cuentas.
@@ -135,7 +136,7 @@ export default async function InvestmentsPage() {
               {repartos.length > 1 && (
                 <span className="text-[10px] font-semibold tabular-nums text-subtle">{moneda}</span>
               )}
-              <InvestmentDistribution tramos={tramos} moneda={moneda} />
+              <InvestmentDistribution tramos={tramos} moneda={moneda} locale={locale} />
             </div>
           ))}
         </section>

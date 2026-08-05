@@ -71,7 +71,7 @@ export function QuotesModal({
       <div
         ref={hoja}
         tabIndex={-1}
-        className="glass-card safe-bottom relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu p-5 outline-none sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja outline-none sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
           <h3 className="aurem-caps text-[11px] text-gold-leaf">Cotizaciones del mercado</h3>

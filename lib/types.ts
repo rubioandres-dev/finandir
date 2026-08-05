@@ -192,6 +192,8 @@ export type UserProfile = {
   display_name: string | null
   /** ISO 4217. El PRIMERO es la divisa principal. Nunca vacío. */
   selected_currencies: Moneda[]
+  /** Locale IETF que define el formato de números y fechas. Ver migrations/009. */
+  locale: string
   onboarding_completed: boolean
   updated_at: string | null
 }

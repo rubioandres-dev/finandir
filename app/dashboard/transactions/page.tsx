@@ -10,7 +10,8 @@ import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { cargarFeedDeMovimientos } from '@/lib/transactions-feed'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { crearFormateadores } from '@/lib/formatters'
+import type { Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Movimientos' }
 
@@ -21,7 +22,8 @@ export default async function TransactionsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale } = await cargarContextoDeMonedas()
+  const { formatearMonto } = crearFormateadores(locale)
 
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
   // cotización; los movimientos ahora vienen del feed, partido por período.

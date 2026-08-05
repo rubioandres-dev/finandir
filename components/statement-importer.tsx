@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useMemo, useRef, useState, useTransition } from 'react'
 import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload, X } from 'lucide-react'
@@ -10,7 +11,7 @@ import {
   type ConsumoImportado,
   type Veredicto,
 } from '@/lib/reconciliation-service'
-import { formatearFecha, formatearMonto, type CuentaElegible } from '@/lib/types'
+import { type CuentaElegible } from '@/lib/types'
 
 /**
  * Cada veredicto tiene su color y no se negocia: verde = entra, gris = ya
@@ -56,6 +57,7 @@ const BORDE_DE_FILA: Record<Veredicto, string> = {
 type Etapa = 'carga' | 'leyendo' | 'revision'
 
 export function StatementImporter({ tarjetas }: { tarjetas: CuentaElegible[] }) {
+  const { formatearMonto, formatearFecha } = useFormatoRegional()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
 

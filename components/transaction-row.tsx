@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useState } from 'react'
 import { ArrowLeftRight, Pencil } from 'lucide-react'
 import { Monto } from '@/components/monto'
@@ -9,7 +10,7 @@ import {
   type MovimientoEditable,
 } from '@/components/transaction-editor'
 import { IconoCategoria } from '@/lib/category-icons'
-import { ETIQUETA_TIPO, formatearFecha, type Moneda } from '@/lib/types'
+import { ETIQUETA_TIPO, type Moneda } from '@/lib/types'
 
 /**
  * Una fila del historial.
@@ -37,6 +38,7 @@ export function TransactionRow({
   cuentas: CuentaElegible[]
   editable?: boolean
 }) {
+  const { formatearFecha } = useFormatoRegional()
   const [editando, setEditando] = useState(false)
 
   const esIngreso = movimiento.type === 'INCOME'

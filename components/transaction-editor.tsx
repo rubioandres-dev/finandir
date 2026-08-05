@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
@@ -8,7 +9,7 @@ import {
   updateTransaction,
   type EdicionDeMovimiento,
 } from '@/lib/transactions-actions'
-import { formatearMonto, hoyEnArgentina, type Moneda } from '@/lib/types'
+import { hoyEnArgentina, type Moneda } from '@/lib/types'
 
 const CUOTAS_COMUNES = [1, 3, 6, 9, 12, 18, 24]
 
@@ -57,6 +58,7 @@ export function TransactionEditor({
   cuentas: CuentaElegible[]
   onCerrar: () => void
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [guardando, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export function TransactionEditor({
 
       <form
         onSubmit={guardar}
-        className="glass-card safe-bottom relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu p-5 sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
           <h3 className="aurem-caps text-[11px] text-gold-leaf">Editar movimiento</h3>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
@@ -11,7 +12,6 @@ import { resolverPlan } from '@/lib/cuotas'
 import { useVoiceInput } from '@/lib/use-voice-input'
 import {
   ETIQUETA_TIPO,
-  formatearMonto,
   hoyEnArgentina,
   type CuentaElegible,
   type Moneda,
@@ -46,6 +46,7 @@ export function SmartInput({
   ancla = 'smart-input',
   autoFoco = false,
 }: Props) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [texto, setTexto] = useState('')
   const [analizando, setAnalizando] = useState(false)

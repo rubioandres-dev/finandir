@@ -52,7 +52,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     !contexto.faltaMigracion && contexto.perfil?.onboarding_completed !== true
 
   return (
-    <CurrencyProvider modoInicial={contexto.modo} monedas={contexto.monedas}>
+    <CurrencyProvider
+      modoInicial={contexto.modo}
+      monedas={contexto.monedas}
+      locale={contexto.locale}
+    >
       <div className="flex flex-1 flex-col">
         <Header
           email={user.email ?? ''}
@@ -93,6 +97,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <OnboardingModal
           nombreInicial={contexto.perfil?.display_name ?? nombreDeMetadata}
           monedasIniciales={contexto.monedas}
+          localeInicial={contexto.locale}
         />
       )}
     </CurrencyProvider>

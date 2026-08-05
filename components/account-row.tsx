@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import {
@@ -16,7 +17,6 @@ import { AccountForm } from '@/components/account-form'
 import { borrarCuenta } from '@/app/dashboard/accounts/actions'
 import {
   ETIQUETA_TIPO_CUENTA,
-  formatearMonto,
   type Cuenta,
   type DetalleTarjeta,
   type Moneda,
@@ -41,6 +41,7 @@ type Props = {
  * reemplaza por el formulario precargado con TODOS los datos de la cuenta.
  */
 export function AccountRow({ cuenta, detalle }: Props) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [editando, setEditando] = useState(false)
   const [confirmando, setConfirmando] = useState(false)

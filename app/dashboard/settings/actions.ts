@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { CATALOGO_LOCALES, normalizarLocale, type Locale } from '@/lib/formatters'
 import { CATALOGO_MONEDAS, normalizarListaDeMonedas } from '@/lib/monedas'
 import { guardarPerfil } from '@/lib/profile-service'
 import { createClient } from '@/lib/supabase/server'
@@ -117,9 +118,45 @@ export async function guardarDivisas(monedas: Moneda[]): Promise<EstadoDePerfil>
   return { mensaje: 'Divisas actualizadas.' }
 }
 
+const localeSchema = z
+  .string()
+  .refine((valor) => CATALOGO_LOCALES.some((l) => l.codigo === valor), {
+    message: 'Esa región todavía no está soportada.',
+  })
+
+/**
+ * Guarda la región que define el formato de números y fechas.
+ *
+ * Como las divisas, guarda al toque y sin botón: el usuario prueba una opción
+ * y ve el efecto en la app al instante.
+ */
+export async function guardarLocale(locale: string): Promise<EstadoDePerfil> {
+  const datos = localeSchema.safeParse(locale)
+  if (!datos.success) return { error: datos.error.issues[0].message }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
+
+  const resultado = await guardarPerfil(supabase, user.id, {
+    locale: normalizarLocale(datos.data),
+  })
+
+  if (!resultado.ok) return { error: resultado.error }
+
+  // El formato lo aplica el provider, que sale del layout: hay que revalidarlo
+  // entero para que baje el locale nuevo.
+  revalidatePath('/dashboard', 'layout')
+
+  return { mensaje: 'Región actualizada.' }
+}
+
 const onboardingSchema = z.object({
   nombre: z.string().trim().min(1, 'Decinos cómo querés que te llamemos.').max(80, 'El nombre es muy largo.'),
   monedas: divisasSchema,
+  locale: localeSchema,
 })
 
 /**
@@ -133,6 +170,7 @@ const onboardingSchema = z.object({
 export async function completarOnboarding(entrada: {
   nombre: string
   monedas: Moneda[]
+  locale: Locale
 }): Promise<EstadoDePerfil> {
   const datos = onboardingSchema.safeParse(entrada)
   if (!datos.success) return { error: datos.error.issues[0].message }
@@ -146,6 +184,7 @@ export async function completarOnboarding(entrada: {
   const resultado = await guardarPerfil(supabase, user.id, {
     display_name: datos.data.nombre,
     selected_currencies: normalizarListaDeMonedas(datos.data.monedas),
+    locale: normalizarLocale(datos.data.locale),
     onboarding_completed: true,
   })
 

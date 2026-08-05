@@ -19,9 +19,13 @@ export type CuotaFutura = {
 }
 
 export type PuntoDeCurva = {
-  /** YYYY-MM */
+  /**
+   * YYYY-MM. Sin traducir a propósito: la etiqueta la arma quien dibuja, que
+   * es el único que conoce la región del usuario. Antes salía de acá con los
+   * meses en español cableados, así que un usuario en en-US veía "Sep 26"
+   * escrito en castellano.
+   */
   mes: string
-  etiqueta: string
   porMoneda: { moneda: Moneda; valor: number }[]
 }
 
@@ -40,16 +44,6 @@ export type PlanActivo = {
   tieneInteres: boolean
   recargo: number
   proximoVencimiento: string | null
-}
-
-const MESES_CORTOS = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
-]
-
-function etiquetaDeMes(mes: string): string {
-  const [anio, m] = mes.split('-').map(Number)
-  return `${MESES_CORTOS[m - 1]} ${String(anio).slice(2)}`
 }
 
 function sumarMesAlPeriodo(periodo: string, meses: number): string {
@@ -94,7 +88,6 @@ export function construirCurva(
 
   return Array.from(acumulado, ([mes, porMonedaMap]) => ({
     mes,
-    etiqueta: etiquetaDeMes(mes),
     porMoneda: monedas.map((moneda) => ({
       moneda,
       valor: Math.round((porMonedaMap.get(moneda) ?? 0) * 100) / 100,
@@ -156,10 +149,10 @@ export function agruparEnPlanes(
   return planes.sort((a, b) => (a.proximoVencimiento ?? '').localeCompare(b.proximoVencimiento ?? ''))
 }
 
-/** Primer mes de la ventana sin ninguna cuota pendiente. */
+/** Primer mes de la ventana sin ninguna cuota pendiente, como YYYY-MM. */
 export function primerMesLibre(curva: PuntoDeCurva[]): string | null {
   const libre = curva.find((punto) => punto.porMoneda.every((m) => m.valor === 0))
-  return libre?.etiqueta ?? null
+  return libre?.mes ?? null
 }
 
 /**

@@ -12,7 +12,7 @@ import {
   type EventoFinanciero,
   type TipoDeEvento,
 } from '@/lib/calendar-service'
-import { formatearMonto } from '@/lib/types'
+import { useFormatoRegional } from '@/components/currency-provider'
 
 const DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
 
@@ -50,6 +50,7 @@ export function FinancialCalendar({
   hoy: string
   eventos: EventoFinanciero[]
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const porDia = useMemo(() => agruparPorDia(eventos), [eventos])
   const total = diasDelMes(anio, mes)
   const offset = offsetDelPrimerDia(anio, mes)

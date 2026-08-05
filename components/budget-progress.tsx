@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Check, Loader2, Plus, X } from 'lucide-react'
 import { guardarPresupuesto } from '@/app/dashboard/actions'
-import { useModoMoneda } from '@/components/currency-provider'
+import { useModoMoneda, useFormatoRegional } from '@/components/currency-provider'
 import { IconoCategoria } from '@/lib/category-icons'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { type Moneda } from '@/lib/types'
 
 
 export type LineaDePresupuesto = {
@@ -44,6 +44,7 @@ function LineaMoneda({
   nombreCategoria: string
   linea: LineaDePresupuesto
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [editando, setEditando] = useState(false)
   const [valor, setValor] = useState(linea.presupuesto?.toString() ?? '')

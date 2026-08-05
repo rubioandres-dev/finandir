@@ -10,7 +10,8 @@ import { cargarInversiones } from '@/lib/investments-service'
 import { nombreDeMoneda } from '@/lib/monedas'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { crearFormateadores, type Locale } from '@/lib/formatters'
+import type { Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Consolidado' }
 
@@ -19,13 +20,17 @@ function Linea({
   etiqueta,
   valor,
   moneda,
+  locale,
   resta = false,
 }: {
   etiqueta: string
   valor: number
   moneda: Moneda
+  locale: Locale
   resta?: boolean
 }) {
+  const { formatearMonto } = crearFormateadores(locale)
+
   if (valor === 0) return null
 
   return (
@@ -50,10 +55,13 @@ function Linea({
 function Columna({
   lado,
   principal,
+  locale,
 }: {
   lado: LadoDeLaMoneda
   principal: Moneda
+  locale: Locale
 }) {
+  const { formatearMonto } = crearFormateadores(locale)
   const esPrincipal = lado.moneda === principal
 
   return (
@@ -72,19 +80,21 @@ function Columna({
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-glass-stroke/25">
-          <Linea etiqueta="Cuentas y billeteras" valor={lado.liquido} moneda={lado.moneda} />
-          <Linea etiqueta="Inversiones" valor={lado.inversiones} moneda={lado.moneda} />
-          <Linea etiqueta="Me deben" valor={lado.porCobrar} moneda={lado.moneda} />
+          <Linea etiqueta="Cuentas y billeteras" valor={lado.liquido} moneda={lado.moneda} locale={locale} />
+          <Linea etiqueta="Inversiones" valor={lado.inversiones} moneda={lado.moneda} locale={locale} />
+          <Linea etiqueta="Me deben" valor={lado.porCobrar} moneda={lado.moneda} locale={locale} />
           <Linea
             etiqueta="Deuda de tarjetas"
             valor={lado.deudaTarjetas}
             moneda={lado.moneda}
+            locale={locale}
             resta
           />
           <Linea
             etiqueta="Deudas personales"
             valor={lado.deudaPersonal}
             moneda={lado.moneda}
+            locale={locale}
             resta
           />
         </div>
@@ -122,12 +132,15 @@ function TotalCruzado({
   Icono,
   color,
   valores,
+  locale,
 }: {
   etiqueta: string
   Icono: typeof Wallet
   color: string
   valores: { moneda: Moneda; valor: number }[]
+  locale: Locale
 }) {
+  const { formatearMonto } = crearFormateadores(locale)
   const conSaldo = valores.filter((v) => v.valor !== 0)
 
   return (
@@ -160,7 +173,8 @@ export default async function ConsolidatedPage() {
 
   // Esta vista IGNORA a propósito la moneda activa del header: su razón de
   // existir es mostrar todos los libros a la vez.
-  const { monedas } = await cargarContextoDeMonedas()
+  const { monedas, locale } = await cargarContextoDeMonedas()
+  const { formatearMonto } = crearFormateadores(locale)
 
   const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
     await Promise.all([
@@ -245,7 +259,12 @@ export default async function ConsolidatedPage() {
       {/* --- Comparativa simétrica: un bloque por divisa ------------------ */}
       <section className="grid items-stretch gap-3 sm:grid-cols-2">
         {consolidado.lados.map((lado) => (
-          <Columna key={lado.moneda} lado={lado} principal={consolidado.principal} />
+          <Columna
+            key={lado.moneda}
+            lado={lado}
+            principal={consolidado.principal}
+            locale={locale}
+          />
         ))}
       </section>
 
@@ -256,12 +275,14 @@ export default async function ConsolidatedPage() {
           Icono={Wallet}
           color="text-income"
           valores={liquidezTotal}
+          locale={locale}
         />
         <TotalCruzado
           etiqueta="Pasivos totales"
           Icono={TrendingDown}
           color="text-expense"
           valores={pasivosTotales}
+          locale={locale}
         />
       </div>
     </div>

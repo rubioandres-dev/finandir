@@ -64,7 +64,7 @@ export function QuickEntryModal({
 
       <div
         ref={hoja}
-        className="glass-card safe-bottom relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu p-5 sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja sm:rounded-3xl"
       >
         <div className="flex items-center justify-between gap-3">
           <h3

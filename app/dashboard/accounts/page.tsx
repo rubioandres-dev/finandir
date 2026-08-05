@@ -9,7 +9,8 @@ import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { crearFormateadores } from '@/lib/formatters'
+import type { Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Cuentas' }
 
@@ -20,7 +21,8 @@ export default async function AccountsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale } = await cargarContextoDeMonedas()
+  const { formatearMonto } = crearFormateadores(locale)
   const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
   const detallePorCuenta = new Map(tarjetas.map((t) => [t.id, t.detalle]))
 

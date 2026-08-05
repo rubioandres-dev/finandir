@@ -51,7 +51,7 @@ export function AboutModal({ onCerrar }: { onCerrar: () => void }) {
       <div
         ref={hoja}
         tabIndex={-1}
-        className="glass-card safe-bottom relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu p-5 outline-none sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja outline-none sm:rounded-3xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">

@@ -3,6 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { createContext, useContext, useMemo, useState, useTransition } from 'react'
 import { COOKIE_MONEDA, MAX_EDAD_COOKIE_MONEDA } from '@/lib/currency-mode'
+import {
+  crearFormateadores,
+  LOCALE_POR_DEFECTO,
+  type Formateadores,
+  type Locale,
+} from '@/lib/formatters'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
 
@@ -12,6 +18,8 @@ type Contexto = {
   cambiarModo: (moneda: Moneda) => void
   /** Divisas que el usuario eligió en el onboarding. La primera es la principal. */
   monedasSeleccionadas: Moneda[]
+  /** Formato regional activo: define separadores, símbolo y orden de la fecha. */
+  locale: Locale
   /** true mientras el servidor recarga las vistas con la moneda nueva. */
   cambiando: boolean
   /**
@@ -42,10 +50,12 @@ export function CurrencyProvider({
   children,
   modoInicial,
   monedas = MONEDAS_POR_DEFECTO,
+  locale = LOCALE_POR_DEFECTO,
 }: {
   children: React.ReactNode
   modoInicial: Moneda
   monedas?: Moneda[]
+  locale?: Locale
 }) {
   const router = useRouter()
   const [modo, setModo] = useState<Moneda>(modoInicial)
@@ -64,6 +74,7 @@ export function CurrencyProvider({
     return {
       modo: modoEfectivo,
       monedasSeleccionadas: seleccionadas,
+      locale,
       cambiando,
       mostrarEquivalencias: modoEfectivo === 'USD',
       cambiarModo: (moneda: Moneda) => {
@@ -78,7 +89,7 @@ export function CurrencyProvider({
         iniciarCambio(() => router.refresh())
       },
     }
-  }, [modo, monedas, cambiando, router])
+  }, [modo, monedas, locale, cambiando, router])
 
   return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
@@ -105,4 +116,22 @@ export function useModoMoneda(): Contexto {
 export function useEquivalencias(): { mostrarEquivalencias: boolean } {
   const { mostrarEquivalencias } = useMonedaContext()
   return { mostrarEquivalencias }
+}
+
+/**
+ * Formateadores atados a la región del usuario.
+ *
+ * Devuelve funciones con los MISMOS nombres que las de `lib/types.ts`, así un
+ * componente migra cambiando el import por una línea y ninguna de sus llamadas
+ * cambia:
+ *
+ *   -  import { formatearMonto } from '@/lib/types'
+ *   +  const { formatearMonto } = useFormatoRegional()
+ *
+ * Memoizado por locale: `crearFormateadores` arma un `Date` para resolver el
+ * año actual, y no hace falta rehacerlo en cada render.
+ */
+export function useFormatoRegional(): Formateadores {
+  const { locale } = useMonedaContext()
+  return useMemo(() => crearFormateadores(locale), [locale])
 }

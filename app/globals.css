@@ -480,6 +480,32 @@ textarea,
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/**
+ * Respiro inferior de las hojas modales.
+ *
+ * EL BUG QUE ARREGLA
+ *
+ * Las hojas usaban `safe-bottom`, y esa familia de reglas vive FUERA de toda
+ * capa: en la cascada eso le gana a `@layer utilities`, donde Tailwind emite
+ * el `p-5`. En cualquier pantalla sin inset inferior —escritorio, casi todo
+ * Android— el padding de abajo quedaba en CERO y el último botón terminaba
+ * pegado al borde. Es el mismo problema ya documentado arriba para `.safe-x`.
+ *
+ * POR QUÉ UNA CLASE PROPIA Y NO UNA UTILIDAD DE TAILWIND
+ *
+ * El arreglo obvio sería un padding arbitrario que combine `max()` con el
+ * inset. No se puede: el parser de valores arbitrarios de Tailwind v4 no
+ * digiere una función anidada adentro de otra y hace fallar el build entero,
+ * sin stack. Tampoco sirve nombrar la clase con un prefijo de Tailwind
+ * (`pb-…`): lo intenta resolver como utilidad propia y revienta igual.
+ *
+ * Las hojas usan `px-5 pt-5 respiro-hoja` en lugar de `p-5`, así esta regla es
+ * la única que escribe el padding de abajo y no hay desempate que perder.
+ */
+.respiro-hoja {
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
+}
+
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }

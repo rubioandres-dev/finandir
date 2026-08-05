@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, ArrowRight, Coins, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Coins, Globe, Loader2, Sparkles } from 'lucide-react'
 import { completarOnboarding } from '@/app/dashboard/settings/actions'
 import { CurrencyPicker } from '@/components/currency-picker'
+import { RegionPicker } from '@/components/region-picker'
+import { LOCALE_POR_DEFECTO, type Locale } from '@/lib/formatters'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
 
@@ -13,7 +15,7 @@ const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-4 py-3 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
 
 /**
- * Onboarding de dos pasos: nombre y divisas.
+ * Onboarding de tres pasos: nombre, divisas y región.
  *
  * NO SE PUEDE CERRAR SIN COMPLETARLO, y es a propósito: sin divisas elegidas
  * la app no sabe qué filtrar, y el default silencioso (ARS + USD) es
@@ -32,14 +34,17 @@ const CAMPO =
 export function OnboardingModal({
   nombreInicial,
   monedasIniciales = MONEDAS_POR_DEFECTO,
+  localeInicial = LOCALE_POR_DEFECTO,
 }: {
   nombreInicial?: string | null
   monedasIniciales?: Moneda[]
+  localeInicial?: Locale
 }) {
   const router = useRouter()
-  const [paso, setPaso] = useState<1 | 2>(1)
+  const [paso, setPaso] = useState<1 | 2 | 3>(1)
   const [nombre, setNombre] = useState(nombreInicial ?? '')
   const [monedas, setMonedas] = useState<Moneda[]>([...monedasIniciales])
+  const [locale, setLocale] = useState<Locale>(localeInicial)
   const [error, setError] = useState<string | null>(null)
   const [guardando, iniciar] = useTransition()
 
@@ -48,7 +53,7 @@ export function OnboardingModal({
   function guardar() {
     setError(null)
     iniciar(async () => {
-      const resultado = await completarOnboarding({ nombre: nombre.trim(), monedas })
+      const resultado = await completarOnboarding({ nombre: nombre.trim(), monedas, locale })
 
       if (resultado.error) {
         setError(resultado.error)
@@ -71,7 +76,7 @@ export function OnboardingModal({
     >
       <div className="absolute inset-0 bg-midnight-navy/85 backdrop-blur-sm" aria-hidden />
 
-      <div className="glass-card safe-bottom relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu p-6 sm:rounded-3xl">
+      <div className="glass-card relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu px-6 pt-6 respiro-hoja sm:rounded-3xl">
         {/* --- Cabecera y progreso ---------------------------------------- */}
         <div className="flex flex-col gap-2">
           <span className="fire-gradient glow-gold grid size-9 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
@@ -82,11 +87,11 @@ export function OnboardingModal({
             id="onboarding-titulo"
             className="font-display text-xl font-bold tracking-tight text-on-background"
           >
-            {paso === 1 ? 'Bienvenido a Aurem' : 'Tus divisas'}
+            {paso === 1 ? 'Bienvenido a Aurem' : paso === 2 ? 'Tus divisas' : 'Tu región'}
           </h2>
 
           <div className="flex items-center gap-1.5" aria-hidden>
-            {[1, 2].map((n) => (
+            {[1, 2, 3].map((n) => (
               <span
                 key={n}
                 className={`h-1 flex-1 rounded-full transition-colors ${
@@ -95,7 +100,7 @@ export function OnboardingModal({
               />
             ))}
           </div>
-          <p className="aurem-caps text-[9px] text-on-surface-variant/70">Paso {paso} de 2</p>
+          <p className="aurem-caps text-[9px] text-on-surface-variant/70">Paso {paso} de 3</p>
         </div>
 
         {/* --- Paso 1: nombre ---------------------------------------------- */}
@@ -125,7 +130,7 @@ export function OnboardingModal({
               cambiarlo cuando quieras desde Ajustes.
             </p>
           </div>
-        ) : (
+        ) : paso === 2 ? (
           /* --- Paso 2: divisas ------------------------------------------- */
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -143,6 +148,24 @@ export function OnboardingModal({
               deshabilitado={guardando}
             />
           </div>
+        ) : (
+          /* --- Paso 3: región -------------------------------------------- */
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">¿Dónde estás?</p>
+              <p className="flex items-start gap-1.5 text-[11px] leading-snug text-subtle">
+                <Globe className="mt-0.5 size-3 shrink-0 text-gold-leaf" aria-hidden />
+                Define cómo se escriben los importes y las fechas. No es un detalle: 10/09 es el
+                10 de septiembre en unos países y el 9 de octubre en otros.
+              </p>
+            </div>
+
+            <RegionPicker
+              seleccionada={locale}
+              onCambiar={setLocale}
+              deshabilitado={guardando}
+            />
+          </div>
         )}
 
         {error && (
@@ -156,10 +179,10 @@ export function OnboardingModal({
 
         {/* --- Botonera ---------------------------------------------------- */}
         <div className="mt-1 flex items-center gap-2">
-          {paso === 2 && (
+          {paso > 1 && (
             <button
               type="button"
-              onClick={() => setPaso(1)}
+              onClick={() => setPaso((previo) => (previo === 3 ? 2 : 1))}
               disabled={guardando}
               className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-glass-stroke/50 px-3 py-2.5 text-sm font-medium text-on-surface-variant transition active:scale-95 hover:border-gold-leaf/60 hover:text-gold-leaf disabled:opacity-60"
             >
@@ -170,12 +193,12 @@ export function OnboardingModal({
 
           <button
             type="button"
-            onClick={() => (paso === 1 ? setPaso(2) : guardar())}
+            onClick={() => (paso === 3 ? guardar() : setPaso(paso === 1 ? 2 : 3))}
             disabled={guardando || (paso === 1 && !nombreValido)}
             className="fire-gradient glow-gold flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-midnight-navy transition active:scale-95 disabled:opacity-60"
           >
             {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            {paso === 1 ? (
+            {paso < 3 ? (
               <>
                 Seguir
                 <ArrowRight className="size-4" aria-hidden />

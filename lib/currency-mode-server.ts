@@ -8,6 +8,7 @@
 import { cookies } from 'next/headers'
 import { cache } from 'react'
 import { COOKIE_MONEDA, normalizarModo } from './currency-mode'
+import { LOCALE_POR_DEFECTO } from './formatters'
 import { MONEDAS_POR_DEFECTO } from './monedas'
 import { cargarPerfil, type ContextoDePerfil } from './profile-service'
 import { createClient } from './supabase/server'
@@ -53,6 +54,7 @@ export const cargarContextoDeMonedas = cache(async (): Promise<ContextoDeMonedas
     return {
       perfil: null,
       monedas: [...MONEDAS_POR_DEFECTO],
+      locale: LOCALE_POR_DEFECTO,
       faltaMigracion: false,
       modo: MONEDAS_POR_DEFECTO[0],
     }

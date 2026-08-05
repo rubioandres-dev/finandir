@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Plus, Trash2, X } from 'lucide-react'
@@ -10,13 +11,14 @@ import {
   type DeudaAGuardar,
 } from '@/app/dashboard/accounts/actions'
 import { CurrencyOptions } from '@/components/currency-options'
-import { formatearMonto, type Deuda, type Moneda, type TipoDeDeuda } from '@/lib/types'
+import { type Deuda, type Moneda, type TipoDeDeuda } from '@/lib/types'
 
 const CAMPO =
   'rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
 const ETIQUETA = 'flex flex-col gap-1 text-xs font-medium text-muted'
 
 function FilaDeuda({ deuda }: { deuda: Deuda }) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [pagando, setPagando] = useState(false)
   const [monto, setMonto] = useState('')

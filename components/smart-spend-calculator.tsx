@@ -1,5 +1,6 @@
 'use client'
 
+import { useFormatoRegional } from '@/components/currency-provider'
 import { useMemo, useState } from 'react'
 import { CalendarClock, CreditCard, Info, PiggyBank, Sparkles, TrendingUp, Wallet } from 'lucide-react'
 import { InvestmentStrategyBreakdown } from '@/components/investment-strategy-breakdown'
@@ -7,7 +8,6 @@ import { Card, CardLabel } from '@/components/ui/card'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { evaluateExpenseStrategy } from '@/lib/smart-spend-service'
 import {
-  formatearMonto,
   hoyEnArgentina,
   type Inversion,
   type Moneda,
@@ -53,6 +53,7 @@ export function SmartSpendCalculator({
   precioInicial = null,
   monedaInicial = 'ARS',
 }: Props) {
+  const { formatearMonto } = useFormatoRegional()
   const [precio, setPrecio] = useState(precioInicial != null ? String(precioInicial) : '')
   const [descuento, setDescuento] = useState('')
   const [cuotas, setCuotas] = useState(6)

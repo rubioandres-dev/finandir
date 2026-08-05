@@ -1,7 +1,7 @@
 'use client'
 
-import { useEquivalencias } from '@/components/currency-provider'
-import { formatearMonto, type Moneda } from '@/lib/types'
+import { useEquivalencias, useFormatoRegional } from '@/components/currency-provider'
+import { type Moneda } from '@/lib/types'
 
 type Props = {
   valor: number
@@ -25,6 +25,7 @@ type Props = {
  */
 export function Monto({ valor, moneda, className, signo, equivalente }: Props) {
   const { mostrarEquivalencias } = useEquivalencias()
+  const { formatearMonto } = useFormatoRegional()
 
   return (
     <span className={className}>
@@ -54,6 +55,7 @@ export function MontoPorMoneda({
   signo?: string
   vacio?: string
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const conMovimiento = totales.filter((t) => t.valor !== 0)
 
   if (conMovimiento.length === 0) {

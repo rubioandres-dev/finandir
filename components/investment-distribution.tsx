@@ -1,5 +1,6 @@
 import type { TramoDeDistribucion } from '@/lib/investments-service'
-import { ETIQUETA_TIPO_ACTIVO, formatearMonto, type Moneda, type TipoDeActivo } from '@/lib/types'
+import { crearFormateadores, type Locale } from '@/lib/formatters'
+import { ETIQUETA_TIPO_ACTIVO, type Moneda, type TipoDeActivo } from '@/lib/types'
 
 /**
  * Un color por tipo de activo, todos tomados de tokens del tema y no de hex
@@ -19,10 +20,14 @@ const COLOR: Record<TipoDeActivo, string> = {
 export function InvestmentDistribution({
   tramos,
   moneda,
+  locale,
 }: {
   tramos: TramoDeDistribucion[]
   moneda: Moneda
+  locale: Locale
 }) {
+  const { formatearMonto } = crearFormateadores(locale)
+
   if (tramos.length === 0) return null
 
   return (

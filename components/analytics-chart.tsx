@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { useModoMoneda } from '@/components/currency-provider'
+import { useFormatoRegional, useModoMoneda } from '@/components/currency-provider'
 import { agruparGastosPorCategoria, type GastoParaGrafico } from '@/lib/analytics'
-import { ETIQUETA_PERIODO, formatearMonto, type Moneda, type Periodo } from '@/lib/types'
+import { ETIQUETA_PERIODO, type Moneda, type Periodo } from '@/lib/types'
 
 const PERIODOS: Periodo[] = ['mes', 'mesAnterior', 'anio']
 
@@ -17,6 +17,7 @@ type Props = {
 }
 
 export function AnalyticsChart({ gastos, categorias }: Props) {
+  const { formatearMonto } = useFormatoRegional()
   const { monedasSeleccionadas, modo } = useModoMoneda()
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   // Un gráfico por moneda: una torta que mezcle divisas no significa nada.

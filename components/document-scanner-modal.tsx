@@ -5,11 +5,10 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Check, FileText, Loader2, ScanLine, X } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
-import { useModoMoneda } from '@/components/currency-provider'
+import { useModoMoneda, useFormatoRegional } from '@/components/currency-provider'
 import { CurrencyOptions } from '@/components/currency-options'
 import type { ComprobanteParseado } from '@/app/api/ai/parse-document/route'
 import {
-  formatearMonto,
   hoyEnArgentina,
   type CuentaElegible,
   type Moneda,
@@ -64,6 +63,7 @@ export function DocumentScannerModal({
   cuentas?: CuentaElegible[]
   onCerrar: () => void
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const { modo } = useModoMoneda()
   const hoja = useRef<HTMLDivElement>(null)
@@ -196,7 +196,7 @@ export function DocumentScannerModal({
 
       <div
         ref={hoja}
-        className="glass-card safe-bottom relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu p-5 sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja sm:rounded-3xl"
       >
         <div className="flex items-center justify-between gap-3">
           <h3

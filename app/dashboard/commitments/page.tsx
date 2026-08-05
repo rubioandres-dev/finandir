@@ -7,7 +7,8 @@ import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
 import { createClient } from '@/lib/supabase/server'
-import { formatearFecha, formatearMonto, hoyEnArgentina, type Moneda } from '@/lib/types'
+import { crearFormateadores } from '@/lib/formatters'
+import { hoyEnArgentina, type Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Saldo comprometido' }
 
@@ -19,11 +20,13 @@ export default async function CommitmentsPage() {
   if (!user) redirect('/login')
 
   const hoy = hoyEnArgentina()
-  const [{ curva, planes, error }, { cuentas }, { monedas }] = await Promise.all([
+  const [{ curva, planes, error }, { cuentas }, { monedas, locale }] = await Promise.all([
     cargarCompromisos(supabase, hoy),
     obtenerCuentasPorMoneda(supabase),
     cargarContextoDeMonedas(),
   ])
+
+  const { formatearMonto, formatearFecha, formatearMesCorto } = crearFormateadores(locale)
 
   const nombreDeCuenta = new Map(Object.values(cuentas).map((c) => [c.id, c.name]))
 
@@ -133,7 +136,7 @@ export default async function CommitmentsPage() {
             Libertad de cuotas
           </CardLabel>
           <p className="mt-2 font-display text-base font-bold tracking-tight text-success-emerald">
-            {mesLibre ?? 'Más de 12 meses'}
+            {mesLibre ? formatearMesCorto(mesLibre) : 'Más de 12 meses'}
           </p>
           <p className="mt-1.5 text-[11px] text-subtle">Primer mes sin vencimientos</p>
         </Card>

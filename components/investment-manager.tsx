@@ -9,11 +9,10 @@ import {
   type InversionAGuardar,
 } from '@/app/dashboard/investments/actions'
 import { CurrencyOptions } from '@/components/currency-options'
-import { useModoMoneda } from '@/components/currency-provider'
+import { useModoMoneda, useFormatoRegional } from '@/components/currency-provider'
 import {
   ETIQUETA_LIQUIDEZ,
   ETIQUETA_TIPO_ACTIVO,
-  formatearMonto,
   type Inversion,
   type Moneda,
   type PlazoDeLiquidez,
@@ -143,7 +142,7 @@ function FormularioDeInversion({
 
       <form
         onSubmit={enviar}
-        className="glass-card safe-bottom relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu p-5 sm:rounded-3xl"
+        className="glass-card relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
           <h3 className="aurem-caps text-[11px] text-gold-leaf">
@@ -290,6 +289,7 @@ function FilaInversion({
   inversion: Inversion
   onEditar: () => void
 }) {
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const [enCurso, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
 import { CurrencySettings } from '@/components/currency-settings'
 import { ProfileForm } from '@/components/profile-form'
+import { RegionSettings } from '@/components/region-settings'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
@@ -20,7 +21,7 @@ export default async function SettingsPage() {
 
   // Ajustes muestra TODAS las divisas del perfil, no solo la activa: es donde
   // se administran, así que filtrarlas por el modo del header sería absurdo.
-  const { monedas, perfil, faltaMigracion: faltaPerfil } = await cargarContextoDeMonedas()
+  const { monedas, locale, perfil, faltaMigracion: faltaPerfil } = await cargarContextoDeMonedas()
 
   const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
     await cargarDatosDelDashboard(undefined, monedas)
@@ -64,6 +65,8 @@ export default async function SettingsPage() {
       />
 
       <CurrencySettings monedasIniciales={monedas} faltaMigracion={faltaPerfil} />
+
+      <RegionSettings localeInicial={locale} faltaMigracion={faltaPerfil} />
 
       <Card>
         <CardContent className="flex flex-col gap-3">
