@@ -59,6 +59,7 @@ export const cargarContextoDeMonedas = cache(async (): Promise<ContextoDeMonedas
       idioma: IDIOMA_POR_DEFECTO,
       xp: 0,
       tier: 'BRONZE',
+      modulos: {},
       faltaMigracion: false,
       modo: MONEDAS_POR_DEFECTO[0],
     }

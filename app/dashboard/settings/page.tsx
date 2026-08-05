@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
 import { CurrencySettings } from '@/components/currency-settings'
 import { LanguageSettings } from '@/components/language-settings'
+import { ModuleSettings } from '@/components/module-settings'
 import { ProfileForm } from '@/components/profile-form'
 import { RegionSettings } from '@/components/region-settings'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
     monedas,
     locale,
     idioma,
+    modulos,
     perfil,
     faltaMigracion: faltaPerfil,
   } = await cargarContextoDeMonedas()
@@ -76,6 +78,8 @@ export default async function SettingsPage() {
       <RegionSettings localeInicial={locale} faltaMigracion={faltaPerfil} />
 
       <LanguageSettings idiomaInicial={idioma} faltaMigracion={faltaPerfil} />
+
+      <ModuleSettings inicial={modulos} faltaMigracion={faltaPerfil} />
 
       <Card>
         <CardContent className="flex flex-col gap-3">

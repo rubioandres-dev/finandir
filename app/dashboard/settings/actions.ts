@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { CATALOGO_LOCALES, normalizarLocale, type Locale } from '@/lib/formatters'
 import { CATALOGO_IDIOMAS, normalizarIdioma } from '@/lib/i18n'
+import { normalizarModulos, type EstadoDeModulos } from '@/lib/modules'
 import { CATALOGO_MONEDAS, normalizarListaDeMonedas } from '@/lib/monedas'
 import { guardarPerfil } from '@/lib/profile-service'
 import { createClient } from '@/lib/supabase/server'
@@ -187,6 +188,31 @@ export async function guardarIdioma(idioma: string): Promise<EstadoDePerfil> {
   revalidatePath('/dashboard', 'layout')
 
   return { mensaje: 'Idioma actualizado.' }
+}
+
+/**
+ * Guarda qué módulos quedan activos.
+ *
+ * `normalizarModulos` descarta las claves que no son módulos y las de los
+ * fijos: el cliente manda un objeto y no hay razón para confiar en su forma.
+ */
+export async function guardarModulos(estado: EstadoDeModulos): Promise<EstadoDePerfil> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
+
+  const resultado = await guardarPerfil(supabase, user.id, {
+    active_modules: normalizarModulos(estado),
+  })
+
+  if (!resultado.ok) return { error: resultado.error }
+
+  // La navegación se arma en el layout: hay que revalidarlo entero.
+  revalidatePath('/dashboard', 'layout')
+
+  return { mensaje: 'Módulos actualizados.' }
 }
 
 const onboardingSchema = z.object({

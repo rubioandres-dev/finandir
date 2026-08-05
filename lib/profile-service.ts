@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LOCALE_POR_DEFECTO, normalizarLocale, type Locale } from './formatters'
 import { IDIOMA_POR_DEFECTO, normalizarIdioma, type Idioma } from './i18n'
+import { normalizarModulos, type EstadoDeModulos } from './modules'
 import { MONEDAS_POR_DEFECTO, normalizarListaDeMonedas } from './monedas'
 import type { Moneda, UserProfile } from './types'
 
@@ -31,6 +32,8 @@ export type ContextoDePerfil = {
   /** XP y tier del sistema de logros. En cero si falta la 010. */
   xp: number
   tier: string
+  /** Módulos apagados por el usuario. Vacío si falta la 011. */
+  modulos: EstadoDeModulos
   /** true si `user_profiles` todavía no existe en la base. */
   faltaMigracion: boolean
 }
@@ -52,6 +55,7 @@ const CONTEXTO_POR_DEFECTO = (): Omit<ContextoDePerfil, 'faltaMigracion'> => ({
   idioma: IDIOMA_POR_DEFECTO,
   xp: 0,
   tier: 'BRONZE',
+  modulos: {},
 })
 
 export async function cargarPerfil(
@@ -64,6 +68,7 @@ export async function cargarPerfil(
   // su valor por defecto en vez de tumbar la app entera.
   const BASE = 'user_id, display_name, selected_currencies, onboarding_completed, updated_at'
   const NIVELES = [
+    `${BASE}, locale, language, aurem_xp, aurem_tier, active_modules`, // 007+009+010+011
     `${BASE}, locale, language, aurem_xp, aurem_tier`, // 007 + 009 + 010
     `${BASE}, locale`, // 007 + 009
     BASE, // solo 007
@@ -104,6 +109,7 @@ export async function cargarPerfil(
   const idioma = normalizarIdioma(fila.language as string | null)
   const xp = Number(fila.aurem_xp ?? 0)
   const tier = (fila.aurem_tier as string | null) ?? 'BRONZE'
+  const modulos = normalizarModulos(fila.active_modules)
 
   return {
     perfil: {
@@ -122,6 +128,7 @@ export async function cargarPerfil(
     idioma,
     xp,
     tier,
+    modulos,
     faltaMigracion: false,
   }
 }
@@ -143,6 +150,7 @@ export async function guardarPerfil(
     language?: Idioma
     aurem_xp?: number
     aurem_tier?: string
+    active_modules?: EstadoDeModulos
     onboarding_completed?: boolean
   }
 ): Promise<{ ok: true } | { ok: false; error: string; faltaMigracion: boolean }> {
@@ -154,8 +162,15 @@ export async function guardarPerfil(
   // Se reintenta sin las que dependen de migraciones nuevas para no perder el
   // resto del cambio; el aviso de que falta la migración lo da la UI.
   if (error && esColumnaFaltante(error.code)) {
-    const { locale: _l, language: _i, aurem_xp: _x, aurem_tier: _t, ...resto } = cambios
-    void [_l, _i, _x, _t]
+    const {
+      locale: _l,
+      language: _i,
+      aurem_xp: _x,
+      aurem_tier: _t,
+      active_modules: _m,
+      ...resto
+    } = cambios
+    void [_l, _i, _x, _t, _m]
 
     if (Object.keys(resto).length > 0) {
       ;({ error } = await supabase

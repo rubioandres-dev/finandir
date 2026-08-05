@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeftRight, LayoutDashboard, Menu, TrendingUp, Wallet } from 'lucide-react'
-import { useTraduccion } from '@/components/currency-provider'
+import { useModuloActivo, useTraduccion } from '@/components/currency-provider'
 import { MoreMenuDrawer } from '@/components/layout/more-menu-drawer'
 import type { Clave } from '@/lib/i18n'
+import type { Modulo } from '@/lib/modules'
 
 /**
  * Las cuatro de uso diario. El resto vive en la bandeja "Más".
@@ -16,16 +17,27 @@ import type { Clave } from '@/lib/i18n'
  * se llegaba desde el enlace del dashboard o desde el menú de escritorio, que
  * en mobile no existe. Inversiones tenía el mismo problema.
  */
-const PESTANAS: { href: string; etiqueta: Clave; Icono: typeof Wallet }[] = [
+const PESTANAS: {
+  href: string
+  etiqueta: Clave
+  Icono: typeof Wallet
+  modulo?: Modulo
+}[] = [
   { href: '/dashboard', etiqueta: 'nav.inicio', Icono: LayoutDashboard },
   { href: '/dashboard/accounts', etiqueta: 'nav.cuentas', Icono: Wallet },
   { href: '/dashboard/transactions', etiqueta: 'nav.movimientos', Icono: ArrowLeftRight },
-  { href: '/dashboard/investments', etiqueta: 'nav.inversiones', Icono: TrendingUp },
+  {
+    href: '/dashboard/investments',
+    etiqueta: 'nav.inversiones',
+    Icono: TrendingUp,
+    modulo: 'investments',
+  },
 ]
 
 /** Las rutas que viven en la bandeja: con cualquiera de ellas, "Más" va activo. */
 const RUTAS_DEL_MENU = [
   '/dashboard/goals',
+  '/dashboard/shared-expenses',
   '/dashboard/fire',
   '/dashboard/calendar',
   '/dashboard/debts',
@@ -43,8 +55,13 @@ const PESTANA =
 export function BottomNav() {
   const ruta = usePathname()
   const { t } = useTraduccion()
+  const moduloActivo = useModuloActivo()
+
+  // Con Inversiones apagado quedan tres pestañas más "Más": la barra se
+  // reacomoda sola porque cada `<li>` es `flex-1`.
+  const visibles = PESTANAS.filter((p) => !p.modulo || moduloActivo(p.modulo))
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const cerrarMenu = useCallback(() => setMenuAbierto(false), [])
+  const cerrarMenu = () => setMenuAbierto(false)
 
   // "Más" se marca activo cuando estás parado en alguna de sus secciones: si
   // no, la barra no muestra dónde estás en la mitad de la app.
@@ -57,7 +74,7 @@ export function BottomNav() {
         className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-glass-stroke bg-background/80 backdrop-blur-xl lg:hidden"
       >
         <ul className="safe-x mx-auto flex w-full max-w-2xl items-stretch">
-          {PESTANAS.map(({ href, etiqueta, Icono }) => {
+          {visibles.map(({ href, etiqueta, Icono }) => {
             // /dashboard sería prefijo de todas: solo coincide exacto.
             const activa = href === '/dashboard' ? ruta === href : ruta.startsWith(href)
 

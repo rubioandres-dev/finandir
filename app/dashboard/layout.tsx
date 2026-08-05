@@ -57,6 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       monedas={contexto.monedas}
       locale={contexto.locale}
       idioma={contexto.idioma}
+      modulos={contexto.modulos}
     >
       <div className="flex flex-1 flex-col">
         <Header

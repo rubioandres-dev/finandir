@@ -13,11 +13,13 @@ import {
   Rocket,
   Settings,
   Target,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useTraduccion } from '@/components/currency-provider'
+import { useModuloActivo, useTraduccion } from '@/components/currency-provider'
 import type { Clave } from '@/lib/i18n'
+import type { Modulo } from '@/lib/modules'
 
 /**
  * Lo que no entra en la barra inferior.
@@ -30,28 +32,47 @@ const SECCIONES: {
   etiqueta: Clave
   detalle: Clave
   Icono: LucideIcon
+  /** Qué módulo la habilita. Sin módulo, siempre visible. */
+  modulo?: Modulo
 }[] = [
   {
+    href: '/dashboard/shared-expenses',
+    etiqueta: 'nav.compartidos',
+    detalle: 'nav.compartidosDetalle',
+    Icono: Users,
+    modulo: 'shared_expenses',
+  },
+  {
     href: '/dashboard/goals',
+    modulo: 'goals',
     etiqueta: 'nav.objetivos',
     detalle: 'nav.objetivosDetalle',
     Icono: Target,
   },
-  { href: '/dashboard/fire', etiqueta: 'nav.fire', detalle: 'nav.fireDetalle', Icono: Rocket },
+  {
+    href: '/dashboard/fire',
+    etiqueta: 'nav.fire',
+    detalle: 'nav.fireDetalle',
+    Icono: Rocket,
+    modulo: 'fire',
+  },
   {
     href: '/dashboard/calendar',
+    modulo: 'calendar',
     etiqueta: 'nav.calendario',
     detalle: 'nav.calendarioDetalle',
     Icono: CalendarDays,
   },
   {
     href: '/dashboard/debts',
+    modulo: 'debts',
     etiqueta: 'nav.deudas',
     detalle: 'nav.deudasDetalle',
     Icono: HandCoins,
   },
   {
     href: '/dashboard/smart-spend',
+    modulo: 'smart_spend',
     etiqueta: 'nav.gastoInteligente',
     detalle: 'nav.gastoInteligenteDetalle',
     Icono: Lightbulb,
@@ -89,6 +110,11 @@ const SECCIONES: {
 export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
   const ruta = usePathname()
   const { t } = useTraduccion()
+  const activo = useModuloActivo()
+
+  // Un módulo apagado no aparece en la bandeja. Guía y Ajustes no tienen
+  // módulo: son la salida de emergencia para volver a prender lo que se apagó.
+  const visibles = SECCIONES.filter((s) => !s.modulo || activo(s.modulo))
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {
@@ -131,7 +157,7 @@ export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
         </div>
 
         <ul className="flex flex-col">
-          {SECCIONES.map(({ href, etiqueta, detalle, Icono }) => {
+          {visibles.map(({ href, etiqueta, detalle, Icono }) => {
             const activa = ruta.startsWith(href)
 
             return (

@@ -15,6 +15,7 @@ import {
   type Idioma,
   type Traductor,
 } from '@/lib/i18n'
+import { moduloActivo, type EstadoDeModulos, type Modulo } from '@/lib/modules'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
 
@@ -28,6 +29,8 @@ type Contexto = {
   locale: Locale
   /** Idioma de la interfaz. Es una preferencia DISTINTA del formato. */
   idioma: Idioma
+  /** Módulos que el usuario apagó en Ajustes. */
+  modulos: EstadoDeModulos
   /** true mientras el servidor recarga las vistas con la moneda nueva. */
   cambiando: boolean
   /**
@@ -60,12 +63,14 @@ export function CurrencyProvider({
   monedas = MONEDAS_POR_DEFECTO,
   locale = LOCALE_POR_DEFECTO,
   idioma = IDIOMA_POR_DEFECTO,
+  modulos = {},
 }: {
   children: React.ReactNode
   modoInicial: Moneda
   monedas?: Moneda[]
   locale?: Locale
   idioma?: Idioma
+  modulos?: EstadoDeModulos
 }) {
   const router = useRouter()
   const [modo, setModo] = useState<Moneda>(modoInicial)
@@ -86,6 +91,7 @@ export function CurrencyProvider({
       monedasSeleccionadas: seleccionadas,
       locale,
       idioma,
+      modulos,
       cambiando,
       mostrarEquivalencias: modoEfectivo === 'USD',
       cambiarModo: (moneda: Moneda) => {
@@ -100,7 +106,7 @@ export function CurrencyProvider({
         iniciarCambio(() => router.refresh())
       },
     }
-  }, [modo, monedas, locale, idioma, cambiando, router])
+  }, [modo, monedas, locale, idioma, modulos, cambiando, router])
 
   return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
@@ -153,6 +159,19 @@ export function useFormatoRegional(): Formateadores {
  * Va aparte de `useFormatoRegional` porque idioma y región son preferencias
  * independientes: se puede querer texto en inglés con formato argentino.
  */
+/**
+ * Si un módulo está activo para este usuario.
+ *
+ * Lo consultan la barra inferior, la bandeja "Más" y el dashboard para
+ * decidir qué mostrar. Un módulo apagado desaparece de la navegación, pero
+ * su ruta sigue existiendo: apagar una sección esconde la puerta, no borra
+ * los datos ni rompe un enlace que alguien haya guardado.
+ */
+export function useModuloActivo(): (modulo: Modulo) => boolean {
+  const { modulos } = useMonedaContext()
+  return useMemo(() => (modulo: Modulo) => moduloActivo(modulos, modulo), [modulos])
+}
+
 export function useTraduccion(): { t: Traductor; idioma: Idioma } {
   const { idioma } = useMonedaContext()
   return useMemo(() => ({ t: crearTraductor(idioma), idioma }), [idioma])
