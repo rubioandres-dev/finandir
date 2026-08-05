@@ -260,12 +260,26 @@ export function inicioDeLaVentanaDeDatos(): string {
   return inicioMesAnterior < inicioAnio ? inicioMesAnterior : inicioAnio
 }
 
-/** "2026-08-01" -> "1 de agosto" (sin pasar por Date, para no correr la zona horaria). */
+/**
+ * "2026-08-01" -> "1 de agosto".
+ *
+ * El `timeZone: 'UTC'` NO es decorativo. La fecha se construye con `Date.UTC`,
+ * o sea medianoche UTC; si se la formatea en la zona local, en Argentina
+ * (UTC−3) esa medianoche es las 21:00 del día ANTERIOR, y el nombre del mes
+ * sale corrido. Todo movimiento fechado el 1° mostraba el mes anterior:
+ * "2026-01-01" salía como "1 de diciembre". El número del día no se veía
+ * porque sale del string y no del Date, lo que hacía al bug más difícil de
+ * notar: solo estaba mal el nombre del mes.
+ *
+ * Se formatea en UTC —y no en `ZONA_HORARIA`— porque el Date se armó en UTC:
+ * lo que se quiere es leerlo en la misma zona en la que se escribió.
+ */
 export function formatearFecha(fecha: string): string {
   const [anio, mes, dia] = fecha.split('-').map(Number)
-  const nombreMes = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(
-    new Date(Date.UTC(anio, mes - 1, dia))
-  )
+  const nombreMes = new Intl.DateTimeFormat('es-AR', {
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(anio, mes - 1, dia)))
   const esteAnio = Number(hoyEnArgentina().slice(0, 4))
   return anio === esteAnio ? `${dia} de ${nombreMes}` : `${dia} de ${nombreMes} ${anio}`
 }

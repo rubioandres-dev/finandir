@@ -19,6 +19,7 @@ import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
+import { hoyEnArgentina } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -105,6 +106,13 @@ export default async function DashboardPage() {
 
   const equivalente = (t: { amount: number; currency: 'ARS' | 'USD' }) =>
     equivalenteAproximado(Number(t.amount), t.currency, cotizacion)
+
+  // "Recientes" tiene que significar recientes. Las cuotas son filas con la
+  // fecha del mes en que se pagan, así que el orden por fecha descendente
+  // ponía arriba vencimientos que todavía no ocurrieron. Las futuras tienen su
+  // propia pestaña en /dashboard/transactions.
+  const hoy = hoyEnArgentina()
+  const recientes = movimientos.filter((movimiento) => movimiento.date <= hoy).slice(0, 8)
 
   return (
     <div className="flex flex-col gap-5">
@@ -210,7 +218,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
         <TransactionList
-          movimientos={movimientos.slice(0, 8)}
+          movimientos={recientes}
           categorias={categorias}
           equivalente={equivalente}
           vacio={

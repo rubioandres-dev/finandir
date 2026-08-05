@@ -55,14 +55,23 @@ export function TransactionRow({
         )}
       </span>
 
-      <div className="flex min-w-0 flex-1 flex-col text-left">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span className="truncate text-sm font-medium tracking-tight">
           {movimiento.description || ETIQUETA_TIPO[movimiento.type]}
         </span>
         <span className="truncate text-xs text-subtle">
           {categoriaNombre ?? ETIQUETA_TIPO[movimiento.type]} · {formatearFecha(movimiento.date)}
-          {cuotas > 1 && ` · cuota ${movimiento.installment_current}/${cuotas}`}
         </span>
+
+        {/* La cuota va en un pill y no como sufijo del subtítulo: es el dato
+            que distingue un gasto puntual de uno que va a seguir apareciendo
+            todos los meses, y como texto suelto se perdía. */}
+        {cuotas > 1 && (
+          <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full border border-glass-stroke/60 bg-gold-leaf/[0.08] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-gold-leaf">
+            <span aria-hidden>💳</span>
+            Cuota {movimiento.installment_current} de {cuotas}
+          </span>
+        )}
       </div>
 
       <Monto

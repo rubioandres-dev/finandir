@@ -104,8 +104,10 @@ export function SmartSpendCalculator({
         </CardLabel>
 
         <div className="grid grid-cols-2 gap-3">
-          <label className={ETIQUETA}>
-            Precio contado
+          {/* "De lista" y no "contado": el descuento se aplica ENCIMA de este
+              número, así que llamarlo contado hacía pensar que ya lo incluía. */}
+          <label className={`col-span-2 ${ETIQUETA}`}>
+            Precio de lista
             <div className="flex overflow-hidden rounded-lg border border-border bg-card focus-within:border-primary">
               <input
                 type="number"
@@ -128,10 +130,17 @@ export function SmartSpendCalculator({
                 <option value="USD">USD</option>
               </select>
             </div>
+            <span className="text-[10px] font-normal leading-snug text-subtle">
+              Precio estándar o financiado de lista, antes de aplicar el descuento por pago al
+              contado.
+            </span>
           </label>
 
-          <label className={ETIQUETA}>
-            Descuento contado (%)
+          {/* Va a lo ancho, debajo del precio: los dos juntos son "precio de
+              lista menos descuento", y así los tres campos que quedan forman
+              filas parejas sin dejar un hueco. */}
+          <label className={`col-span-2 ${ETIQUETA}`}>
+            Descuento por pagar contado (%)
             <input
               type="number"
               inputMode="decimal"

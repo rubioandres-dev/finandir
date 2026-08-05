@@ -18,10 +18,18 @@ const DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
 
 const ORDEN_DE_TIPOS: TipoDeEvento[] = ['cierre', 'vencimiento', 'ingreso', 'cuota']
 
+/**
+ * `timeZone: 'UTC'` obligatorio: el Date se arma con `Date.UTC` en el día 1, y
+ * al formatearlo en la zona local (UTC−3) esa medianoche cae en el día
+ * anterior, o sea en el mes anterior. El encabezado del calendario mostraba un
+ * mes menos que el que estaba dibujando. Ver la nota en `formatearFecha`.
+ */
 function nombreDelMes(anio: number, mes: number): string {
-  return new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(
-    new Date(Date.UTC(anio, mes - 1, 1))
-  )
+  return new Intl.DateTimeFormat('es-AR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(anio, mes - 1, 1)))
 }
 
 /** "2026-08" del mes anterior o siguiente. */
