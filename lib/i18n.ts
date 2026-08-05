@@ -19,11 +19,16 @@
  *
  * QUÉ ESTÁ TRADUCIDO Y QUÉ NO
  *
- * Este diccionario cubre la navegación, los ajustes, los objetivos y la guía
- * de uso. El resto de las pantallas —movimientos, cuentas, inversiones— sigue
- * en español: son varios cientos de cadenas y traducirlas a medias daría una
- * interfaz mezclada, que es peor que una en un solo idioma. `t()` devuelve la
- * clave si falta una traducción, así que lo que falte se ve, no se rompe.
+ * Cubierto: navegación (header, barra inferior, bandeja "Más"), dashboard,
+ * presupuestos, objetivos y Tier, ajustes de idioma y región, el modal de
+ * confirmación de localización, y la guía de uso completa —esta última con
+ * contenido propio por idioma en `lib/guide-content.ts`.
+ *
+ * NO cubierto todavía: los formularios profundos de cuentas, movimientos,
+ * inversiones, deudas, el importador de resúmenes y el editor de movimientos.
+ * Son varios cientos de cadenas de microcopy y están en español en los tres
+ * idiomas. `t()` devuelve la clave si falta una traducción, así que lo que
+ * falte se ve pero no rompe.
  */
 
 export type Idioma = 'es-AR' | 'es' | 'en'
@@ -143,6 +148,72 @@ const ES_AR = {
   'tier.xp': 'XP',
   'tier.siguiente': 'Faltan {xp} XP para {tier}',
   'tier.maximo': 'Llegaste al tier más alto.',
+  // --- Dashboard ------------------------------------------------------------
+  'dashboard.balance': 'Balance total',
+  'dashboard.sinMovimientos': 'Sin movimientos todavía',
+  'dashboard.ingresos': 'Ingresos',
+  'dashboard.gastos': 'Gastos',
+  'dashboard.esteMes': 'Este mes',
+  'dashboard.recientes': 'Movimientos recientes',
+  'dashboard.verTodos': 'Ver todos',
+  'dashboard.sinRegistrar': 'Todavía no registraste movimientos.',
+  'dashboard.sinRegistrarPista': 'Escribí o dictá uno arriba y la IA lo carga por vos.',
+  'dashboard.comoSacarleJugo': 'Cómo sacarle jugo',
+  'dashboard.verGuia': 'Ver guía completa',
+  'dashboard.cotizaciones': 'Cotizaciones del mercado',
+  'dashboard.verTodasLasCotizaciones': 'Ver todas las cotizaciones (MEP, Blue, CCL...)',
+  'dashboard.actualizado': 'Actualizado {fecha} hs',
+  'dashboard.sinCotizaciones':
+    'No se pudieron obtener las cotizaciones. Se reintenta en el próximo refresco.',
+  'dashboard.errorCarga': 'Hubo un problema al cargar tus datos: {error}',
+
+  // --- Presupuestos ---------------------------------------------------------
+  'presupuestos.titulo': 'Presupuestos por categoría',
+  'presupuestos.sinObjetivos':
+    'Todavía no definiste presupuestos. Cargá uno como objetivo y lo vas a ver acá.',
+  'presupuestos.cargar': '+ Cargar objetivo de presupuesto',
+  'presupuestos.deLimite': 'de',
+  'presupuestos.excedido': 'Excedido por {monto}',
+  'presupuestos.quedan': 'Quedan {monto}',
+
+  // --- Carga dual de objetivos ----------------------------------------------
+  'objetivos.porMonto': 'Monto',
+  'objetivos.porPorcentaje': 'Porcentaje',
+  'objetivos.equivale': 'Equivale a {monto} por mes',
+  'objetivos.equivalePorcentaje': 'Equivale al {porcentaje}% de tus ingresos',
+  'objetivos.sinIngresos': 'Cargá algún ingreso del mes para ver el equivalente en dinero.',
+  'objetivos.deudaActual': 'Tu deuda total hoy es {monto}.',
+  'objetivos.sinDeuda': 'Hoy no tenés deuda registrada.',
+  'objetivos.equivaleDeuda': 'Equivale a bajar la deuda a {monto}.',
+  'objetivos.gastoPromedio':
+    'Tu gasto promedio mensual es {monto}. Este monto cubre {meses} meses de costo de vida.',
+  'objetivos.sinGasto': 'Todavía no hay gastos del mes para estimar cuántos meses cubre.',
+  'objetivos.cancelar': 'Cancelar',
+  'objetivos.categoria': 'Categoría',
+  'objetivos.elegiUna': 'Elegí una…',
+  'objetivos.tipoCampo': 'Tipo',
+  'objetivos.reclamar': 'Reclamar {xp} XP',
+  'objetivos.cumplisteUno': '¡Cumpliste un objetivo!',
+  'objetivos.cumplisteVarios': '¡Cumpliste {cantidad} objetivos!',
+  'objetivos.xpQueda':
+    'Sumás {xp} XP. Una vez reclamado, el logro queda: no se pierde aunque el mes que viene no lo repitas.',
+
+  // --- Comunes --------------------------------------------------------------
+  'comun.guardar': 'Guardar',
+  'comun.cancelar': 'Cancelar',
+  'comun.cerrar': 'Cerrar',
+  'comun.borrar': 'Borrar',
+  'comun.editar': 'Editar',
+  'comun.confirmar': 'Confirmar',
+  'comun.guardando': 'Guardando…',
+  'comun.moneda': 'Moneda',
+  'comun.fecha': 'Fecha',
+  'comun.importe': 'Importe',
+  'comun.cuenta': 'Cuenta',
+  'comun.cuotas': 'Cuotas',
+  'comun.descripcion': 'Descripción',
+  'comun.enMoneda': 'en {moneda}',
+
   'tier.comoFunciona':
     'Cada objetivo que cumplís por primera vez suma XP, y el XP no baja nunca. Un mes flojo no te saca un logro que ya conseguiste.',
 } as const
@@ -174,6 +245,30 @@ const ES_NEUTRO: Parcial = {
   'objetivos.ayuda.EMERGENCY_FUND':
     'Cuántos meses de tus gastos quieres tener cubiertos con dinero líquido.',
   'objetivos.ayuda.DEBT_REDUCTION': 'A cuánto quieres reducir tu deuda total.',
+
+  'dashboard.sinMovimientos': 'Sin movimientos aún',
+  'dashboard.sinRegistrar': 'Aún no has registrado movimientos.',
+  'dashboard.sinRegistrarPista': 'Escribe o dicta uno arriba y la IA lo registra por ti.',
+  'dashboard.comoSacarleJugo': 'Cómo aprovechar AUREM',
+  'dashboard.verTodasLasCotizaciones': 'Ver todas las cotizaciones',
+
+  'presupuestos.sinObjetivos':
+    'Aún no has definido presupuestos. Registra uno como objetivo y lo verás aquí.',
+  'presupuestos.cargar': '+ Agregar objetivo de presupuesto',
+
+  'objetivos.sinIngresos': 'Registra algún ingreso del mes para ver el equivalente en dinero.',
+  'objetivos.sinDeuda': 'Hoy no tienes deuda registrada.',
+  'objetivos.equivaleDeuda': 'Equivale a reducir la deuda a {monto}.',
+  'objetivos.gastoPromedio':
+    'Tu gasto promedio mensual es {monto}. Este monto cubre {meses} meses de costo de vida.',
+  'objetivos.sinGasto': 'Aún no hay gastos del mes para estimar cuántos meses cubre.',
+  'objetivos.elegiUna': 'Elige una…',
+  'objetivos.cumplisteUno': '¡Cumpliste un objetivo!',
+  'objetivos.cumplisteVarios': '¡Cumpliste {cantidad} objetivos!',
+  'objetivos.xpQueda':
+    'Sumas {xp} XP. Una vez reclamado, el logro permanece: no se pierde aunque el mes siguiente no lo repitas.',
+
+  'comun.guardando': 'Guardando…',
 
   'tier.comoFunciona':
     'Cada objetivo que cumples por primera vez suma XP, y el XP nunca baja. Un mes flojo no te quita un logro que ya conseguiste.',
@@ -245,6 +340,67 @@ const EN: Parcial = {
   'tier.xp': 'XP',
   'tier.siguiente': '{xp} XP to {tier}',
   'tier.maximo': "You've reached the highest tier.",
+  'dashboard.balance': 'Total balance',
+  'dashboard.sinMovimientos': 'No transactions yet',
+  'dashboard.ingresos': 'Income',
+  'dashboard.gastos': 'Expenses',
+  'dashboard.esteMes': 'This month',
+  'dashboard.recientes': 'Recent transactions',
+  'dashboard.verTodos': 'See all',
+  'dashboard.sinRegistrar': 'You have not recorded any transactions yet.',
+  'dashboard.sinRegistrarPista': 'Type or dictate one above and the AI will record it for you.',
+  'dashboard.comoSacarleJugo': 'Getting the most out of it',
+  'dashboard.verGuia': 'Read the full guide',
+  'dashboard.cotizaciones': 'Market rates',
+  'dashboard.verTodasLasCotizaciones': 'See all rates',
+  'dashboard.actualizado': 'Updated {fecha}',
+  'dashboard.sinCotizaciones': 'Rates could not be fetched. It will retry on the next refresh.',
+  'dashboard.errorCarga': 'There was a problem loading your data: {error}',
+
+  'presupuestos.titulo': 'Category budgets',
+  'presupuestos.sinObjetivos':
+    'You have not set any budgets yet. Add one as a goal and it will show up here.',
+  'presupuestos.cargar': '+ Add a budget goal',
+  'presupuestos.deLimite': 'of',
+  'presupuestos.excedido': 'Over by {monto}',
+  'presupuestos.quedan': '{monto} left',
+
+  'objetivos.porMonto': 'Amount',
+  'objetivos.porPorcentaje': 'Percentage',
+  'objetivos.equivale': 'Equals {monto} per month',
+  'objetivos.equivalePorcentaje': 'Equals {porcentaje}% of your income',
+  'objetivos.sinIngresos': 'Record some income this month to see the money equivalent.',
+  'objetivos.deudaActual': 'Your total debt today is {monto}.',
+  'objetivos.sinDeuda': 'You have no debt recorded today.',
+  'objetivos.equivaleDeuda': 'Equals bringing debt down to {monto}.',
+  'objetivos.gastoPromedio':
+    'Your average monthly spending is {monto}. This amount covers {meses} months of living costs.',
+  'objetivos.sinGasto': 'No expenses recorded this month yet to estimate how many months it covers.',
+  'objetivos.cancelar': 'Cancel',
+  'objetivos.categoria': 'Category',
+  'objetivos.elegiUna': 'Choose one…',
+  'objetivos.tipoCampo': 'Type',
+  'objetivos.reclamar': 'Claim {xp} XP',
+  'objetivos.cumplisteUno': 'You hit a goal!',
+  'objetivos.cumplisteVarios': 'You hit {cantidad} goals!',
+  'objetivos.xpQueda':
+    'You earn {xp} XP. Once claimed the achievement stays: you keep it even if next month you do not repeat it.',
+
+  'comun.guardar': 'Save',
+  'comun.cancelar': 'Cancel',
+  'comun.cerrar': 'Close',
+  'comun.borrar': 'Delete',
+  'comun.editar': 'Edit',
+  'comun.confirmar': 'Confirm',
+  'comun.guardando': 'Saving…',
+  'comun.moneda': 'Currency',
+  'comun.fecha': 'Date',
+  'comun.importe': 'Amount',
+  'comun.cuenta': 'Account',
+  'comun.cuotas': 'Instalments',
+  'comun.descripcion': 'Description',
+  'comun.enMoneda': 'in {moneda}',
+
   'tier.comoFunciona':
     'Every goal you hit for the first time earns XP, and XP never goes down. A weak month cannot take away something you already achieved.',
 }

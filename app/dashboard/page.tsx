@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { Wallet } from 'lucide-react'
 import { AnalyticsChart } from '@/components/analytics-chart'
-import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
+import { BudgetGoals, type PresupuestoDeObjetivo } from '@/components/budget-goals'
+import { FlowCards } from '@/components/flow-cards'
 import { MontoPorMoneda } from '@/components/monto'
 import { SmartCardSuggester } from '@/components/smart-card-suggester'
 import { SmartInput } from '@/components/smart-input'
@@ -16,6 +17,8 @@ import { getBestCardToPay } from '@/lib/card-optimizer'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
+import { cargarObjetivos } from '@/lib/goals-service'
+import { crearTraductor } from '@/lib/i18n'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
@@ -31,7 +34,8 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Moneda activa del header: recorta todo lo que se muestra abajo.
-  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
 
   const {
     cotizacion,
@@ -39,18 +43,17 @@ export default async function DashboardPage() {
     movimientos,
     ventana,
     delMes,
-    presupuestos,
     saldos,
     ingresosDelMes,
     gastosDelMes,
-    faltaMigracion,
     errorCarga,
   } = await cargarDatosDelDashboard(modo, monedas)
 
   // Recomendación de tarjeta: se calcula en el servidor y el widget solo muestra.
-  const [{ tarjetas, cuentas }, cotizacionesDeMercado] = await Promise.all([
+  const [{ tarjetas, cuentas }, cotizacionesDeMercado, { objetivos }] = await Promise.all([
     cargarCuentasYDeudas(supabase, monedas),
     obtenerCotizacionesDelMercado(),
+    cargarObjetivos(supabase),
   ])
 
   const tarjetasDeLaMoneda = tarjetas.filter((t) => esDeLaMoneda(t, modo))
@@ -63,37 +66,42 @@ export default async function DashboardPage() {
   )
   const recomendacion = getBestCardToPay(tarjetasDeLaMoneda, 0, modo, deudaPorTarjeta)
 
-  // Gasto del mes por categoría y moneda: cada moneda se compara solo con su
-  // propio presupuesto.
+  // Gasto del mes por categoría, ya recortado a la moneda activa por
+  // `cargarDatosDelDashboard`: el Home muestra un solo libro.
   const gastado = new Map<string, number>()
   for (const movimiento of delMes) {
     if (movimiento.type !== 'EXPENSE' || !movimiento.category_id) continue
-    const clave = `${movimiento.category_id}:${movimiento.currency}`
-    gastado.set(clave, (gastado.get(clave) ?? 0) + Number(movimiento.amount))
+    gastado.set(
+      movimiento.category_id,
+      (gastado.get(movimiento.category_id) ?? 0) + Number(movimiento.amount)
+    )
   }
 
-  const limitePorClave = new Map(
-    presupuestos.map((p) => [`${p.category_id}:${p.currency}`, Number(p.amount)])
-  )
+  const categoriaPorId = new Map(categorias.map((c) => [c.id, c]))
 
-  const presupuestosPorCategoria: PresupuestoDeCategoria[] = categorias
-    .filter((c) => c.type === 'EXPENSE')
-    .map((c) => ({
-      id: c.id,
-      nombre: c.name,
-      icono: c.icon,
-      color: c.color,
-      // Una sola línea: la de la moneda activa. Mostrar el presupuesto en
-      // dólares mientras se está mirando el libro en pesos era justo el ruido
-      // que el modo global viene a sacar.
-      lineas: [
+  // Los presupuestos del Home salen de los OBJETIVOS de tipo CATEGORY_BUDGET,
+  // no de la tabla `budgets`. Ver la nota de `components/budget-goals.tsx`:
+  // dos fuentes para el mismo techo garantizaban que se contradijeran, y sólo
+  // los objetivos suman XP al cumplirse.
+  const presupuestosDeObjetivos: PresupuestoDeObjetivo[] = objetivos
+    .filter((o) => o.type === 'CATEGORY_BUDGET' && o.category_id && o.currency === modo)
+    .flatMap((objetivo) => {
+      const categoria = categoriaPorId.get(objetivo.category_id!)
+      if (!categoria) return []
+
+      return [
         {
-          moneda: modo,
-          presupuesto: limitePorClave.get(`${c.id}:${modo}`) ?? null,
-          gastado: gastado.get(`${c.id}:${modo}`) ?? 0,
+          id: objetivo.id,
+          categoriaId: categoria.id,
+          nombre: categoria.name,
+          icono: categoria.icon,
+          color: categoria.color,
+          gastado: gastado.get(categoria.id) ?? 0,
+          limite: objetivo.target_value,
+          moneda: objetivo.currency,
         },
-      ],
-    }))
+      ]
+    })
 
   const gastosParaGrafico = ventana
     .filter((t) => t.type === 'EXPENSE')
@@ -121,7 +129,7 @@ export default async function DashboardPage() {
           role="alert"
           className="rounded-2xl border border-expense/30 bg-expense/10 px-4 py-3 text-sm text-expense"
         >
-          Hubo un problema al cargar tus datos: {errorCarga}
+          {tr('dashboard.errorCarga', { error: errorCarga })}
         </p>
       )}
 
@@ -130,52 +138,29 @@ export default async function DashboardPage() {
         <Card glass className="glow-gold col-span-2 p-5">
           <CardLabel>
             <Wallet className="size-3.5 text-gold-leaf" aria-hidden />
-            Balance total
+            {tr('dashboard.balance')}
           </CardLabel>
           <div className="mt-2.5">
             <MontoPorMoneda
               totales={saldos}
               className="font-display text-[2rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf"
-              vacio="Sin movimientos todavía"
+              vacio={tr('dashboard.sinMovimientos')}
             />
           </div>
           {/* Filamento dorado al pie: cierra la card sin agregar otro borde. */}
           <div className="fire-gradient mt-4 h-px w-full opacity-40" aria-hidden />
         </Card>
 
-        {/* `min-w-0` en las dos: sin él, un importe largo ensancha la columna
-            del grid en vez de partirse, y la card de al lado se achica. */}
-        <Card glass className="flex min-w-0 flex-col justify-between p-4">
-          <CardLabel>
-            <TrendingUp className="size-3.5 shrink-0 text-success-emerald" aria-hidden />
-            Ingresos
-          </CardLabel>
-          <div className="mt-2 min-w-0">
-            <MontoPorMoneda
-              totales={ingresosDelMes}
-              apilado
-              className="font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-success-emerald sm:text-xl"
-              vacio="—"
-            />
-          </div>
-          <p className="mt-1.5 text-[11px] text-subtle">Este mes</p>
-        </Card>
-
-        <Card glass className="flex min-w-0 flex-col justify-between p-4">
-          <CardLabel>
-            <TrendingDown className="size-3.5 shrink-0 text-error-rose" aria-hidden />
-            Gastos
-          </CardLabel>
-          <div className="mt-2 min-w-0">
-            <MontoPorMoneda
-              totales={gastosDelMes}
-              apilado
-              className="font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-error-rose sm:text-xl"
-              vacio="—"
-            />
-          </div>
-          <p className="mt-1.5 text-[11px] text-subtle">Este mes</p>
-        </Card>
+        {/* Ingresos y gastos en la moneda ACTIVA, no en las dos a la vez.
+            Mostrar ARS y USD apilados en la misma card obligaba a leer cuatro
+            números para responder "cuánto gasté", y ninguno de los dos totales
+            era comparable con el otro. El selector del header ya elige libro:
+            estas cards lo respetan como el resto de la app. */}
+        <FlowCards
+          ingresos={ingresosDelMes.find((i) => i.moneda === modo)?.valor ?? 0}
+          gastos={gastosDelMes.find((g) => g.moneda === modo)?.valor ?? 0}
+          moneda={modo}
+        />
       </section>
 
       {/* --- Cotizaciones y guía: dos columnas, apiladas en mobile -------- */}
@@ -207,18 +192,18 @@ export default async function DashboardPage() {
         categorias={categorias.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
       />
 
-      <BudgetProgress categorias={presupuestosPorCategoria} faltaMigracion={faltaMigracion} />
+      <BudgetGoals presupuestos={presupuestosDeObjetivos} />
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
-            Movimientos recientes
+            {tr('dashboard.recientes')}
           </h2>
           <Link
             href="/dashboard/transactions"
             className="text-xs font-medium text-gold-leaf hover:underline"
           >
-            Ver todos
+            {tr('dashboard.verTodos')}
           </Link>
         </div>
         <TransactionList
@@ -227,9 +212,9 @@ export default async function DashboardPage() {
           equivalente={equivalente}
           vacio={
             <>
-              Todavía no registraste movimientos.
+              {tr('dashboard.sinRegistrar')}
               <br />
-              Escribí o dictá uno arriba y la IA lo carga por vos.
+              {tr('dashboard.sinRegistrarPista')}
             </>
           }
         />

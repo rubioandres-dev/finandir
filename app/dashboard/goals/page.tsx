@@ -164,7 +164,12 @@ export default async function GoalsPage() {
         categorias={datos.categorias
           .filter((c) => c.type === 'EXPENSE')
           .map((c) => ({ id: c.id, nombre: c.name }))}
-        monedaPrincipal={principal}
+        contexto={{
+          ingresosDelMes: base.ingresosDelMes,
+          gastosDelMes: base.gastosDelMes,
+          deuda: base.deuda,
+          moneda: principal,
+        }}
         faltaMigracion={faltaMigracion}
       />
     </div>

@@ -89,6 +89,81 @@ export function formatCurrency(monto: number, moneda: Moneda, locale: Locale): s
   return formateador.format(monto)
 }
 
+/** Un importe partido en sus piezas, para poder darle a cada una su tamaño. */
+export type PartesDeMonto = {
+  /** Símbolo de la moneda: `$`, `US$`, `€`. Vacío si el locale no lo emite. */
+  symbol: string
+  /** Parte entera ya con separadores de miles: `1.500.000`. */
+  integerPart: string
+  /** Separador + decimales, listos para pegar: `,00`. Vacío si no hay. */
+  decimalPart: string
+  /** El importe completo, por si hace falta en un `title` o un `aria-label`. */
+  fullFormatted: string
+}
+
+/**
+ * El mismo importe de `formatCurrency`, pero desarmado.
+ *
+ * POR QUÉ CON `formatToParts` Y NO PARTIENDO EL STRING
+ *
+ * La tentación es formatear y cortar por la última coma. No funciona: el
+ * separador decimal es coma en es-* y punto en en-US, el símbolo va adelante
+ * en unos locales y atrás en otros, y algunos meten un espacio duro (U+00A0)
+ * que no es el espacio que uno busca. `formatToParts` devuelve cada pieza ya
+ * etiquetada por Intl, que es el único que sabe las reglas de cada región.
+ *
+ * Sirve para mostrar los centavos más chicos y elevados que la parte entera:
+ * el peso de la cifra está en los millones, no en los dos dígitos finales.
+ */
+export function formatCurrencyParts(
+  monto: number,
+  moneda: Moneda,
+  locale: Locale
+): PartesDeMonto {
+  const fullFormatted = formatCurrency(monto, moneda, locale)
+
+  let partes: Intl.NumberFormatPart[]
+  try {
+    partes = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: moneda,
+      maximumFractionDigits: 2,
+    }).formatToParts(monto)
+  } catch {
+    // Mismo fallback que `formatCurrency`: un código que Intl no conoce no
+    // puede romper la card.
+    return { symbol: moneda, integerPart: String(Math.trunc(monto)), decimalPart: '', fullFormatted }
+  }
+
+  let symbol = ''
+  let integerPart = ''
+  let decimalPart = ''
+
+  for (const parte of partes) {
+    switch (parte.type) {
+      case 'currency':
+        symbol = parte.value
+        break
+      case 'integer':
+      case 'group':
+        integerPart += parte.value
+        break
+      case 'minusSign':
+        // El signo va pegado a la parte entera: separarlo dejaría un "−"
+        // suelto con el tamaño del símbolo de moneda.
+        integerPart = parte.value + integerPart
+        break
+      case 'decimal':
+      case 'fraction':
+        decimalPart += parte.value
+        break
+      // `literal` es el espacio entre símbolo e importe: lo pone el layout.
+    }
+  }
+
+  return { symbol, integerPart, decimalPart, fullFormatted }
+}
+
 // --- Fechas ------------------------------------------------------------------
 
 /**
@@ -164,6 +239,8 @@ export type Formateadores = {
   locale: Locale
   /** Mismo nombre y misma firma que el de `lib/types.ts`, ya con el locale. */
   formatearMonto: (valor: number, moneda: Moneda) => string
+  /** El importe desarmado en símbolo, entero y decimales. */
+  partesDeMonto: (valor: number, moneda: Moneda) => PartesDeMonto
   /** Fecha en palabras, sin el año si es el actual. */
   formatearFecha: (fecha: string) => string
   /** Fecha numérica DD/MM/YYYY o MM/DD/YYYY. */
@@ -184,6 +261,7 @@ export function crearFormateadores(locale: Locale): Formateadores {
   return {
     locale,
     formatearMonto: (valor, moneda) => formatCurrency(valor, moneda, locale),
+    partesDeMonto: (valor, moneda) => formatCurrencyParts(valor, moneda, locale),
     formatearFecha: (fecha) => formatHumanDate(fecha, locale, anioActual),
     formatearFechaNumerica: (fecha) => formatDate(fecha, locale),
     formatearMesCorto: (periodo) => formatShortMonth(periodo, locale),

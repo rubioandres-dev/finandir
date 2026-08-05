@@ -1,0 +1,158 @@
+'use client'
+
+import Link from 'next/link'
+import { Target } from 'lucide-react'
+import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
+import { IconoCategoria } from '@/lib/category-icons'
+import type { Moneda } from '@/lib/types'
+
+export type PresupuestoDeObjetivo = {
+  id: string
+  categoriaId: string
+  nombre: string
+  icono: string
+  color: string
+  gastado: number
+  limite: number
+  moneda: Moneda
+}
+
+/**
+ * Presupuestos del Home, leídos de los objetivos.
+ *
+ * POR QUÉ NO SON LA TABLA `budgets`
+ *
+ * Había dos lugares donde definir el techo de gasto de una categoría: la tabla
+ * `budgets` (de la 002) y los objetivos de tipo CATEGORY_BUDGET (de la 010).
+ * Dos fuentes para el mismo número es la receta de que digan cosas distintas,
+ * y encima solo una de las dos suma XP al cumplirse.
+ *
+ * Esta sección lee los OBJETIVOS. La tabla `budgets` sigue existiendo y la
+ * sigue usando la vista de Ajustes: no se migró nada ni se borró nada, así que
+ * quien ya tenía presupuestos cargados ahí no los perdió. Pero el Home muestra
+ * los objetivos, que son los que cuentan para el Tier.
+ */
+export function BudgetGoals({
+  presupuestos,
+}: {
+  presupuestos: PresupuestoDeObjetivo[]
+}) {
+  const { t } = useTraduccion()
+  const { formatearMonto } = useFormatoRegional()
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
+          {t('presupuestos.titulo')}
+        </h2>
+        <Link
+          href="/dashboard/goals"
+          className="shrink-0 text-xs font-medium text-gold-leaf hover:underline"
+        >
+          {t('nav.objetivos')}
+        </Link>
+      </div>
+
+      {presupuestos.length === 0 ? (
+        <div className="flex flex-col items-start gap-2.5 rounded-2xl border border-dashed border-glass-stroke/60 px-4 py-5">
+          <p className="text-xs leading-snug text-subtle">{t('presupuestos.sinObjetivos')}</p>
+          <Link
+            href="/dashboard/goals"
+            className="btn-gold-subtle rounded-xl px-3 py-2 text-[11px] font-semibold"
+          >
+            <Target className="size-3.5" aria-hidden />
+            {t('presupuestos.cargar')}
+          </Link>
+        </div>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-3">
+            {presupuestos.map((presupuesto) => {
+              const porcentaje =
+                presupuesto.limite > 0 ? (presupuesto.gastado / presupuesto.limite) * 100 : 0
+              const restante = presupuesto.limite - presupuesto.gastado
+
+              // Mismas bandas que el resto de la app: verde <75%, ámbar hasta
+              // el 100%, rojo al pasarse.
+              const barra =
+                porcentaje >= 100
+                  ? 'bg-budget-over'
+                  : porcentaje >= 75
+                    ? 'bg-budget-warn'
+                    : 'bg-budget-ok'
+              const texto =
+                porcentaje >= 100
+                  ? 'text-expense'
+                  : porcentaje >= 75
+                    ? 'text-budget-warn'
+                    : 'text-income'
+
+              return (
+                <li key={presupuesto.id} className="glass-card flex flex-col gap-2 rounded-2xl p-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="grid size-7 shrink-0 place-items-center rounded-lg"
+                      style={{
+                        backgroundColor: `${presupuesto.color}22`,
+                        color: presupuesto.color,
+                      }}
+                    >
+                      <IconoCategoria icono={presupuesto.icono} className="size-3.5" />
+                    </span>
+
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium tracking-tight">
+                      {presupuesto.nombre}
+                    </span>
+
+                    <span className={`shrink-0 text-xs font-semibold tabular-nums ${texto}`}>
+                      {porcentaje.toFixed(0)}%
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] tabular-nums text-on-surface-variant">
+                    {formatearMonto(presupuesto.gastado, presupuesto.moneda)}{' '}
+                    <span className="text-subtle">{t('presupuestos.deLimite')}</span>{' '}
+                    {formatearMonto(presupuesto.limite, presupuesto.moneda)}
+                  </p>
+
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/10"
+                    role="progressbar"
+                    aria-valuenow={Math.round(porcentaje)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={presupuesto.nombre}
+                  >
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${barra}`}
+                      style={{ width: `${Math.min(porcentaje, 100)}%` }}
+                    />
+                  </div>
+
+                  <p className="text-[11px] tabular-nums text-subtle">
+                    {restante >= 0
+                      ? t('presupuestos.quedan', {
+                          monto: formatearMonto(restante, presupuesto.moneda),
+                        })
+                      : t('presupuestos.excedido', {
+                          monto: formatearMonto(Math.abs(restante), presupuesto.moneda),
+                        })}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+
+          <Link
+            href="/dashboard/goals"
+            className="btn-gold-subtle w-full justify-center rounded-xl px-3 py-2.5 text-[11px] font-semibold"
+          >
+            <Target className="size-3.5" aria-hidden />
+            {t('presupuestos.cargar')}
+          </Link>
+        </>
+      )}
+    </section>
+  )
+}
