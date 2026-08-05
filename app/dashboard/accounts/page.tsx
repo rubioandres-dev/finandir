@@ -8,6 +8,7 @@ import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
 import type { Moneda } from '@/lib/types'
@@ -21,7 +22,8 @@ export default async function AccountsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale , idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale)
   const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
   const detallePorCuenta = new Map(tarjetas.map((t) => [t.id, t.detalle]))
@@ -36,7 +38,7 @@ export default async function AccountsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Cuentas y tarjetas</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">{tr('cuentas.titulo')}</h1>
 
       {error && (
         <p
@@ -50,7 +52,7 @@ export default async function AccountsPage() {
       {/* Resumen patrimonial, siempre desagregado por moneda. */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4">
-          <CardLabel>Líquido</CardLabel>
+          <CardLabel>{tr('cuentas.liquido')}</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {soloModo(patrimonio.liquido).map((t) => (
               <span key={t.moneda} className="text-sm font-semibold tabular-nums text-income">
@@ -61,7 +63,7 @@ export default async function AccountsPage() {
         </Card>
 
         <Card className="p-4">
-          <CardLabel>Deuda en tarjetas</CardLabel>
+          <CardLabel>{tr('cuentas.deudaTarjetas')}</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {soloModo(patrimonio.deudaTarjetas).map((t) => (
               <span key={t.moneda} className="text-sm font-semibold tabular-nums text-expense">
@@ -72,7 +74,7 @@ export default async function AccountsPage() {
         </Card>
 
         <Card glass className="glow-gold col-span-2 p-4">
-          <CardLabel className="text-gold-leaf">Patrimonio neto</CardLabel>
+          <CardLabel className="text-gold-leaf">{tr('cuentas.patrimonioNeto')}</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {soloModo(patrimonio.patrimonioNeto).map((t) => (
               <span
@@ -84,7 +86,7 @@ export default async function AccountsPage() {
             ))}
           </div>
           <p className="mt-2 text-[11px] text-muted">
-            Líquido + inversiones + por cobrar − tarjetas − deudas
+            {tr('cuentas.formula')}
           </p>
         </Card>
       </div>
@@ -92,7 +94,7 @@ export default async function AccountsPage() {
       {/* Solo la moneda activa: el toggle del header es el que elige el libro. */}
       {cuentasVisibles.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Cuentas en {modo}</h2>
+          <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">{tr('cuentas.enMoneda', { moneda: modo })}</h2>
           <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
             {cuentasVisibles.map((cuenta) => (
               <AccountRow
@@ -112,8 +114,8 @@ export default async function AccountsPage() {
           className="col-span-2 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
         >
           <PiggyBank className="size-4 shrink-0 text-gold-leaf" aria-hidden />
-          <span className="min-w-0 flex-1 text-sm font-medium tracking-tight">Inversiones</span>
-          <span className="shrink-0 text-[11px] text-subtle">Cartera y rendimiento</span>
+          <span className="min-w-0 flex-1 text-sm font-medium tracking-tight">{tr('nav.inversiones')}</span>
+          <span className="shrink-0 text-[11px] text-subtle">{tr('cuentas.carteraYRendimiento')}</span>
         </Link>
 
         <Link
@@ -121,7 +123,7 @@ export default async function AccountsPage() {
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
         >
           <TrendingDown className="size-4 shrink-0 text-wealth" aria-hidden />
-          <span className="min-w-0 text-sm font-medium tracking-tight">Saldo comprometido</span>
+          <span className="min-w-0 text-sm font-medium tracking-tight">{tr('modulos.cuotas')}</span>
         </Link>
 
         <Link
@@ -129,13 +131,13 @@ export default async function AccountsPage() {
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
         >
           <FileScan className="size-4 shrink-0 text-primary" aria-hidden />
-          <span className="min-w-0 text-sm font-medium tracking-tight">Importar resumen</span>
+          <span className="min-w-0 text-sm font-medium tracking-tight">{tr('cuentas.importarResumen')}</span>
         </Link>
       </div>
 
       {cuentasVisibles.length === 0 && !error && (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">
-          Todavía no tenés cuentas en {modo}.
+          {tr('cuentas.sinCuentas', { moneda: modo })}
         </p>
       )}
 

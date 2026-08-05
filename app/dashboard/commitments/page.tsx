@@ -6,6 +6,7 @@ import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
 import { hoyEnArgentina, type Moneda } from '@/lib/types'
@@ -20,11 +21,14 @@ export default async function CommitmentsPage() {
   if (!user) redirect('/login')
 
   const hoy = hoyEnArgentina()
-  const [{ curva, planes, error }, { cuentas }, { monedas, locale }] = await Promise.all([
-    cargarCompromisos(supabase, hoy),
-    obtenerCuentasPorMoneda(supabase),
-    cargarContextoDeMonedas(),
-  ])
+  const [{ curva, planes, error }, { cuentas }, { monedas, locale, idioma }] =
+    await Promise.all([
+      cargarCompromisos(supabase, hoy),
+      obtenerCuentasPorMoneda(supabase),
+      cargarContextoDeMonedas(),
+    ])
+
+  const tr = crearTraductor(idioma)
 
   const { formatearMonto, formatearFecha, formatearMesCorto } = crearFormateadores(locale)
 
@@ -89,7 +93,7 @@ export default async function CommitmentsPage() {
           </CardLabel>
           <div className="mt-2.5 flex flex-col gap-0.5">
             {totalPorMoneda.filter((t) => t.valor > 0).length === 0 ? (
-              <span className="text-lg text-subtle">Sin cuotas pendientes</span>
+              <span className="text-lg text-subtle">{tr('cuotas.sinPendientes')}</span>
             ) : (
               totalPorMoneda
                 .filter((t) => t.valor > 0)
@@ -127,7 +131,7 @@ export default async function CommitmentsPage() {
                 ))
             )}
           </div>
-          <p className="mt-1.5 text-[11px] text-subtle">Por mes con vencimientos</p>
+          <p className="mt-1.5 text-[11px] text-subtle">{tr('cuotas.porMesConVencimientos')}</p>
         </Card>
 
         <Card glass className="p-4">
@@ -138,7 +142,7 @@ export default async function CommitmentsPage() {
           <p className="mt-2 font-display text-base font-bold tracking-tight text-success-emerald">
             {mesLibre ? formatearMesCorto(mesLibre) : 'Más de 12 meses'}
           </p>
-          <p className="mt-1.5 text-[11px] text-subtle">Primer mes sin vencimientos</p>
+          <p className="mt-1.5 text-[11px] text-subtle">{tr('cuotas.primerMesLibre')}</p>
         </Card>
       </div>
 

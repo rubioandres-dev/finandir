@@ -6,6 +6,7 @@ import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { totalizarPorMoneda } from '@/lib/monedas'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { rangoDelPeriodo } from '@/lib/types'
 
@@ -23,7 +24,8 @@ export default async function FirePage() {
 
   // Sin filtrar por la moneda activa: FIRE se calcula para cada divisa que el
   // usuario tenga, porque el capital objetivo de una no dice nada de la otra.
-  const { monedas } = await cargarContextoDeMonedas()
+  const { monedas , idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
   const { delMes, ventana } = await cargarDatosDelDashboard(undefined, monedas)
 
   const gastoDelMes = totalizarPorMoneda(
@@ -62,7 +64,7 @@ export default async function FirePage() {
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4">
-          <CardLabel>Gasto del mes</CardLabel>
+          <CardLabel>{tr('fire.gastoDelMes')}</CardLabel>
           <div className="mt-2">
             <MontoPorMoneda
               totales={gastoDelMes}
@@ -72,7 +74,7 @@ export default async function FirePage() {
         </Card>
 
         <Card className="p-4">
-          <CardLabel>Promedio mensual</CardLabel>
+          <CardLabel>{tr('fire.promedioMensual')}</CardLabel>
           <div className="mt-2">
             <MontoPorMoneda
               totales={promedioMensual}
@@ -86,7 +88,7 @@ export default async function FirePage() {
       </div>
 
       <Card glass className="glow-gold p-4">
-        <CardLabel className="text-gold-leaf">Capital objetivo · regla del 4%</CardLabel>
+        <CardLabel className="text-gold-leaf">{tr('fire.capitalObjetivo')}</CardLabel>
         <div className="mt-2">
           <MontoPorMoneda
             totales={capitalObjetivo}

@@ -5,6 +5,7 @@ import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
 import type { Moneda } from '@/lib/types'
@@ -18,7 +19,8 @@ export default async function DebtsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale , idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale)
   const { deudas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
 
@@ -29,7 +31,7 @@ export default async function DebtsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Deudas y préstamos</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">{tr('deudas.titulo')}</h1>
 
       {error && (
         <p
@@ -42,7 +44,7 @@ export default async function DebtsPage() {
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4">
-          <CardLabel>Me deben</CardLabel>
+          <CardLabel>{tr('deudas.meDeben')}</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {soloModo(patrimonio.porCobrar).map((t) => (
               <span key={t.moneda} className="text-base font-semibold tabular-nums text-income">
@@ -53,7 +55,7 @@ export default async function DebtsPage() {
         </Card>
 
         <Card className="p-4">
-          <CardLabel>Debo</CardLabel>
+          <CardLabel>{tr('deudas.debo')}</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
             {soloModo(patrimonio.deudaPersonal).map((t) => (
               <span key={t.moneda} className="text-base font-semibold tabular-nums text-expense">

@@ -275,6 +275,66 @@ const ES_AR = {
   'calculadora.registrado': 'Listo, quedó registrado.',
   'calculadora.descripcion': 'Descripción',
 
+  // --- Movimientos ----------------------------------------------------------
+  'mov.titulo': 'Movimientos',
+  'mov.mesActual': 'Mes actual',
+  'mov.cuotasFuturas': 'Cuotas futuras',
+  'mov.anteriores': 'Anteriores',
+  'mov.periodo': 'Período del historial',
+  'mov.sinEsteMes': 'Todavía no registraste movimientos en {moneda} este mes.',
+  'mov.sinFuturas': 'No tenés cuotas pendientes de meses que vengan.',
+  'mov.sinAnteriores': 'No hay movimientos en {moneda} de meses anteriores.',
+  'mov.categorias': 'Categorías',
+  'mov.editar': 'Editar movimiento',
+  'mov.dejarComoEsta': 'Dejar como está',
+  'mov.guardarCambios': 'Guardar cambios',
+  'mov.borrarMovimiento': 'Borrar movimiento',
+  'mov.confirmarBorrado': 'Confirmar borrado',
+  'mov.editarNombre': 'Editar {nombre}',
+
+  // --- Cuentas, deudas, cuotas, consolidado, FIRE, inversiones ---------------
+  'cuentas.titulo': 'Cuentas y tarjetas',
+  'cuentas.liquido': 'Líquido',
+  'cuentas.deudaTarjetas': 'Deuda en tarjetas',
+  'cuentas.patrimonioNeto': 'Patrimonio neto',
+  'cuentas.formula': 'Líquido + inversiones + por cobrar − tarjetas − deudas',
+  'cuentas.carteraYRendimiento': 'Cartera y rendimiento',
+  'cuentas.importarResumen': 'Importar resumen',
+  'cuentas.sinCuentas': 'Todavía no tenés cuentas en {moneda}.',
+  'cuentas.enMoneda': 'Cuentas en {moneda}',
+
+  'deudas.titulo': 'Deudas y préstamos',
+  'deudas.meDeben': 'Me deben',
+  'deudas.debo': 'Debo',
+
+  'cuotas.sinPendientes': 'Sin cuotas pendientes',
+  'cuotas.porMesConVencimientos': 'Por mes con vencimientos',
+  'cuotas.primerMesLibre': 'Primer mes sin vencimientos',
+
+  'consolidado.cuentasYBilleteras': 'Cuentas y billeteras',
+  'consolidado.inversiones': 'Inversiones',
+  'consolidado.meDeben': 'Me deben',
+  'consolidado.deudaTarjetas': 'Deuda de tarjetas',
+  'consolidado.deudasPersonales': 'Deudas personales',
+  'consolidado.neto': 'Neto',
+  'consolidado.liquidezTotal': 'Liquidez total',
+  'consolidado.pasivosTotales': 'Pasivos totales',
+
+  'fire.gastoDelMes': 'Gasto del mes',
+  'fire.promedioMensual': 'Promedio mensual',
+  'fire.capitalObjetivo': 'Capital objetivo · regla del 4%',
+
+  'inv.ponderado': 'Ponderado sobre lo líquido',
+  'inv.rescatableHoy': 'Rescatable hoy (T+0)',
+  'inv.asistenteDeGasto': 'Asistente de gasto',
+
+  'ajustes.titulo': 'Ajustes',
+  'ajustes.cuenta': 'Cuenta',
+  'ajustes.categoriasContador': 'Categorías',
+  'ajustes.periodoActual': 'Período actual',
+  'ajustes.cotizacion': 'Cotización',
+  'ajustes.sinCotizacion': 'No se pudo obtener la cotización.',
+
   'tier.comoFunciona':
     'Cada objetivo que cumplís por primera vez suma XP, y el XP no baja nunca. Un mes flojo no te saca un logro que ya conseguiste.',
 } as const
@@ -330,6 +390,14 @@ const ES_NEUTRO: Parcial = {
     'Sumas {xp} XP. Una vez reclamado, el logro permanece: no se pierde aunque el mes siguiente no lo repitas.',
 
   'comun.guardando': 'Guardando…',
+
+  'mov.sinEsteMes': 'Aún no has registrado movimientos en {moneda} este mes.',
+  'mov.sinFuturas': 'No tienes cuotas pendientes para los meses que vienen.',
+  'mov.sinAnteriores': 'No hay movimientos en {moneda} de meses anteriores.',
+  'mov.categorias': 'Categorías',
+
+  'cuentas.sinCuentas': 'Aún no tienes cuentas en {moneda}.',
+  'deudas.debo': 'Debo',
 
   'tier.comoFunciona':
     'Cada objetivo que cumples por primera vez suma XP, y el XP nunca baja. Un mes flojo no te quita un logro que ya conseguiste.',
@@ -520,6 +588,64 @@ const EN: Parcial = {
   'calculadora.registrar': 'Record',
   'calculadora.registrado': 'Done, it has been recorded.',
   'calculadora.descripcion': 'Description',
+
+  'mov.titulo': 'Transactions',
+  'mov.mesActual': 'This month',
+  'mov.cuotasFuturas': 'Upcoming instalments',
+  'mov.anteriores': 'Earlier',
+  'mov.periodo': 'History period',
+  'mov.sinEsteMes': 'No transactions in {moneda} this month yet.',
+  'mov.sinFuturas': 'No instalments pending for the months ahead.',
+  'mov.sinAnteriores': 'No transactions in {moneda} from earlier months.',
+  'mov.categorias': 'Categories',
+  'mov.editar': 'Edit transaction',
+  'mov.dejarComoEsta': 'Leave as is',
+  'mov.guardarCambios': 'Save changes',
+  'mov.borrarMovimiento': 'Delete transaction',
+  'mov.confirmarBorrado': 'Confirm deletion',
+  'mov.editarNombre': 'Edit {nombre}',
+
+  'cuentas.titulo': 'Accounts and cards',
+  'cuentas.liquido': 'Liquid',
+  'cuentas.deudaTarjetas': 'Card debt',
+  'cuentas.patrimonioNeto': 'Net worth',
+  'cuentas.formula': 'Liquid + investments + receivables − cards − debts',
+  'cuentas.carteraYRendimiento': 'Portfolio and returns',
+  'cuentas.importarResumen': 'Import statement',
+  'cuentas.sinCuentas': 'You have no accounts in {moneda} yet.',
+  'cuentas.enMoneda': 'Accounts in {moneda}',
+
+  'deudas.titulo': 'Debts and loans',
+  'deudas.meDeben': 'Owed to me',
+  'deudas.debo': 'I owe',
+
+  'cuotas.sinPendientes': 'No pending instalments',
+  'cuotas.porMesConVencimientos': 'Per month with due dates',
+  'cuotas.primerMesLibre': 'First month with nothing due',
+
+  'consolidado.cuentasYBilleteras': 'Accounts and wallets',
+  'consolidado.inversiones': 'Investments',
+  'consolidado.meDeben': 'Owed to me',
+  'consolidado.deudaTarjetas': 'Card debt',
+  'consolidado.deudasPersonales': 'Personal debts',
+  'consolidado.neto': 'Net',
+  'consolidado.liquidezTotal': 'Total liquidity',
+  'consolidado.pasivosTotales': 'Total liabilities',
+
+  'fire.gastoDelMes': 'Spending this month',
+  'fire.promedioMensual': 'Monthly average',
+  'fire.capitalObjetivo': 'Target capital · the 4% rule',
+
+  'inv.ponderado': 'Weighted over liquid assets',
+  'inv.rescatableHoy': 'Available today (T+0)',
+  'inv.asistenteDeGasto': 'Spending assistant',
+
+  'ajustes.titulo': 'Settings',
+  'ajustes.cuenta': 'Account',
+  'ajustes.categoriasContador': 'Categories',
+  'ajustes.periodoActual': 'Current period',
+  'ajustes.cotizacion': 'Exchange rate',
+  'ajustes.sinCotizacion': 'The exchange rate could not be fetched.',
 
   'tier.comoFunciona':
     'Every goal you hit for the first time earns XP, and XP never goes down. A weak month cannot take away something you already achieved.',

@@ -1,13 +1,16 @@
 'use client'
 
+import { useTraduccion } from '@/components/currency-provider'
+import type { Clave } from '@/lib/i18n'
+
 import { useState } from 'react'
 
 type Pestania = 'mes' | 'futuras' | 'anteriores'
 
-const ORDEN: { clave: Pestania; etiqueta: string }[] = [
-  { clave: 'mes', etiqueta: 'Mes actual' },
-  { clave: 'futuras', etiqueta: 'Cuotas futuras' },
-  { clave: 'anteriores', etiqueta: 'Anteriores' },
+const ORDEN: { clave: Pestania; etiqueta: Clave }[] = [
+  { clave: 'mes', etiqueta: 'mov.mesActual' },
+  { clave: 'futuras', etiqueta: 'mov.cuotasFuturas' },
+  { clave: 'anteriores', etiqueta: 'mov.anteriores' },
 ]
 
 /**
@@ -33,6 +36,7 @@ export function TransactionFeedTabs({
   anteriores: React.ReactNode
   contadores: Record<Pestania, number>
 }) {
+  const { t } = useTraduccion()
   const [activa, setActiva] = useState<Pestania>('mes')
 
   const contenido = { mes, futuras, anteriores }
@@ -41,7 +45,7 @@ export function TransactionFeedTabs({
     <div className="flex flex-col gap-3">
       <div
         role="tablist"
-        aria-label="Período del historial"
+        aria-label={t('mov.periodo')}
         className="flex gap-1 rounded-xl border border-glass-stroke/50 p-0.5"
       >
         {ORDEN.map(({ clave, etiqueta }) => {
@@ -60,7 +64,7 @@ export function TransactionFeedTabs({
                   : 'text-on-surface-variant hover:text-gold-leaf'
               }`}
             >
-              <span className="truncate">{etiqueta}</span>
+              <span className="truncate">{t(etiqueta)}</span>
               {contadores[clave] > 0 && (
                 <span
                   className={`shrink-0 tabular-nums ${

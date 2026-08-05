@@ -9,6 +9,7 @@ import { RegionSettings } from '@/components/region-settings'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
 
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
     perfil,
     faltaMigracion: faltaPerfil,
   } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
 
   const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
     await cargarDatosDelDashboard(undefined, monedas)
@@ -63,7 +65,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Ajustes</h1>
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">{tr('ajustes.titulo')}</h1>
 
       <ProfileForm
         email={user.email ?? ''}
@@ -83,14 +85,14 @@ export default async function SettingsPage() {
 
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <CardLabel>Cuenta</CardLabel>
+          <CardLabel>{tr('ajustes.cuenta')}</CardLabel>
           <dl className="flex flex-col gap-2 text-sm">
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">Categorías</dt>
+              <dt className="text-muted">{tr('ajustes.categoriasContador')}</dt>
               <dd className="font-medium tabular-nums">{categorias.length}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">Período actual</dt>
+              <dt className="text-muted">{tr('ajustes.periodoActual')}</dt>
               <dd className="font-medium tabular-nums">{desde.slice(0, 7)}</dd>
             </div>
           </dl>
@@ -99,7 +101,7 @@ export default async function SettingsPage() {
 
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <CardLabel>Cotización</CardLabel>
+          <CardLabel>{tr('ajustes.cotizacion')}</CardLabel>
           {cotizacion ? (
             <>
               <p className="text-2xl font-semibold tracking-tight tabular-nums">
@@ -118,7 +120,7 @@ export default async function SettingsPage() {
               )}
             </>
           ) : (
-            <p className="text-sm text-subtle">No se pudo obtener la cotización.</p>
+            <p className="text-sm text-subtle">{tr('ajustes.sinCotizacion')}</p>
           )}
         </CardContent>
       </Card>

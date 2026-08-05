@@ -7,6 +7,7 @@ import { InvestmentManager } from '@/components/investment-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarInversiones, distribucionPorTipo } from '@/lib/investments-service'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
 
@@ -19,7 +20,8 @@ export default async function InvestmentsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { monedas, locale } = await cargarContextoDeMonedas()
+  const { monedas, locale , idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale)
   const { inversiones, resumen, error } = await cargarInversiones(supabase, monedas)
 
@@ -32,7 +34,7 @@ export default async function InvestmentsPage() {
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
-        Inversiones
+        {tr('nav.inversiones')}
       </h1>
 
       {error && (
@@ -104,7 +106,7 @@ export default async function InvestmentsPage() {
               <span className="font-display text-lg font-bold tracking-tight text-subtle">—</span>
             )}
           </div>
-          <p className="mt-1.5 text-[11px] text-subtle">Ponderado sobre lo líquido</p>
+          <p className="mt-1.5 text-[11px] text-subtle">{tr('inv.ponderado')}</p>
         </Card>
 
         <Card glass className="p-4">
@@ -122,7 +124,7 @@ export default async function InvestmentsPage() {
               </span>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] text-subtle">Rescatable hoy (T+0)</p>
+          <p className="mt-1.5 text-[11px] text-subtle">{tr('inv.rescatableHoy')}</p>
         </Card>
       </section>
 
@@ -154,7 +156,7 @@ export default async function InvestmentsPage() {
         <span className="min-w-0 flex-1 text-sm font-medium tracking-tight">
           ¿Cómo conviene pagar?
         </span>
-        <span className="shrink-0 text-[11px] text-subtle">Asistente de gasto</span>
+        <span className="shrink-0 text-[11px] text-subtle">{tr('inv.asistenteDeGasto')}</span>
       </Link>
     </div>
   )

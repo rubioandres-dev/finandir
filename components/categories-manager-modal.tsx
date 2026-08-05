@@ -14,6 +14,7 @@ import {
   IconoCategoria,
   PALETA_CATEGORIAS,
 } from '@/lib/category-icons'
+import { useTraduccion } from '@/components/currency-provider'
 import type { Categoria } from '@/lib/types'
 
 const CAMPO =
@@ -45,6 +46,7 @@ const FORMULARIO_VACIO: Formulario = {
  * ofrecer el administrador sin volverse cliente entera.
  */
 export function CategoriesManagerButton({ categorias }: { categorias: CategoriaConOrigen[] }) {
+  const { t } = useTraduccion()
   const [abierto, setAbierto] = useState(false)
 
   return (
@@ -54,7 +56,7 @@ export function CategoriesManagerButton({ categorias }: { categorias: CategoriaC
         onClick={() => setAbierto(true)}
         className="shrink-0 cursor-pointer text-xs font-medium text-gold-leaf transition hover:underline"
       >
-        Categorías
+        {t('mov.categorias')}
       </button>
 
       {abierto && (

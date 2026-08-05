@@ -1,6 +1,6 @@
 'use client'
 
-import { useFormatoRegional } from '@/components/currency-provider'
+import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
@@ -59,6 +59,7 @@ export function TransactionEditor({
   onCerrar: () => void
 }) {
   const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
   const router = useRouter()
   const [guardando, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +140,7 @@ export function TransactionEditor({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Editar movimiento"
+      aria-label={t('mov.editar')}
       className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
     >
       <button
@@ -154,7 +155,7 @@ export function TransactionEditor({
         className="glass-card relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-menu px-5 pt-5 respiro-hoja sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
-          <h3 className="aurem-caps text-[11px] text-gold-leaf">Editar movimiento</h3>
+          <h3 className="aurem-caps text-[11px] text-gold-leaf">{t('mov.editar')}</h3>
           <button
             type="button"
             onClick={onCerrar}
@@ -200,7 +201,7 @@ export function TransactionEditor({
           </label>
 
           <label className={ETIQUETA}>
-            Fecha
+            {t('comun.fecha')}
             <input
               type="date"
               value={fecha}
@@ -213,7 +214,7 @@ export function TransactionEditor({
 
           {movimiento.type !== 'TRANSFER' && (
             <label className={ETIQUETA}>
-              Categoría
+              {t('objetivos.categoria')}
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
@@ -229,13 +230,13 @@ export function TransactionEditor({
           )}
 
           <label className={ETIQUETA}>
-            Cuenta
+            {t('comun.cuenta')}
             <select
               value={cuentaId}
               onChange={(e) => setCuentaId(e.target.value)}
               className={CAMPO}
             >
-              <option value="">Dejar como está</option>
+              <option value="">{t('mov.dejarComoEsta')}</option>
               {cuentas.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.type === 'CREDIT_CARD' ? `💳 ${c.name}` : c.name}
@@ -247,7 +248,7 @@ export function TransactionEditor({
           {/* Solo donde cambiarlo no rompe nada ajeno. */}
           {!esHijaDePlan && (
             <label className={ETIQUETA}>
-              Cuotas
+              {t('comun.cuotas')}
               <select
                 value={cuotas}
                 onChange={(e) => setCuotas(Number(e.target.value))}
@@ -263,7 +264,7 @@ export function TransactionEditor({
           )}
 
           <label className={`col-span-2 ${ETIQUETA}`}>
-            Descripción
+            {t('comun.descripcion')}
             <input
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
@@ -306,7 +307,7 @@ export function TransactionEditor({
                 disabled={guardando}
                 className="rounded-lg border border-glass-stroke/60 px-3 py-2 text-xs font-medium text-on-surface-variant disabled:opacity-50"
               >
-                Cancelar
+                {t('comun.cancelar')}
               </button>
             </div>
           </div>
@@ -318,7 +319,7 @@ export function TransactionEditor({
               className="btn-gold flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
             >
               {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              Guardar cambios
+              {t('mov.guardarCambios')}
             </button>
             <button
               type="button"

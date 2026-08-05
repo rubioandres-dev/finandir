@@ -11,6 +11,7 @@ import { equivalenteAproximado } from '@/lib/monedas'
 import { cargarFeedDeMovimientos } from '@/lib/transactions-feed'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
+import { crearTraductor } from '@/lib/i18n'
 import type { Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Movimientos' }
@@ -22,7 +23,8 @@ export default async function TransactionsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale, idioma } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale)
 
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
@@ -60,11 +62,11 @@ export default async function TransactionsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
-          Movimientos
+          {tr('mov.titulo')}
         </h1>
         <div className="flex shrink-0 items-baseline gap-3">
           <CategoriesManagerButton categorias={categorias} />
-          <span className="text-xs text-subtle">en {modo}</span>
+          <span className="text-xs text-subtle">{tr('comun.enMoneda', { moneda: modo })}</span>
         </div>
       </div>
 
@@ -83,11 +85,11 @@ export default async function TransactionsPage() {
           futuras: feed.totalFuturas,
           anteriores: feed.anteriores.length,
         }}
-        mes={lista(feed.delMes, `Todavía no registraste movimientos en ${modo} este mes.`)}
+        mes={lista(feed.delMes, tr('mov.sinEsteMes', { moneda: modo }))}
         futuras={
           feed.futuras.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">
-              No tenés cuotas pendientes de meses que vengan.
+              {tr('mov.sinFuturas')}
             </p>
           ) : (
             <div className="flex flex-col gap-4">
@@ -118,10 +120,7 @@ export default async function TransactionsPage() {
             </div>
           )
         }
-        anteriores={lista(
-          feed.anteriores,
-          `No hay movimientos en ${modo} de meses anteriores.`
-        )}
+        anteriores={lista(feed.anteriores, tr('mov.sinAnteriores', { moneda: modo }))}
       />
     </div>
   )
