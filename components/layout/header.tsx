@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ArrowLeftRight,
   Bell,
@@ -13,10 +13,12 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  X,
 } from 'lucide-react'
 import { CurrencySelector } from '@/components/currency-selector'
-import { LogoutButton } from '@/components/logout-button'
+import { ProfileMenu } from '@/components/layout/profile-menu'
 import type { Aviso, NivelAurem } from '@/lib/header-data'
+import { useCerrarAlTocarAfuera } from '@/lib/use-cerrar-al-tocar-afuera'
 
 const ENLACES = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
@@ -29,36 +31,11 @@ const ENLACES = [
   { href: '/dashboard/settings', etiqueta: 'Ajustes', Icono: Settings },
 ] as const
 
-/** Iniciales para el avatar: "arubio@…" -> "AR". */
-function inicialesDe(email: string): string {
-  const usuario = email.split('@')[0] ?? ''
-  const partes = usuario.split(/[._-]+/).filter(Boolean)
-  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase()
-  return usuario.slice(0, 2).toUpperCase() || 'AU'
-}
-
 function Notificaciones({ avisos }: { avisos: Aviso[] }) {
   const [abierto, setAbierto] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
 
-  // Un panel que no se cierra al tocar afuera es una trampa en mobile.
-  useEffect(() => {
-    if (!abierto) return
-
-    function alTocarAfuera(evento: MouseEvent) {
-      if (!contenedor.current?.contains(evento.target as Node)) setAbierto(false)
-    }
-    function alEscapar(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') setAbierto(false)
-    }
-
-    document.addEventListener('mousedown', alTocarAfuera)
-    document.addEventListener('keydown', alEscapar)
-    return () => {
-      document.removeEventListener('mousedown', alTocarAfuera)
-      document.removeEventListener('keydown', alEscapar)
-    }
-  }, [abierto])
+  useCerrarAlTocarAfuera(contenedor, abierto, () => setAbierto(false))
 
   const hayUrgentes = avisos.some((a) => a.urgente)
 
@@ -78,7 +55,7 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
         <Bell className="size-[18px]" aria-hidden />
         {avisos.length > 0 && (
           <span
-            className={`absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-midnight-navy ${
+            className={`absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-background ${
               hayUrgentes ? 'bg-error-rose' : 'bg-gold-leaf'
             }`}
             aria-hidden
@@ -90,9 +67,22 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
         <div
           role="dialog"
           aria-label="Próximos vencimientos"
-          className="glass-card absolute right-0 top-11 z-50 w-72 rounded-2xl bg-charcoal/95 p-1.5 shadow-2xl"
+          // Sin `glass-card`: el panel flota sobre un header que ya es
+          // translúcido, así que necesita fondo opaco propio. El vidrio y su
+          // destello radial son justo lo que lo hacía perderse.
+          className="absolute right-0 top-11 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border-strong bg-menu p-1.5 shadow-2xl"
         >
-          <p className="aurem-caps px-2.5 py-2 text-[10px] text-gold-leaf/70">Próximos 7 días</p>
+          <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+            <p className="aurem-caps text-[10px] text-gold-leaf/70">Próximos 7 días</p>
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              aria-label="Cerrar notificaciones"
+              className="-mr-1 grid size-6 place-items-center rounded-lg text-on-surface-variant transition active:scale-90 hover:bg-gold-leaf/[0.07] hover:text-gold-leaf"
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
 
           {avisos.length === 0 ? (
             <p className="px-2.5 pb-3 pt-1 text-xs text-subtle">
@@ -139,19 +129,24 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
 
 export function Header({
   email,
+  nombre,
   cotizacion,
   nivel,
   avisos,
 }: {
   email: string
+  nombre: string | null
   cotizacion: number | null
   nivel: NivelAurem
   avisos: Aviso[]
 }) {
   const ruta = usePathname()
 
+  // z-50, por encima de la barra inferior (z-40): `backdrop-blur` crea un
+  // contexto de apilado, así que los paneles de acá no pueden escaparse del
+  // z-index del header y quedarían tapados por la barra.
   return (
-    <header className="safe-top sticky top-0 z-40 border-b border-glass-stroke/50 bg-midnight-navy/80 backdrop-blur-xl">
+    <header className="safe-top sticky top-0 z-50 border-b border-glass-stroke/50 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2.5 sm:px-6">
         <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5">
           <span className="fire-gradient glow-gold grid size-8 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
@@ -189,16 +184,9 @@ export function Header({
           <CurrencySelector cotizacion={cotizacion} />
           <Notificaciones avisos={avisos} />
 
-          {/* Avatar con aro dorado: es el ancla visual del sistema. */}
-          <div
-            className="grid size-9 shrink-0 place-items-center rounded-full border-2 border-gold-leaf bg-surface-container font-display text-[11px] font-bold tracking-tight text-gold-leaf"
-            title={email}
-            aria-label={`Sesión de ${email}`}
-          >
-            {inicialesDe(email)}
-          </div>
-
-          <LogoutButton />
+          {/* El avatar con aro dorado es el ancla visual del sistema, y ahora
+              también el disparador del menú de perfil. */}
+          <ProfileMenu email={email} nombre={nombre} />
         </div>
       </div>
 

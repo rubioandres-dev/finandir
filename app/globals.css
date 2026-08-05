@@ -49,12 +49,40 @@
   --budget-warn: #f59e0b;
   --budget-over: var(--error-rose);
 
+  /* Vidrio dorado de .glass-card. Separados en tokens porque el destello que
+   * funciona sobre navy sobreexpone el marfil. */
+  --glass-wash: rgba(242, 202, 79, 0.05);
+  --glass-glow: rgba(242, 202, 79, 0.18);
+
+  /* Superficie de los menús flotantes. Opaca y un paso MÁS clara que --card:
+   * un panel translúcido sobre un header que también es translúcido no se lee.
+   * Es un token propio y no --elevated porque ese valor, en el tema claro,
+   * queda casi igual al fondo. */
+  --menu: #232633;
+
   color-scheme: dark;
 }
 
-/* Misma paleta bajo .dark: AUREM no tiene modo claro, y así las utilidades
- * `dark:` que ya existen en los componentes no cambian de significado. */
+/* Misma paleta bajo .dark que en :root, para que las utilidades `dark:` que ya
+ * existen en los componentes no cambien de significado.
+ *
+ * Repite también las primitivas AUREM —y no solo los tokens semánticos— para
+ * que `.dark` sirva como paleta noir COMPLETA y se pueda scopear a un subárbol
+ * con `class="dark"` aunque el tema activo sea el claro. La portada lo usa:
+ * es una composición noir fija, y sin esto su `text-on-background` heredaría
+ * el carbón del tema claro y quedaría texto oscuro sobre fondo oscuro. */
 .dark {
+  --charcoal: #1a1c26;
+  --surface-container: #231f17;
+  --on-background: #eae2d4;
+  --on-surface-variant: #d0c6af;
+  --gold-leaf: #f2ca4f;
+  --primary-container: #d4af35;
+  --glass-stroke: rgba(212, 175, 53, 0.3);
+  --glass-wash: rgba(242, 202, 79, 0.05);
+  --glass-glow: rgba(242, 202, 79, 0.18);
+  --menu: #232633;
+
   --background: var(--midnight-navy);
   --card: var(--charcoal);
   --elevated: var(--surface-container);
@@ -80,6 +108,79 @@
   color-scheme: dark;
 }
 
+/* -----------------------------------------------------------------------------
+ * AUREM claro · marfil y oro viejo
+ *
+ * Va después de :root a propósito: en <html class="light"> los dos selectores
+ * matchean el mismo elemento con la misma especificidad, así que gana el que
+ * viene último.
+ *
+ * DOS COSAS QUE NO SE INVIERTEN, y no es un olvido:
+ *
+ * `--midnight-navy` sigue siendo oscuro. En los componentes se usa 7 veces
+ * como `text-midnight-navy` (tinta sobre un relleno de oro) y solo 4 como
+ * fondo: es el rol "tinta sobre oro", no "fondo de página". Los fondos de
+ * página cuelgan de `--background`, que sí se invierte acá.
+ *
+ * `.fire-gradient` también queda en oro brillante. Es el relleno de los
+ * badges y las barras de progreso, siempre con tinta oscura encima: en oro
+ * apagado ese texto perdería contraste.
+ *
+ * El oro de TEXTO sí baja de tono. `text-gold-leaf` son ~54 usos y el
+ * #f2ca4f sobre marfil es ilegible; el #8a6a10 mantiene la marca y pasa AA.
+ * Los dos únicos rellenos sólidos de oro son puntitos sin texto, así que el
+ * tono profundo no los afecta.
+ * -------------------------------------------------------------------------- */
+.light {
+  --charcoal: #ffffff;
+  --surface-container: #f4eee2;
+  --on-background: #1a1c26;
+  --on-surface-variant: #55503f;
+  /* Oro viejo: el acento de la marca a un tono que se lee sobre marfil. */
+  --gold-leaf: #8a6a10;
+  --primary-container: #6f5410;
+  --glass-stroke: rgba(138, 106, 16, 0.35);
+
+  --background: #faf7f0;
+  --card: var(--charcoal);
+  --elevated: var(--surface-container);
+  --border: rgba(138, 106, 16, 0.24);
+  --border-strong: var(--glass-stroke);
+
+  --foreground: var(--on-background);
+  --muted: var(--on-surface-variant);
+  --subtle: rgba(26, 28, 38, 0.55);
+
+  /* Verde y rosa oscurecidos: los originales son para fondo noir y sobre
+   * blanco quedan en 2.54:1 y 3.67:1.
+   *
+   * Se redefinen las PRIMITIVAS y no solo --income/--expense porque hay 13
+   * usos en los componentes que apuntan derecho a `text-success-emerald` y
+   * `text-error-rose`, salteando la capa semántica. Así se arreglan los 13
+   * sin editar un solo componente. */
+  --success-emerald: #047857;
+  --error-rose: #be123c;
+  --income: var(--success-emerald);
+  --expense: var(--error-rose);
+  --wealth: var(--gold-leaf);
+
+  --primary: var(--gold-leaf);
+  --on-primary: var(--midnight-navy);
+  --ring: rgba(138, 106, 16, 0.5);
+
+  --budget-ok: var(--income);
+  --budget-warn: #b45309;
+  --budget-over: var(--expense);
+
+  --glass-wash: rgba(138, 106, 16, 0.05);
+  --glass-glow: rgba(138, 106, 16, 0.1);
+  /* Blanco puro contra el marfil del fondo: la separación la terminan de dar
+   * el borde de oro y la sombra. */
+  --menu: #ffffff;
+
+  color-scheme: light;
+}
+
 @theme inline {
   /* Nombres AUREM, para usarlos explícitamente donde el diseño lo pide. */
   --color-midnight-navy: var(--midnight-navy);
@@ -102,6 +203,8 @@
   --color-elevated: var(--elevated);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+
+  --color-menu: var(--menu);
 
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
@@ -128,14 +231,15 @@
  * Base
  * -------------------------------------------------------------------------- */
 html {
-  /* Sin esto, el rebote de scroll en iOS deja ver el fondo del navegador. */
-  background: #0a0c14;
+  /* Sin esto, el rebote de scroll en iOS deja ver el fondo del navegador.
+   * Por token y no hardcodeado, para que siga al tema. */
+  background: var(--background);
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: #0a0c14;
-  color: #eae2d4;
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   /* Tipografía más nítida, al estilo Linear/Vercel. */
   -webkit-font-smoothing: antialiased;
@@ -151,32 +255,46 @@ body {
  * Superficie de vidrio dorado. El pseudo-elemento agrega el destello radial
  * de la esquina superior: sin él la card se ve plana y pierde la profundidad
  * que define al sistema.
+ *
+ * TODA la regla va dentro de `@layer components`, y eso es lo que la hace
+ * sobrescribible. En la cascada de CSS lo que está FUERA de toda capa le gana
+ * a cualquier capa, sin importar la especificidad ni el orden del archivo.
+ * Como Tailwind emite sus utilidades en `@layer utilities`, mientras esta
+ * regla no tenía capa le ganaba en silencio a cualquier utilidad que quisiera
+ * ajustarla, y eso produjo dos bugs distintos:
+ *
+ *   · `position: relative` vencía a `absolute`, así que los paneles flotantes
+ *     se quedaban en el flujo y empujaban el layout hacia abajo.
+ *   · `background` vencía a `bg-*`, así que el fondo opaco que los mismos
+ *     paneles declaraban nunca se aplicaba y quedaban translúcidos.
+ *
+ * Verificado en el CSS compilado, no en el fuente. De los 9 usos de la clase,
+ * solo esos paneles pasaban una utilidad en conflicto: para los otros la
+ * apariencia no cambia.
  */
-.glass-card {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(242, 202, 79, 0.05);
-  border: 1px solid rgba(212, 175, 53, 0.3);
-  position: relative;
-  overflow: hidden;
-}
+@layer components {
+  .glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--glass-wash);
+    border: 1px solid var(--glass-stroke);
+    position: relative;
+    overflow: hidden;
+  }
 
-.glass-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    120% 90% at 12% -20%,
-    rgba(242, 202, 79, 0.18) 0%,
-    rgba(242, 202, 79, 0) 60%
-  );
-}
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 90% at 12% -20%, var(--glass-glow) 0%, transparent 60%);
+  }
 
-/* El contenido tiene que quedar por encima del destello. */
-.glass-card > * {
-  position: relative;
-  z-index: 1;
+  /* El contenido tiene que quedar por encima del destello. */
+  .glass-card > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .glow-gold {

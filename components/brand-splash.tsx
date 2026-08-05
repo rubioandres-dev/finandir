@@ -17,7 +17,11 @@ type Props = {
  */
 export function BrandSplash({ modo, children }: Props) {
   return (
-    <div className="relative flex min-h-dvh flex-1 flex-col items-center justify-center overflow-hidden bg-midnight-navy px-8">
+    // `dark` fuerza la paleta noir en este subárbol aunque el tema activo sea
+    // el claro: la pieza de identidad es noir por definición —igual que el
+    // ícono y el background_color del manifest— y sus textos son crema sobre
+    // navy. Sin esto, en tema claro el texto se volvería carbón sobre navy.
+    <div className="dark relative flex min-h-dvh flex-1 flex-col items-center justify-center overflow-hidden bg-midnight-navy px-8">
       {/* Órbitas decorativas de la esquina, como en la pieza de marca. */}
       <div
         aria-hidden

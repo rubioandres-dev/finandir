@@ -3,21 +3,19 @@
 import { ThemeProvider as NextThemesProvider } from 'next-themes'
 
 /**
- * AUREM es un sistema noir: no hay modo claro que elegir.
+ * AUREM tiene dos temas: noir (`dark`, el de la marca) y marfil (`light`).
  *
- * Se mantiene next-themes con `forcedTheme` para que la clase .dark siga
- * presente en <html> —de ella cuelgan las variantes `dark:` que ya usan los
- * componentes— sin leer ni escribir la preferencia del sistema.
+ * `attribute="class"` es lo que hace funcionar el `@custom-variant dark` de
+ * globals.css, que mira la clase `.dark` y no `prefers-color-scheme`: sin eso
+ * el toggle cambiaría el atributo y ninguna utilidad `dark:` se enteraría.
+ *
+ * El default es noir incluso con `enableSystem`: la identidad de la marca es
+ * el noir, y el marfil aparece solo si el usuario lo elige. Elegir "Sistema"
+ * en el menú de perfil sí delega en `prefers-color-scheme`.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <NextThemesProvider
-      attribute="class"
-      defaultTheme="dark"
-      forcedTheme="dark"
-      enableSystem={false}
-      disableTransitionOnChange
-    >
+    <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       {children}
     </NextThemesProvider>
   )

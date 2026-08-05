@@ -28,6 +28,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="flex flex-1 flex-col">
         <Header
           email={user.email ?? ''}
+          // Supabase guarda lo que le mandemos en user_metadata; el nombre no
+          // necesita tabla propia.
+          nombre={
+            typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name
+              ? user.user_metadata.full_name
+              : null
+          }
           cotizacion={cotizacion?.venta ?? null}
           nivel={nivel}
           avisos={avisos}

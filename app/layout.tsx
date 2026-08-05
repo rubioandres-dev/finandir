@@ -46,12 +46,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    // La clase .dark va fija: AUREM no tiene modo claro, pero muchas utilidades
-    // `dark:` del código existente dependen de ella para su versión oscura.
+    // Sin clase de tema acá: la pone next-themes antes del primer pintado, con
+    // el valor guardado. Si se hardcodeara `dark`, el tema elegido perdería.
     <html
       lang="es-AR"
       suppressHydrationWarning
-      className={`dark ${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <ThemeProvider>{children}</ThemeProvider>

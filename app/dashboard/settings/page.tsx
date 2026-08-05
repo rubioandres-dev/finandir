@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
+import { ProfileForm } from '@/components/profile-form'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { createClient } from '@/lib/supabase/server'
@@ -49,14 +50,17 @@ export default async function SettingsPage() {
     <div className="flex flex-col gap-5">
       <h1 className="font-display text-lg font-bold tracking-tight text-on-background">Ajustes</h1>
 
+      <ProfileForm
+        email={user.email ?? ''}
+        nombre={
+          typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : ''
+        }
+      />
+
       <Card>
         <CardContent className="flex flex-col gap-3">
           <CardLabel>Cuenta</CardLabel>
           <dl className="flex flex-col gap-2 text-sm">
-            <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">Email</dt>
-              <dd className="truncate font-medium">{user.email}</dd>
-            </div>
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-muted">Categorías</dt>
               <dd className="font-medium tabular-nums">{categorias.length}</dd>

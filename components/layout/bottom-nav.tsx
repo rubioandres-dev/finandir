@@ -17,7 +17,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-glass-stroke bg-midnight-navy/80 backdrop-blur-xl lg:hidden"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-glass-stroke bg-background/80 backdrop-blur-xl lg:hidden"
     >
       <ul className="mx-auto flex w-full max-w-2xl items-stretch">
         {PESTANAS.map(({ href, etiqueta, Icono }) => {
