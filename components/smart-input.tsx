@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { CreditCard, Loader2, Mic, Sparkles, Square } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
+import { CurrencyOptions } from '@/components/currency-options'
 import { VoiceMeter } from '@/components/voice-meter'
 import { resolverPlan } from '@/lib/cuotas'
 import { useVoiceInput } from '@/lib/use-voice-input'
@@ -13,6 +14,7 @@ import {
   formatearMonto,
   hoyEnArgentina,
   type CuentaElegible,
+  type Moneda,
   type MovimientoSugerido,
   type TipoTransaccion,
 } from '@/lib/types'
@@ -371,12 +373,11 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
                     no un campo aparte. */}
                 <select
                   value={borrador.currency}
-                  onChange={(e) => actualizar('currency', e.target.value as 'ARS' | 'USD')}
+                  onChange={(e) => actualizar('currency', e.target.value as Moneda)}
                   aria-label="Moneda del movimiento"
                   className="border-l border-border bg-foreground/[0.03] px-2 text-xs font-medium tabular-nums text-foreground outline-none"
                 >
-                  <option value="ARS">ARS</option>
-                  <option value="USD">USD</option>
+                  <CurrencyOptions actual={borrador.currency} />
                 </select>
               </div>
             </label>

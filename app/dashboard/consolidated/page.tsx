@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { Landmark, PiggyBank, Scale, TrendingDown, Wallet } from 'lucide-react'
+import { Coins, Scale, TrendingDown, Wallet } from 'lucide-react'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { consolidar, type LadoDeLaMoneda } from '@/lib/consolidated-service'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
+import { obtenerMapaDeCambio } from '@/lib/exchange'
 import { cargarInversiones } from '@/lib/investments-service'
+import { nombreDeMoneda } from '@/lib/monedas'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
 import { formatearMonto, type Moneda } from '@/lib/types'
@@ -41,33 +44,29 @@ function Linea({
 }
 
 /**
- * Una columna del comparativo. Las dos tienen exactamente las mismas filas,
- * en el mismo orden: la simetría es lo que hace comparable la lectura.
+ * Un bloque del comparativo. Todos tienen exactamente las mismas filas, en el
+ * mismo orden: la simetría es lo que hace comparable la lectura.
  */
-function Columna({ lado, cotizacionVenta }: { lado: LadoDeLaMoneda; cotizacionVenta: number | null }) {
-  const esPesos = lado.moneda === 'ARS'
-  const vacio =
-    lado.liquido === 0 &&
-    lado.inversiones === 0 &&
-    lado.porCobrar === 0 &&
-    lado.deudaTarjetas === 0 &&
-    lado.deudaPersonal === 0
+function Columna({
+  lado,
+  principal,
+}: {
+  lado: LadoDeLaMoneda
+  principal: Moneda
+}) {
+  const esPrincipal = lado.moneda === principal
 
   return (
-    <Card glass className="flex flex-col gap-2 p-4">
+    <Card glass className="flex h-full flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-2">
         <CardLabel className="text-gold-leaf">
-          {esPesos ? (
-            <Landmark className="size-3.5" aria-hidden />
-          ) : (
-            <PiggyBank className="size-3.5" aria-hidden />
-          )}
-          {esPesos ? 'En pesos' : 'En dólares'}
+          <Coins className="size-3.5" aria-hidden />
+          {nombreDeMoneda(lado.moneda)}
         </CardLabel>
         <span className="aurem-caps text-[9px] text-on-surface-variant/60">{lado.moneda}</span>
       </div>
 
-      {vacio ? (
+      {lado.vacio ? (
         <p className="py-6 text-center text-xs text-subtle">
           Sin activos ni deudas en {lado.moneda}.
         </p>
@@ -82,7 +81,12 @@ function Columna({ lado, cotizacionVenta }: { lado: LadoDeLaMoneda; cotizacionVe
             moneda={lado.moneda}
             resta
           />
-          <Linea etiqueta="Deudas personales" valor={lado.deudaPersonal} moneda={lado.moneda} resta />
+          <Linea
+            etiqueta="Deudas personales"
+            valor={lado.deudaPersonal}
+            moneda={lado.moneda}
+            resta
+          />
         </div>
       )}
 
@@ -96,14 +100,52 @@ function Columna({ lado, cotizacionVenta }: { lado: LadoDeLaMoneda; cotizacionVe
           >
             {formatearMonto(lado.neto, lado.moneda)}
           </span>
-          {/* En la columna de pesos se muestra su equivalente para poder
-              compararla con la de dólares de un vistazo. */}
-          {esPesos && lado.netoEnUsd !== null && cotizacionVenta && (
+
+          {/* El equivalente en la principal es lo que hace comparables dos
+              columnas de monedas distintas de un vistazo. */}
+          {!esPrincipal && !lado.vacio && (
             <span className="block text-[10px] tabular-nums text-subtle">
-              ≈ {formatearMonto(lado.netoEnUsd, 'USD')}
+              {lado.netoEnPrincipal === null
+                ? 'sin cotización'
+                : `≈ ${formatearMonto(lado.netoEnPrincipal, principal)}`}
             </span>
           )}
         </span>
+      </div>
+    </Card>
+  )
+}
+
+/** Un total cruzado por divisa, para leer la magnitud sin convertir nada. */
+function TotalCruzado({
+  etiqueta,
+  Icono,
+  color,
+  valores,
+}: {
+  etiqueta: string
+  Icono: typeof Wallet
+  color: string
+  valores: { moneda: Moneda; valor: number }[]
+}) {
+  const conSaldo = valores.filter((v) => v.valor !== 0)
+
+  return (
+    <Card className="p-4">
+      <CardLabel>
+        <Icono className={`size-3.5 ${color}`} aria-hidden />
+        {etiqueta}
+      </CardLabel>
+      <div className="mt-2 flex flex-col gap-0.5">
+        {conSaldo.length === 0 ? (
+          <span className="text-sm text-subtle">—</span>
+        ) : (
+          conSaldo.map(({ moneda, valor }) => (
+            <span key={moneda} className={`text-sm font-semibold tabular-nums ${color}`}>
+              {formatearMonto(valor, moneda)}
+            </span>
+          ))
+        )}
       </div>
     </Card>
   )
@@ -116,17 +158,29 @@ export default async function ConsolidatedPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Esta vista IGNORA a propósito el modo de moneda del header: su razón de
-  // existir es mostrar los dos libros a la vez.
+  // Esta vista IGNORA a propósito la moneda activa del header: su razón de
+  // existir es mostrar todos los libros a la vez.
+  const { monedas } = await cargarContextoDeMonedas()
+
   const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
     await Promise.all([
-      cargarCuentasYDeudas(supabase),
-      cargarInversiones(supabase),
+      cargarCuentasYDeudas(supabase, monedas),
+      cargarInversiones(supabase, monedas),
       obtenerCotizacionDelDia(supabase),
     ])
 
-  const consolidado = consolidar(patrimonio, resumen, cotizacion)
+  // El MEP ya resuelto se le pasa al mapa para no pedirlo dos veces; el resto
+  // de las divisas se cotiza contra el peso.
+  const { mapa } = await obtenerMapaDeCambio(supabase, monedas, cotizacion?.venta ?? null)
+
+  const consolidado = consolidar(patrimonio, resumen, monedas, mapa, cotizacion)
   const error = errorCuentas ?? errorInversiones
+
+  const liquidezTotal = consolidado.lados.map((l) => ({ moneda: l.moneda, valor: l.liquido }))
+  const pasivosTotales = consolidado.lados.map((l) => ({
+    moneda: l.moneda,
+    valor: l.deudaTarjetas + l.deudaPersonal,
+  }))
 
   return (
     <div className="flex flex-col gap-5">
@@ -135,8 +189,8 @@ export default async function ConsolidatedPage() {
           Patrimonio consolidado
         </h1>
         <p className="text-xs leading-snug text-subtle">
-          El único lugar donde los dos libros se suman. En el resto de la app, pesos y dólares van
-          por separado.
+          El único lugar donde tus libros se suman. En el resto de la app cada divisa va por
+          separado.
         </p>
       </div>
 
@@ -153,85 +207,62 @@ export default async function ConsolidatedPage() {
       <Card glass className="glow-gold flex flex-col gap-2 p-5">
         <CardLabel className="text-gold-leaf">
           <Scale className="size-3.5" aria-hidden />
-          Patrimonio neto unificado
+          Patrimonio neto unificado · {consolidado.principal}
         </CardLabel>
 
-        {consolidado.patrimonioUnificadoUsd === null ? (
+        {consolidado.patrimonioUnificado === null ? (
           <>
             <p className="mt-1 font-display text-2xl font-bold tracking-tighter text-subtle">
               Sin cotización
             </p>
             <p className="text-[11px] leading-snug text-subtle">
-              No se pudo obtener el dólar MEP, así que no se unifican los dos libros. Preferimos no
-              mostrar un total antes que mostrarlo con un tipo de cambio inventado.
+              No se pudo cotizar {consolidado.sinCotizacion.join(', ')}, así que no se unifican los
+              libros. Preferimos no mostrar un total antes que mostrarlo con un tipo de cambio
+              inventado.
             </p>
           </>
         ) : (
           <>
             <p className="mt-1 font-display text-[2rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf">
-              {formatearMonto(consolidado.patrimonioUnificadoUsd, 'USD')}
+              {formatearMonto(consolidado.patrimonioUnificado, consolidado.principal)}
             </p>
-            {consolidado.patrimonioUnificadoArs !== null && (
-              <p className="text-sm font-medium tabular-nums text-on-surface-variant">
-                ≈ {formatearMonto(consolidado.patrimonioUnificadoArs, 'ARS')}
-              </p>
-            )}
             <div className="fire-gradient mt-3 h-px w-full opacity-40" aria-hidden />
             <p className="text-[10px] leading-snug text-subtle">
-              Convertido al dólar MEP de {consolidado.cotizacion?.fecha} a{' '}
-              {consolidado.cotizacion?.venta.toLocaleString('es-AR', {
-                maximumFractionDigits: 0,
-              })}
-              . Es una foto a ese tipo de cambio, no un saldo contable: si el MEP se mueve, este
+              Expresado en {nombreDeMoneda(consolidado.principal).toLowerCase()}, tu divisa
+              principal.
+              {consolidado.cotizacion &&
+                ` Dólar MEP del ${consolidado.cotizacion.fecha} a ${consolidado.cotizacion.venta.toLocaleString(
+                  'es-AR',
+                  { maximumFractionDigits: 0 }
+                )}.`}{' '}
+              Es una foto a los tipos de cambio de hoy, no un saldo contable: si se mueven, este
               número se mueve sin que hayas hecho nada.
             </p>
           </>
         )}
       </Card>
 
-      {/* --- Comparativa simétrica --------------------------------------- */}
-      <section className="grid gap-3 sm:grid-cols-2 sm:items-stretch">
-        <Columna lado={consolidado.ars} cotizacionVenta={cotizacion?.venta ?? null} />
-        <Columna lado={consolidado.usd} cotizacionVenta={cotizacion?.venta ?? null} />
+      {/* --- Comparativa simétrica: un bloque por divisa ------------------ */}
+      <section className="grid items-stretch gap-3 sm:grid-cols-2">
+        {consolidado.lados.map((lado) => (
+          <Columna key={lado.moneda} lado={lado} principal={consolidado.principal} />
+        ))}
       </section>
 
       {/* --- Totales cruzados -------------------------------------------- */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className="p-4">
-          <CardLabel>
-            <Wallet className="size-3.5 text-income" aria-hidden />
-            Liquidez total
-          </CardLabel>
-          <div className="mt-2 flex flex-col gap-0.5">
-            <span className="text-sm font-semibold tabular-nums text-income">
-              {formatearMonto(consolidado.ars.liquido, 'ARS')}
-            </span>
-            <span className="text-sm font-semibold tabular-nums text-income">
-              {formatearMonto(consolidado.usd.liquido, 'USD')}
-            </span>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <CardLabel>
-            <TrendingDown className="size-3.5 text-expense" aria-hidden />
-            Pasivos totales
-          </CardLabel>
-          <div className="mt-2 flex flex-col gap-0.5">
-            <span className="text-sm font-semibold tabular-nums text-expense">
-              {formatearMonto(
-                consolidado.ars.deudaTarjetas + consolidado.ars.deudaPersonal,
-                'ARS'
-              )}
-            </span>
-            <span className="text-sm font-semibold tabular-nums text-expense">
-              {formatearMonto(
-                consolidado.usd.deudaTarjetas + consolidado.usd.deudaPersonal,
-                'USD'
-              )}
-            </span>
-          </div>
-        </Card>
+        <TotalCruzado
+          etiqueta="Liquidez total"
+          Icono={Wallet}
+          color="text-income"
+          valores={liquidezTotal}
+        />
+        <TotalCruzado
+          etiqueta="Pasivos totales"
+          Icono={TrendingDown}
+          color="text-expense"
+          valores={pasivosTotales}
+        />
       </div>
     </div>
   )

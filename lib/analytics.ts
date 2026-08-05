@@ -1,4 +1,4 @@
-import { rangoDelPeriodo, type Periodo } from './types'
+import { rangoDelPeriodo, type Moneda, type Periodo } from './types'
 
 export const COLOR_SIN_CATEGORIA = '#64748B'
 
@@ -6,7 +6,7 @@ export type GastoParaGrafico = {
   amount: number
   date: string
   category_id: string | null
-  currency: 'ARS' | 'USD'
+  currency: Moneda
 }
 
 export type PorcionDeGasto = {
@@ -25,7 +25,7 @@ export function agruparGastosPorCategoria(
   categorias: { id: string; name: string; color: string }[],
   periodo: Periodo,
   /** Solo se agregan gastos de esta moneda: pesos y dólares no se suman. */
-  moneda: 'ARS' | 'USD'
+  moneda: Moneda
 ): { porciones: PorcionDeGasto[]; total: number } {
   const { desde, hasta } = rangoDelPeriodo(periodo)
   const porId = new Map(categorias.map((c) => [c.id, c]))

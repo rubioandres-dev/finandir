@@ -4,8 +4,8 @@ import { CalendarClock, CreditCard, PartyPopper, TrendingDown } from 'lucide-rea
 import { DebtCurveChart } from '@/components/debt-curve-chart'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
-import { MONEDAS } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import { formatearFecha, formatearMonto, hoyEnArgentina, type Moneda } from '@/lib/types'
 
@@ -19,15 +19,16 @@ export default async function CommitmentsPage() {
   if (!user) redirect('/login')
 
   const hoy = hoyEnArgentina()
-  const [{ curva, planes, error }, { cuentas }] = await Promise.all([
+  const [{ curva, planes, error }, { cuentas }, { monedas }] = await Promise.all([
     cargarCompromisos(supabase, hoy),
     obtenerCuentasPorMoneda(supabase),
+    cargarContextoDeMonedas(),
   ])
 
   const nombreDeCuenta = new Map(Object.values(cuentas).map((c) => [c.id, c.name]))
 
   // Pasivo futuro total: todo lo que falta pagar en cuotas, por moneda.
-  const totalPorMoneda = MONEDAS.map((moneda) => ({
+  const totalPorMoneda = monedas.map((moneda) => ({
     moneda,
     valor:
       Math.round(
@@ -40,7 +41,7 @@ export default async function CommitmentsPage() {
    * que pagar. Dividir por los 12 de la ventana diluiría el número justo
    * cuando el plan está por terminar, que es cuando más importa verlo.
    */
-  const promedioPorMoneda = MONEDAS.map((moneda) => {
+  const promedioPorMoneda = monedas.map((moneda) => {
     const valores = curva
       .map((punto) => punto.porMoneda.find((m) => m.moneda === moneda)?.valor ?? 0)
       .filter((valor) => valor > 0)

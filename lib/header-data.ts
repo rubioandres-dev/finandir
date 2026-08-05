@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarMoneda } from './monedas'
 import { rangoDelMesActual, type Moneda, type Tarjeta } from './types'
 
 /**
@@ -104,18 +105,26 @@ export function construirAvisos(tarjetas: Tarjeta[], hoy: string, ventanaEnDias 
 /**
  * Tasa de ahorro del mes sobre el libro en pesos, que es el principal.
  *
- * Si no hubo ingresos en pesos se prueba con dólares, y si tampoco hubo se
- * devuelve null: sin ingresos, la tasa no está definida.
+ * Si no hubo ingresos en pesos se prueban las otras divisas que aparezcan en
+ * el mes, en orden alfabético. Si en ninguna hubo ingresos devuelve null: sin
+ * ingresos, la tasa no está definida.
  */
 export function calcularTasaDeAhorro(
   movimientos: { amount: number; currency: string | null; type: string }[]
 ): number | null {
   const acumular = (moneda: Moneda, tipo: string) =>
     movimientos
-      .filter((m) => (m.currency === 'USD' ? 'USD' : 'ARS') === moneda && m.type === tipo)
+      .filter((m) => normalizarMoneda(m.currency) === moneda && m.type === tipo)
       .reduce((suma, m) => suma + Number(m.amount), 0)
 
-  for (const moneda of ['ARS', 'USD'] as Moneda[]) {
+  // La primera divisa con ingresos manda: el nivel es un solo número, y
+  // promediar tasas de monedas distintas no significaría nada. El orden es
+  // fijo —pesos primero— para que el nivel no cambie según en qué orden vino
+  // la consulta.
+  const presentes = new Set(movimientos.map((m) => normalizarMoneda(m.currency)))
+  const monedas = ['ARS', ...[...presentes].filter((m) => m !== 'ARS').sort()]
+
+  for (const moneda of monedas) {
     const ingresos = acumular(moneda, 'INCOME')
     if (ingresos <= 0) continue
     const gastos = acumular(moneda, 'EXPENSE')

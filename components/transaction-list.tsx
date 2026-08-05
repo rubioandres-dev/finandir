@@ -1,6 +1,6 @@
 import { TransactionRow } from '@/components/transaction-row'
 import type { CuentaElegible } from '@/components/transaction-editor'
-import type { Categoria, Transaccion } from '@/lib/types'
+import type { Categoria, Moneda, Transaccion } from '@/lib/types'
 
 const COLOR_SIN_CATEGORIA = '#64748B'
 
@@ -25,7 +25,7 @@ type Props = {
   movimientos: FilaMovimiento[]
   categorias: Categoria[]
   /** Equivalente aproximado en la otra moneda; se muestra solo con ≈ activado. */
-  equivalente?: (t: FilaMovimiento) => { valor: number; moneda: 'ARS' | 'USD' } | null
+  equivalente?: (t: FilaMovimiento) => { valor: number; moneda: Moneda } | null
   /** Cuentas a las que se puede mover un movimiento al editarlo. */
   cuentas?: CuentaElegible[]
   /** Si las filas abren el editor al tocarlas. */

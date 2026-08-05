@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Check, Loader2, Plus, X } from 'lucide-react'
 import { guardarPresupuesto } from '@/app/dashboard/actions'
+import { useModoMoneda } from '@/components/currency-provider'
 import { IconoCategoria } from '@/lib/category-icons'
 import { formatearMonto, type Moneda } from '@/lib/types'
 
-const MONEDAS: Moneda[] = ['ARS', 'USD']
 
 export type LineaDePresupuesto = {
   moneda: Moneda
@@ -203,6 +203,8 @@ export function BudgetProgress({
   categorias: PresupuestoDeCategoria[]
   faltaMigracion: boolean
 }) {
+  const { monedasSeleccionadas } = useModoMoneda()
+
   const avanceMaximo = (c: PresupuestoDeCategoria) =>
     Math.max(
       0,
@@ -250,7 +252,7 @@ export function BudgetProgress({
               </div>
 
               <div className="flex flex-col gap-2 pl-9">
-                {MONEDAS.map((moneda) => (
+                {monedasSeleccionadas.map((moneda) => (
                   <LineaMoneda
                     key={moneda}
                     categoriaId={categoria.id}

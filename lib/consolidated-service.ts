@@ -1,20 +1,27 @@
 import type { Patrimonio } from './accounts-service'
+import { convertir, type MapaDeCambio } from './exchange'
 import type { ResumenDeInversiones } from './investments-service'
 import type { Cotizacion } from './rates'
 import type { Moneda } from './types'
 
 /**
- * Vista consolidada: el ÚNICO lugar donde pesos y dólares se suman.
+ * Vista consolidada: el ÚNICO lugar donde los libros se suman.
  *
- * En todo el resto de la app son libros paralelos, y con razón: un total
- * mezclado no representa nada estable cuando una de las dos monedas se
- * devalúa. Acá se suman a propósito, y por eso todo lo que sale de este módulo
- * viene marcado con la cotización que se usó y su fecha: es una foto a un tipo
- * de cambio, no un saldo contable.
+ * En todo el resto de la app son paralelos, y con razón: un total mezclado no
+ * representa nada estable cuando una de las monedas se devalúa. Acá se suman a
+ * propósito, y por eso todo lo que sale de este módulo viene marcado con la
+ * cotización que se usó y su fecha: es una foto a un tipo de cambio, no un
+ * saldo contable.
  *
- * Se convierte SIEMPRE a USD y no a pesos. Es la unidad que no se mueve bajo
- * los pies: un patrimonio neto en pesos crece por inflación aunque no hayas
- * ahorrado un peso.
+ * EN QUÉ MONEDA SE EXPRESA EL TOTAL
+ *
+ * Antes era siempre USD, con un argumento bueno: es la unidad que no se mueve
+ * bajo los pies, y un patrimonio en pesos crece por inflación aunque no hayas
+ * ahorrado un peso. Ahora es la DIVISA PRINCIPAL del usuario (la primera de su
+ * lista), porque con divisas dinámicas no hay razón para asumir que el dólar
+ * es la referencia de todo el mundo. Ese argumento sigue en pie: si elegís
+ * pesos como principal, el total va a crecer con la inflación. Por eso la
+ * vista muestra siempre la cotización usada y su fecha.
  */
 
 export type LadoDeLaMoneda = {
@@ -31,18 +38,22 @@ export type LadoDeLaMoneda = {
   deudaPersonal: number
   /** Líquido + inversiones + por cobrar − tarjetas − deuda personal. */
   neto: number
-  /** El mismo neto llevado a USD al MEP del día. null sin cotización. */
-  netoEnUsd: number | null
+  /** El mismo neto llevado a la divisa principal. null si falta cotización. */
+  netoEnPrincipal: number | null
+  /** true si no hay nada cargado en esta moneda. */
+  vacio: boolean
 }
 
 export type Consolidado = {
-  ars: LadoDeLaMoneda
-  usd: LadoDeLaMoneda
-  /** Suma de los dos netos en USD. null si falta la cotización. */
-  patrimonioUnificadoUsd: number | null
-  /** El mismo total expresado en pesos, para leerlo en la moneda de todos los días. */
-  patrimonioUnificadoArs: number | null
-  /** Cotización usada, para poder mostrarla junto al número. */
+  /** Un lado por divisa, en el orden en que el usuario las eligió. */
+  lados: LadoDeLaMoneda[]
+  /** Divisa en la que se expresa el total: la primera de la lista. */
+  principal: Moneda
+  /** Suma de todos los netos, en la divisa principal. null si falta alguna cotización. */
+  patrimonioUnificado: number | null
+  /** Divisas que no se pudieron convertir por falta de cotización. */
+  sinCotizacion: Moneda[]
+  /** Cotización MEP usada, para poder mostrarla junto al número. */
   cotizacion: Cotizacion | null
 }
 
@@ -56,9 +67,10 @@ function redondear(valor: number): number {
 
 function armarLado(
   moneda: Moneda,
+  principal: Moneda,
   patrimonio: Patrimonio,
   inversiones: ResumenDeInversiones,
-  cotizacion: Cotizacion | null
+  mapa: MapaDeCambio
 ): LadoDeLaMoneda {
   const liquido = valorDe(patrimonio.liquido, moneda)
   // El valor de mercado de `investments`, no el saldo de las cuentas de tipo
@@ -70,14 +82,6 @@ function armarLado(
 
   const neto = liquido + enInversiones + porCobrar - deudaTarjetas - deudaPersonal
 
-  // Los dólares ya están en dólares; los pesos se dividen por el MEP.
-  const netoEnUsd =
-    moneda === 'USD'
-      ? redondear(neto)
-      : cotizacion && cotizacion.venta > 0
-        ? redondear(neto / cotizacion.venta)
-        : null
-
   return {
     moneda,
     liquido: redondear(liquido),
@@ -86,32 +90,45 @@ function armarLado(
     deudaTarjetas: redondear(deudaTarjetas),
     deudaPersonal: redondear(deudaPersonal),
     neto: redondear(neto),
-    netoEnUsd,
+    netoEnPrincipal: convertir(neto, moneda, principal, mapa),
+    vacio:
+      liquido === 0 &&
+      enInversiones === 0 &&
+      porCobrar === 0 &&
+      deudaTarjetas === 0 &&
+      deudaPersonal === 0,
   }
 }
 
 /**
- * Unifica los dos libros. Función pura: se puede verificar sin base de datos.
+ * Unifica los libros. Función pura: se puede verificar sin base de datos.
+ *
+ * Si falta la cotización de UNA sola divisa con saldo, el total unificado
+ * queda en `null`. No se suma lo que se pudo y se ignora el resto: un
+ * patrimonio al que le falta un pedazo, mostrado como si estuviera completo,
+ * es peor que no mostrar ninguno. Las que faltan salen en `sinCotizacion`
+ * para poder decir cuáles son.
  */
 export function consolidar(
   patrimonio: Patrimonio,
   inversiones: ResumenDeInversiones,
+  monedas: Moneda[],
+  mapa: MapaDeCambio,
   cotizacion: Cotizacion | null
 ): Consolidado {
-  const ars = armarLado('ARS', patrimonio, inversiones, cotizacion)
-  const usd = armarLado('USD', patrimonio, inversiones, cotizacion)
+  const principal = monedas[0] ?? 'ARS'
+  const lados = monedas.map((moneda) =>
+    armarLado(moneda, principal, patrimonio, inversiones, mapa)
+  )
 
-  // Si falta la cotización no se inventa un total: preferimos un dato ausente
-  // a uno falso, igual que con `amount_usd` en los movimientos.
-  const unificadoUsd =
-    ars.netoEnUsd === null ? null : redondear(ars.netoEnUsd + usd.netoEnUsd!)
+  const sinCotizacion = lados
+    .filter((lado) => lado.netoEnPrincipal === null && !lado.vacio)
+    .map((lado) => lado.moneda)
 
-  return {
-    ars,
-    usd,
-    patrimonioUnificadoUsd: unificadoUsd,
-    patrimonioUnificadoArs:
-      unificadoUsd === null || !cotizacion ? null : Math.round(unificadoUsd * cotizacion.venta),
-    cotizacion,
-  }
+  const patrimonioUnificado =
+    sinCotizacion.length > 0
+      ? null
+      : redondear(lados.reduce((total, lado) => total + (lado.netoEnPrincipal ?? 0), 0))
+
+  return { lados, principal, patrimonioUnificado, sinCotizacion, cotizacion }
 }

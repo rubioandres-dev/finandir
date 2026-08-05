@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 import { FALTA_MIGRACION_INVERSIONES } from '@/lib/investments-service'
 import { createClient } from '@/lib/supabase/server'
@@ -20,7 +21,7 @@ const inversionSchema = z.object({
   id: z.uuid().optional(),
   name: z.string().trim().min(1, 'Poné un nombre.').max(80),
   asset_type: z.enum(TIPOS_DE_ACTIVO),
-  currency: z.enum(['ARS', 'USD']),
+  currency: z.enum(CODIGOS_DE_MONEDA),
   amount_invested: z
     .number()
     .refine(Number.isFinite, 'Poné un monto válido.')

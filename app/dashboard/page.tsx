@@ -14,12 +14,12 @@ import { MarketRatesCard } from '@/components/market-rates-card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { esDeLaMoneda } from '@/lib/currency-mode'
-import { leerModoMoneda } from '@/lib/currency-mode-server'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
-import { hoyEnArgentina } from '@/lib/types'
+import { hoyEnArgentina, type Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Moneda activa del header: recorta todo lo que se muestra abajo.
-  const modo = await leerModoMoneda()
+  const { modo, monedas } = await cargarContextoDeMonedas()
 
   const {
     cotizacion,
@@ -45,11 +45,11 @@ export default async function DashboardPage() {
     gastosDelMes,
     faltaMigracion,
     errorCarga,
-  } = await cargarDatosDelDashboard(modo)
+  } = await cargarDatosDelDashboard(modo, monedas)
 
   // Recomendación de tarjeta: se calcula en el servidor y el widget solo muestra.
   const [{ tarjetas, cuentas }, cotizacionesDeMercado] = await Promise.all([
-    cargarCuentasYDeudas(supabase),
+    cargarCuentasYDeudas(supabase, monedas),
     obtenerCotizacionesDelMercado(),
   ])
 
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
       category_id: t.category_id,
     }))
 
-  const equivalente = (t: { amount: number; currency: 'ARS' | 'USD' }) =>
+  const equivalente = (t: { amount: number; currency: Moneda }) =>
     equivalenteAproximado(Number(t.amount), t.currency, cotizacion)
 
   // "Recientes" tiene que significar recientes. Las cuotas son filas con la

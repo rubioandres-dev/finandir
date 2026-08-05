@@ -9,6 +9,7 @@ import {
   registrarPagoDeDeuda,
   type DeudaAGuardar,
 } from '@/app/dashboard/accounts/actions'
+import { CurrencyOptions } from '@/components/currency-options'
 import { formatearMonto, type Deuda, type Moneda, type TipoDeDeuda } from '@/lib/types'
 
 const CAMPO =
@@ -317,8 +318,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
                 onChange={(e) => setMoneda(e.target.value as Moneda)}
                 className={CAMPO}
               >
-                <option value="ARS">ARS</option>
-                <option value="USD">USD</option>
+                <CurrencyOptions actual={moneda} />
               </select>
             </label>
 

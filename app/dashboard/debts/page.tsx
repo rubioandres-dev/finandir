@@ -4,7 +4,7 @@ import { DebtManager } from '@/components/debt-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
-import { leerModoMoneda } from '@/lib/currency-mode-server'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'
 import { formatearMonto, type Moneda } from '@/lib/types'
 
@@ -17,8 +17,8 @@ export default async function DebtsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const modo = await leerModoMoneda()
-  const { deudas, patrimonio, error } = await cargarCuentasYDeudas(supabase)
+  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { deudas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
 
   // Solo el libro activo, igual que en cuentas y movimientos.
   const deudasVisibles = deudas.filter((d) => esDeLaMoneda(d, modo))

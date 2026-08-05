@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 
@@ -12,7 +13,7 @@ const cuentaSchema = z
     id: z.uuid().optional(),
     name: z.string().trim().min(1, 'Poné un nombre.').max(80),
     type: z.enum(TIPOS),
-    currency: z.enum(['ARS', 'USD']),
+    currency: z.enum(CODIGOS_DE_MONEDA),
     /**
      * Saldo de apertura al crear, o corrección del saldo al editar. Si no
      * viene, la columna no se toca: la mantienen los triggers de transactions.
@@ -212,7 +213,7 @@ const deudaSchema = z.object({
   counterparty_name: z.string().trim().min(1, 'Poné con quién es la deuda.').max(80),
   total_amount: z.number().positive('El monto tiene que ser mayor a cero.'),
   remaining_amount: z.number().min(0).optional(),
-  currency: z.enum(['ARS', 'USD']),
+  currency: z.enum(CODIGOS_DE_MONEDA),
   type: z.enum(['OWED_BY_ME', 'OWED_TO_ME']),
   due_date: z
     .string()

@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { APICallError, NoObjectGeneratedError, RetryError, generateObject } from 'ai'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 
 export const runtime = 'nodejs'
 // Un resumen de tarjeta puede tener decenas de consumos: dura más que un parseo
@@ -47,7 +48,7 @@ const consumoSchema = z.object({
     .nullable()
     .describe('Total de cuotas del plan. null si es un pago único.'),
   currency: z
-    .enum(['ARS', 'USD'])
+    .enum(CODIGOS_DE_MONEDA)
     .describe('Moneda del renglón. Los resúmenes argentinos suelen tener secciones separadas.'),
 })
 

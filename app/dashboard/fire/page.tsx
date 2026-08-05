@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Construction, TrendingUp } from 'lucide-react'
 import { MontoPorMoneda } from '@/components/monto'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { totalizarPorMoneda } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
@@ -20,16 +21,22 @@ export default async function FirePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { delMes, ventana } = await cargarDatosDelDashboard()
+  // Sin filtrar por la moneda activa: FIRE se calcula para cada divisa que el
+  // usuario tenga, porque el capital objetivo de una no dice nada de la otra.
+  const { monedas } = await cargarContextoDeMonedas()
+  const { delMes, ventana } = await cargarDatosDelDashboard(undefined, monedas)
 
-  const gastoDelMes = totalizarPorMoneda(delMes.filter((t) => t.type === 'EXPENSE'))
+  const gastoDelMes = totalizarPorMoneda(
+    delMes.filter((t) => t.type === 'EXPENSE'),
+    monedas
+  )
 
   // Promedio mensual del año en curso: base menos ruidosa que un solo mes.
   const { desde: inicioAnio } = rangoDelPeriodo('anio')
   const gastosDelAnio = ventana.filter((t) => t.type === 'EXPENSE' && t.date >= inicioAnio)
   const mesesConDatos = new Set(gastosDelAnio.map((t) => t.date.slice(0, 7))).size || 1
 
-  const promedioMensual = totalizarPorMoneda(gastosDelAnio).map((total) => ({
+  const promedioMensual = totalizarPorMoneda(gastosDelAnio, monedas).map((total) => ({
     ...total,
     valor: Math.round((total.valor / mesesConDatos) * 100) / 100,
   }))

@@ -6,6 +6,7 @@ import { guardarTransaccion, type ResultadoGuardado } from '@/app/dashboard/acti
 import { obtenerOCrearCategoria } from '@/lib/finanzas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
+import type { Moneda } from '@/lib/types'
 
 /**
  * Editar y borrar movimientos.
@@ -187,7 +188,7 @@ async function rehacerPlan(
   id: string,
   existente: FilaExistente,
   datos: z.output<typeof edicionSchema>,
-  moneda: 'ARS' | 'USD'
+  moneda: Moneda
 ): Promise<ResultadoGuardado> {
   const creado = await guardarTransaccion({
     amount: datos.amount,

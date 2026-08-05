@@ -1,12 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Cuenta, TipoCategoria } from './types'
+import { MONEDAS_POR_DEFECTO, nombreDeMoneda } from './monedas'
+import type { Cuenta, Moneda, TipoCategoria } from './types'
 
-export const MONEDAS = ['ARS', 'USD'] as const
-export type Moneda = (typeof MONEDAS)[number]
+// Este módulo tenía su propio `Moneda = 'ARS' | 'USD'`. Ahora reexporta el
+// compartido: dos definiciones del mismo concepto es exactamente lo que hace
+// que una se quede vieja cuando el usuario elige una tercera divisa.
+export type { Moneda }
 
-export const NOMBRE_DE_CUENTA: Record<Moneda, string> = {
-  ARS: 'Pesos',
-  USD: 'Dólares',
+/** @deprecated Usá las divisas del perfil (`cargarContextoDeMonedas`). */
+export const MONEDAS = MONEDAS_POR_DEFECTO
+
+/**
+ * Nombre de la cuenta que se crea sola para una moneda.
+ *
+ * Era un `Record` de dos entradas. Con divisas dinámicas tiene que responder
+ * para cualquier código del catálogo, o la cuenta en euros se crearía con el
+ * nombre `undefined`.
+ */
+export function nombreDeCuenta(moneda: Moneda): string {
+  if (moneda === 'ARS') return 'Pesos'
+  if (moneda === 'USD') return 'Dólares'
+  return nombreDeMoneda(moneda)
 }
 
 /**
@@ -33,7 +47,7 @@ export async function obtenerOCrearCuenta(
 
   const { data: creada, error: errorInsert } = await supabase
     .from('accounts')
-    .insert({ user_id: userId, name: NOMBRE_DE_CUENTA[moneda], currency: moneda })
+    .insert({ user_id: userId, name: nombreDeCuenta(moneda), currency: moneda })
     .select()
     .single()
 

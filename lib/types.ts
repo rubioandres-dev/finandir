@@ -126,7 +126,7 @@ export type Transaccion = {
   category_id: string | null
   amount: number
   /** Moneda en la que se registró el movimiento. */
-  currency: 'ARS' | 'USD'
+  currency: Moneda
   /** Equivalente en USD congelado al momento de guardar; null si no había cotización. */
   amount_usd: number | null
   type: TipoTransaccion
@@ -149,7 +149,7 @@ export type Transaccion = {
 export type MovimientoSugerido = {
   amount: number
   type: TipoTransaccion
-  currency: 'ARS' | 'USD'
+  currency: Moneda
   category_suggested: string
   description: string
   date: string
@@ -173,7 +173,28 @@ export const ETIQUETA_TIPO: Record<TipoTransaccion, string> = {
   TRANSFER: 'Transferencia',
 }
 
-export type Moneda = 'ARS' | 'USD'
+/**
+ * Código ISO 4217 en mayúsculas.
+ *
+ * Era la unión `ARS | USD`. Se abrió a string porque el usuario elige sus divisas
+ * en el onboarding y esa lista es un dato, no una constante del código. El
+ * catálogo de las que la app sabe manejar vive en `lib/monedas.ts`, y la
+ * validación real la hace el CHECK `^[A-Z]{3}$` de la base (migración 007).
+ *
+ * El tipo no protege contra un código inválido; lo que protege es
+ * `normalizarMoneda()`, por donde pasa todo lo que viene de la base.
+ */
+export type Moneda = string
+
+/** Perfil del usuario: nombre visible y divisas de trabajo. Ver migrations/007. */
+export type UserProfile = {
+  user_id: string
+  display_name: string | null
+  /** ISO 4217. El PRIMERO es la divisa principal. Nunca vacío. */
+  selected_currencies: Moneda[]
+  onboarding_completed: boolean
+  updated_at: string | null
+}
 
 export const formatoMoneda = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -181,14 +202,34 @@ export const formatoMoneda = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 2,
 })
 
-const formatoMonedaUsd = new Intl.NumberFormat('es-AR', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-})
+/**
+ * Un formateador por divisa, construido a demanda.
+ *
+ * `Intl.NumberFormat` es caro de instanciar y esto se llama una vez por fila
+ * de cada listado, así que se cachean. Antes eran dos constantes; con N
+ * divisas la constante pasa a ser un mapa.
+ */
+const formateadores = new Map<Moneda, Intl.NumberFormat>([['ARS', formatoMoneda]])
 
 export function formatearMonto(valor: number, moneda: Moneda): string {
-  return (moneda === 'USD' ? formatoMonedaUsd : formatoMoneda).format(valor)
+  let formateador = formateadores.get(moneda)
+
+  if (!formateador) {
+    try {
+      formateador = new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: moneda,
+        maximumFractionDigits: 2,
+      })
+    } catch {
+      // Un código que Intl no conoce no puede tumbar un listado entero: se
+      // muestra el número con el código adelante y sigue.
+      return `${moneda} ${valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`
+    }
+    formateadores.set(moneda, formateador)
+  }
+
+  return formateador.format(valor)
 }
 
 /** Un movimiento expresado en las dos monedas; null = sin cotización. */

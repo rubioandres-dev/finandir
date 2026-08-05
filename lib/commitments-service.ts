@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MONEDAS_POR_DEFECTO, normalizarMoneda } from './monedas'
 import type { Moneda } from './types'
 
 /** Una cuota futura, tal como se consulta para proyectar. */
@@ -69,6 +70,9 @@ export function construirCurva(
   meses = 12
 ): PuntoDeCurva[] {
   const acumulado = new Map<string, Map<Moneda, number>>()
+  // Arranca con el par por defecto para que la curva nunca quede sin series
+  // cuando no hay cuotas; las divisas que aparezcan en los datos se suman.
+  const monedasPresentes = new Set<Moneda>(MONEDAS_POR_DEFECTO)
 
   for (let i = 0; i < meses; i++) {
     acumulado.set(sumarMesAlPeriodo(desdePeriodo, i), new Map())
@@ -79,14 +83,19 @@ export function construirCurva(
     const bucket = acumulado.get(periodo)
     // Las cuotas fuera de la ventana no se dibujan, pero sí cuentan en el total.
     if (!bucket) continue
-    const moneda = (cuota.currency ?? 'ARS') as Moneda
+    const moneda = normalizarMoneda(cuota.currency)
     bucket.set(moneda, (bucket.get(moneda) ?? 0) + Number(cuota.amount))
+    monedasPresentes.add(moneda)
   }
+
+  // Todos los puntos de la curva tienen las mismas monedas, estén o no en cero:
+  // el gráfico compara mes contra mes y un hueco cambiaría la escala.
+  const monedas = [...monedasPresentes]
 
   return Array.from(acumulado, ([mes, porMonedaMap]) => ({
     mes,
     etiqueta: etiquetaDeMes(mes),
-    porMoneda: (['ARS', 'USD'] as Moneda[]).map((moneda) => ({
+    porMoneda: monedas.map((moneda) => ({
       moneda,
       valor: Math.round((porMonedaMap.get(moneda) ?? 0) * 100) / 100,
     })),

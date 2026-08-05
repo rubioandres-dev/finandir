@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
 import { guardarCuenta, type CuentaAGuardar } from '@/app/dashboard/accounts/actions'
+import { CurrencyOptions } from '@/components/currency-options'
 import {
   ETIQUETA_TIPO_CUENTA,
   type Cuenta,
@@ -199,8 +200,7 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
             onChange={(e) => setMoneda(e.target.value as Moneda)}
             className={CAMPO}
           >
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
+            <CurrencyOptions actual={moneda} />
           </select>
         </label>
 

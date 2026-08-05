@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 import { obtenerOCrearCategoria } from '@/lib/finanzas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
@@ -19,7 +20,7 @@ const consumoSchema = z.object({
   amount: z.number().positive(),
   current_installment: z.number().int().min(1).nullable(),
   total_installments: z.number().int().min(1).nullable(),
-  currency: z.enum(['ARS', 'USD']),
+  currency: z.enum(CODIGOS_DE_MONEDA),
 })
 
 const listaSchema = z.array(consumoSchema).min(1).max(500)

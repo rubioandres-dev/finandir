@@ -1,7 +1,8 @@
 // Solo para el servidor: se usa desde Server Components y Server Actions.
 // (No importamos 'server-only' porque no está entre las dependencias.)
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { hoyEnArgentina } from './types'
+import { guardarCotizacion, leerCotizacionGuardada, soportaParesDeDivisas } from './exchange'
+import { hoyEnArgentina, type Moneda } from './types'
 
 const API_MEP = 'https://dolarapi.com/v1/dolares/bolsa'
 export const FUENTE_MEP = 'dolarapi:bolsa'
@@ -59,18 +60,16 @@ export async function obtenerCotizacionDelDia(
 ): Promise<Cotizacion | null> {
   const hoy = hoyEnArgentina()
 
-  const { data: guardada } = await supabase
-    .from('exchange_rates')
-    .select('date, source, buy, sell')
-    .eq('date', hoy)
-    .maybeSingle()
+  // El par va explícito: desde la 007 la tabla guarda también euro y real, así
+  // que "la fila de hoy" a secas ya no identifica al MEP.
+  const guardada = await leerCotizacionGuardada(supabase, 'USD', 'ARS', hoy)
 
-  if (guardada?.sell) {
+  if (guardada) {
     return {
-      fecha: guardada.date as string,
-      compra: Number(guardada.buy ?? 0),
-      venta: Number(guardada.sell),
-      fuente: (guardada.source as string) ?? FUENTE_MEP,
+      fecha: hoy,
+      compra: guardada.compra ?? 0,
+      venta: guardada.venta,
+      fuente: guardada.fuente ?? FUENTE_MEP,
       cacheada: true,
     }
   }
@@ -85,19 +84,16 @@ export async function obtenerCotizacionDelDia(
   }
 
   // upsert por si dos requests simultáneos intentan guardar el mismo día.
-  const { error } = await supabase
-    .from('exchange_rates')
-    .upsert(
-      { date: hoy, source: FUENTE_MEP, buy: enVivo.compra, sell: enVivo.venta },
-      { onConflict: 'date' }
-    )
-
-  if (error) {
-    // Falta la policy de INSERT en exchange_rates, o RLS la bloquea.
-    // Seguimos con el valor en vivo: la conversión funciona igual, solo que
-    // no queda histórico.
-    console.error('[rates] no se pudo persistir la cotización', error.message)
-  }
+  // Si RLS lo bloquea o falta la migración, `guardarCotizacion` lo loguea y
+  // sigue: la conversión funciona igual, solo que no queda histórico.
+  await guardarCotizacion(supabase, {
+    fecha: hoy,
+    base: 'USD',
+    quote: 'ARS',
+    compra: enVivo.compra,
+    venta: enVivo.venta,
+    fuente: FUENTE_MEP,
+  })
 
   return {
     fecha: hoy,
@@ -111,12 +107,19 @@ export async function obtenerCotizacionDelDia(
 async function ultimaCotizacionConocida(
   supabase: SupabaseClient
 ): Promise<Cotizacion | null> {
-  const { data } = await supabase
+  let consulta = supabase
     .from('exchange_rates')
     .select('date, source, buy, sell')
     .order('date', { ascending: false })
     .limit(1)
-    .maybeSingle()
+
+  // Sin el filtro por par, la fila más reciente podría ser la del euro y la
+  // app la usaría como si fuera el MEP.
+  if (await soportaParesDeDivisas(supabase)) {
+    consulta = consulta.eq('base', 'USD').eq('quote', 'ARS')
+  }
+
+  const { data } = await consulta.maybeSingle()
 
   if (!data?.sell) return null
 
@@ -206,7 +209,7 @@ function aDosDecimales(valor: number): number {
  */
 export function calcularMontoUsd(
   monto: number,
-  moneda: 'ARS' | 'USD',
+  moneda: Moneda,
   cotizacion: Cotizacion | null
 ): number | null {
   if (moneda === 'USD') return aDosDecimales(monto)

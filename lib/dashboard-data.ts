@@ -1,6 +1,6 @@
 import { esDeLaMoneda } from './currency-mode'
 import { obtenerCuentasPorMoneda, type Moneda } from './finanzas'
-import { MONEDAS, totalizarPorMoneda } from './monedas'
+import { MONEDAS_POR_DEFECTO, totalizarPorMoneda } from './monedas'
 import { obtenerCotizacionDelDia } from './rates'
 import { createClient } from './supabase/server'
 import {
@@ -34,10 +34,17 @@ export type Presupuesto = {
  * gráfico, presupuestos y saldos. El filtro va acá y no en cada vista para que
  * no haya forma de que una se olvide y muestre las dos monedas mezcladas.
  *
- * Sin `moneda` devuelve los dos libros, que es lo que necesita la vista
+ * Sin `moneda` devuelve todos los libros, que es lo que necesita la vista
  * consolidada.
+ *
+ * `monedasDelPerfil` son las divisas que el usuario eligió: definen qué
+ * columnas existen cuando NO hay filtro, para que una divisa recién agregada
+ * aparezca en cero en vez de no aparecer.
  */
-export async function cargarDatosDelDashboard(moneda?: Moneda) {
+export async function cargarDatosDelDashboard(
+  moneda?: Moneda,
+  monedasDelPerfil: Moneda[] = MONEDAS_POR_DEFECTO
+) {
   const supabase = await createClient()
 
   const { desde, hasta } = rangoDelMesActual()
@@ -84,7 +91,7 @@ export async function cargarDatosDelDashboard(moneda?: Moneda) {
 
   const delMes = ventana.filter((t) => t.date >= desde && t.date <= hasta)
 
-  const monedasVisibles = moneda ? [moneda] : MONEDAS
+  const monedasVisibles = moneda ? [moneda] : monedasDelPerfil
 
   return {
     cuentas: resCuentas.cuentas,
@@ -94,15 +101,21 @@ export async function cargarDatosDelDashboard(moneda?: Moneda) {
     ventana,
     delMes,
     presupuestos,
-    /** Monedas que las vistas deben mostrar: una en modo filtrado, las dos si no. */
+    /** Monedas a mostrar: una en modo filtrado, las del perfil si no hay filtro. */
     monedasVisibles,
     // Un saldo por moneda: sumar pesos con dólares no significa nada.
     saldos: monedasVisibles.map((visible) => ({
       moneda: visible,
       valor: Number(resCuentas.cuentas[visible]?.balance ?? 0),
     })),
-    ingresosDelMes: totalizarPorMoneda(delMes.filter((t) => t.type === 'INCOME')),
-    gastosDelMes: totalizarPorMoneda(delMes.filter((t) => t.type === 'EXPENSE')),
+    ingresosDelMes: totalizarPorMoneda(
+      delMes.filter((t) => t.type === 'INCOME'),
+      monedasVisibles
+    ),
+    gastosDelMes: totalizarPorMoneda(
+      delMes.filter((t) => t.type === 'EXPENSE'),
+      monedasVisibles
+    ),
     faltaMigracion,
     errorCarga,
   }

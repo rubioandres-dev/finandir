@@ -7,7 +7,7 @@ import { AccountRow } from '@/components/account-row'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
-import { leerModoMoneda } from '@/lib/currency-mode-server'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'
 import { formatearMonto, type Moneda } from '@/lib/types'
 
@@ -20,8 +20,8 @@ export default async function AccountsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const modo = await leerModoMoneda()
-  const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase)
+  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
   const detallePorCuenta = new Map(tarjetas.map((t) => [t.id, t.detalle]))
 
   // El modo del header manda: en ARS no se listan las cuentas en dólares.

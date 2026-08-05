@@ -8,6 +8,8 @@ import {
   guardarInversion,
   type InversionAGuardar,
 } from '@/app/dashboard/investments/actions'
+import { CurrencyOptions } from '@/components/currency-options'
+import { useModoMoneda } from '@/components/currency-provider'
 import {
   ETIQUETA_LIQUIDEZ,
   ETIQUETA_TIPO_ACTIVO,
@@ -193,8 +195,7 @@ function FormularioDeInversion({
               onChange={(e) => setMoneda(e.target.value as Moneda)}
               className={CAMPO}
             >
-              <option value="ARS">ARS</option>
-              <option value="USD">USD</option>
+              <CurrencyOptions actual={moneda} />
             </select>
           </label>
 
@@ -386,11 +387,18 @@ function FilaInversion({
 
 /** Listado de activos con el alta y la edición. Las métricas van en la página. */
 export function InvestmentManager({ inversiones }: { inversiones: Inversion[] }) {
+  const { monedasSeleccionadas } = useModoMoneda()
+
   /** null = cerrado · 'nueva' = alta · Inversion = edición de esa fila. */
   const [formulario, setFormulario] = useState<'nueva' | Inversion | null>(null)
   const cerrar = useCallback(() => setFormulario(null), [])
 
-  const porMoneda = (['ARS', 'USD'] as Moneda[]).map((moneda) => ({
+  // Las divisas del perfil, más cualquiera que ya tenga activos cargados.
+  const monedas = [
+    ...new Set([...monedasSeleccionadas, ...inversiones.map(monedaDe)]),
+  ]
+
+  const porMoneda = monedas.map((moneda) => ({
     moneda,
     activos: inversiones.filter((i) => monedaDe(i) === moneda),
   }))

@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation'
 import { CurrencyProvider } from '@/components/currency-provider'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Header } from '@/components/layout/header'
+import { OnboardingModal } from '@/components/onboarding-modal'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { leerModoMoneda } from '@/lib/currency-mode-server'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
@@ -17,29 +18,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
-  const [cotizacion, { tarjetas }] = await Promise.all([
+  // La moneda activa sale de la cookie ACOTADA a las divisas del perfil, así
+  // el HTML ya viene filtrado y el cliente arranca con el mismo valor: sin
+  // parpadeo ni mismatch. `cargarContextoDeMonedas` está memoizado por
+  // request, así que las páginas de abajo lo vuelven a pedir sin costo.
+  const [cotizacion, { tarjetas }, contexto] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
     cargarCuentasYDeudas(supabase),
+    cargarContextoDeMonedas(),
   ])
 
   const { nivel, avisos } = await cargarDatosDeCabecera(supabase, tarjetas, hoyEnArgentina())
 
-  // La moneda activa sale de la cookie, así el HTML ya viene filtrado y el
-  // cliente arranca con el mismo valor: sin parpadeo ni mismatch.
-  const modoMoneda = await leerModoMoneda()
+  const nombreDeMetadata =
+    typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name
+      ? user.user_metadata.full_name
+      : null
+
+  // El onboarding solo aparece si además se PUEDE guardar: sin la 007 el modal
+  // sería una pared, porque no hay tabla donde escribir la respuesta.
+  const mostrarOnboarding =
+    !contexto.faltaMigracion && contexto.perfil?.onboarding_completed !== true
 
   return (
-    <CurrencyProvider modoInicial={modoMoneda}>
+    <CurrencyProvider modoInicial={contexto.modo} monedas={contexto.monedas}>
       <div className="flex flex-1 flex-col">
         <Header
           email={user.email ?? ''}
-          // Supabase guarda lo que le mandemos en user_metadata; el nombre no
-          // necesita tabla propia.
-          nombre={
-            typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name
-              ? user.user_metadata.full_name
-              : null
-          }
+          // El nombre sale del perfil y cae a `user_metadata`, que es donde
+          // vivía antes de la 007 y donde lo siguen escribiendo las actions.
+          nombre={contexto.perfil?.display_name ?? nombreDeMetadata}
           cotizacion={cotizacion?.venta ?? null}
           nivel={nivel}
           avisos={avisos}
@@ -54,6 +62,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         <BottomNav />
       </div>
+
+      {mostrarOnboarding && (
+        <OnboardingModal
+          nombreInicial={contexto.perfil?.display_name ?? nombreDeMetadata}
+          monedasIniciales={contexto.monedas}
+        />
+      )}
     </CurrencyProvider>
   )
 }

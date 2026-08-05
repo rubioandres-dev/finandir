@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+import { useModoMoneda } from '@/components/currency-provider'
 import type { PuntoDeCurva } from '@/lib/commitments-service'
 import { formatearMonto, type Moneda } from '@/lib/types'
 
-const MONEDAS: Moneda[] = ['ARS', 'USD']
 
 /**
  * Curva de desendeudamiento: cuánto hay que pagar en cuotas cada mes.
@@ -14,7 +14,8 @@ const MONEDAS: Moneda[] = ['ARS', 'USD']
  * dólares en una misma barra no significaría nada.
  */
 export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
-  const [moneda, setMoneda] = useState<Moneda>('ARS')
+  const { monedasSeleccionadas, modo } = useModoMoneda()
+  const [moneda, setMoneda] = useState<Moneda>(modo)
 
   const datos = useMemo(
     () =>
@@ -43,7 +44,7 @@ export function DebtCurveChart({ curva }: { curva: PuntoDeCurva[] }) {
           aria-label="Moneda de la curva"
           className="flex rounded-lg border border-glass-stroke/60 p-0.5"
         >
-          {MONEDAS.map((opcion) => (
+          {monedasSeleccionadas.map((opcion) => (
             <button
               key={opcion}
               type="button"

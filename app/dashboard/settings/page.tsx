@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
+import { CurrencySettings } from '@/components/currency-settings'
 import { ProfileForm } from '@/components/profile-form'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { createClient } from '@/lib/supabase/server'
-import { MONEDAS } from '@/lib/monedas'
 import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Ajustes' }
@@ -17,8 +18,12 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Ajustes muestra TODAS las divisas del perfil, no solo la activa: es donde
+  // se administran, así que filtrarlas por el modo del header sería absurdo.
+  const { monedas, perfil, faltaMigracion: faltaPerfil } = await cargarContextoDeMonedas()
+
   const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
-    await cargarDatosDelDashboard()
+    await cargarDatosDelDashboard(undefined, monedas)
   const { desde } = rangoDelMesActual()
 
   const gastado = new Map<string, number>()
@@ -39,7 +44,7 @@ export default async function SettingsPage() {
       nombre: c.name,
       icono: c.icon,
       color: c.color,
-      lineas: MONEDAS.map((moneda) => ({
+      lineas: monedas.map((moneda) => ({
         moneda,
         presupuesto: limitePorClave.get(`${c.id}:${moneda}`) ?? null,
         gastado: gastado.get(`${c.id}:${moneda}`) ?? 0,
@@ -53,9 +58,12 @@ export default async function SettingsPage() {
       <ProfileForm
         email={user.email ?? ''}
         nombre={
-          typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : ''
+          perfil?.display_name ??
+          (typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '')
         }
       />
+
+      <CurrencySettings monedasIniciales={monedas} faltaMigracion={faltaPerfil} />
 
       <Card>
         <CardContent className="flex flex-col gap-3">

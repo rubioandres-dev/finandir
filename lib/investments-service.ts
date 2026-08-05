@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { MONEDAS, type TotalPorMoneda } from './monedas'
+import { MONEDAS_POR_DEFECTO, normalizarMoneda, type TotalPorMoneda } from './monedas'
 import {
   PLAZOS_LIQUIDOS,
   type Inversion,
@@ -38,20 +38,20 @@ export type TramoDeDistribucion = {
   porcentaje: number
 }
 
-function ceros(): Map<Moneda, number> {
-  return new Map(MONEDAS.map((m) => [m, 0]))
+function ceros(monedas: Moneda[]): Map<Moneda, number> {
+  return new Map(monedas.map((m) => [m, 0]))
 }
 
 function aTotal(acumulado: Map<Moneda, number>): TotalPorMoneda {
-  return MONEDAS.map((moneda) => ({
+  return [...acumulado].map(([moneda, valor]) => ({
     moneda,
-    valor: Math.round((acumulado.get(moneda) ?? 0) * 100) / 100,
+    valor: Math.round(valor * 100) / 100,
   }))
 }
 
 /** Las filas viejas o mal cargadas caen a ARS, como en el resto de la app. */
 function monedaDe(inversion: Inversion): Moneda {
-  return inversion.currency?.trim() === 'USD' ? 'USD' : 'ARS'
+  return normalizarMoneda(inversion.currency)
 }
 
 function esLiquida(plazo: PlazoDeLiquidez): boolean {
@@ -133,10 +133,13 @@ export function distribucionPorTipo(
 /**
  * Resume la cartera. Función pura, para poder verificarla sin base de datos.
  */
-export function resumirInversiones(inversiones: Inversion[]): ResumenDeInversiones {
-  const invertido = ceros()
-  const valorActual = ceros()
-  const liquidezInmediata = ceros()
+export function resumirInversiones(
+  inversiones: Inversion[],
+  monedas: Moneda[] = MONEDAS_POR_DEFECTO
+): ResumenDeInversiones {
+  const invertido = ceros(monedas)
+  const valorActual = ceros(monedas)
+  const liquidezInmediata = ceros(monedas)
 
   for (const inversion of inversiones) {
     const moneda = monedaDe(inversion)
@@ -152,8 +155,11 @@ export function resumirInversiones(inversiones: Inversion[]): ResumenDeInversion
     }
   }
 
-  const resultado = ceros()
-  for (const moneda of MONEDAS) {
+  // Las claves reales pueden incluir divisas que estaban en los datos y no en
+  // el perfil.
+  const todas = [...new Set([...valorActual.keys(), ...invertido.keys()])]
+  const resultado = ceros(todas)
+  for (const moneda of todas) {
     resultado.set(moneda, (valorActual.get(moneda) ?? 0) - (invertido.get(moneda) ?? 0))
   }
 
@@ -162,10 +168,9 @@ export function resumirInversiones(inversiones: Inversion[]): ResumenDeInversion
     valorActual: aTotal(valorActual),
     resultado: aTotal(resultado),
     liquidezInmediata: aTotal(liquidezInmediata),
-    tnaLiquida: {
-      ARS: calcularTnaLiquidaPonderada(inversiones, 'ARS'),
-      USD: calcularTnaLiquidaPonderada(inversiones, 'USD'),
-    },
+    tnaLiquida: Object.fromEntries(
+      todas.map((moneda) => [moneda, calcularTnaLiquidaPonderada(inversiones, moneda)])
+    ),
   }
 }
 
@@ -181,7 +186,10 @@ export const FALTA_MIGRACION_INVERSIONES =
   'Falta el esquema de inversiones. Ejecutá migrations/006_investments_and_smart_spend.sql.'
 
 /** Inversiones del usuario, de la más reciente a la más vieja. */
-export async function cargarInversiones(supabase: SupabaseClient): Promise<{
+export async function cargarInversiones(
+  supabase: SupabaseClient,
+  monedas: Moneda[] = MONEDAS_POR_DEFECTO
+): Promise<{
   inversiones: Inversion[]
   resumen: ResumenDeInversiones
   error: string | null
@@ -195,7 +203,7 @@ export async function cargarInversiones(supabase: SupabaseClient): Promise<{
 
   return {
     inversiones,
-    resumen: resumirInversiones(inversiones),
+    resumen: resumirInversiones(inversiones, monedas),
     error: error ? (faltaLaTabla(error.code) ? FALTA_MIGRACION_INVERSIONES : error.message) : null,
   }
 }

@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { useModoMoneda } from '@/components/currency-provider'
 import { agruparGastosPorCategoria, type GastoParaGrafico } from '@/lib/analytics'
 import { ETIQUETA_PERIODO, formatearMonto, type Moneda, type Periodo } from '@/lib/types'
 
 const PERIODOS: Periodo[] = ['mes', 'mesAnterior', 'anio']
-const MONEDAS: Moneda[] = ['ARS', 'USD']
 
 export type { GastoParaGrafico }
 
@@ -17,9 +17,10 @@ type Props = {
 }
 
 export function AnalyticsChart({ gastos, categorias }: Props) {
+  const { monedasSeleccionadas, modo } = useModoMoneda()
   const [periodo, setPeriodo] = useState<Periodo>('mes')
-  // Un gráfico por moneda: una torta que mezcle pesos y dólares no significa nada.
-  const [moneda, setMoneda] = useState<Moneda>('ARS')
+  // Un gráfico por moneda: una torta que mezcle divisas no significa nada.
+  const [moneda, setMoneda] = useState<Moneda>(modo)
 
   const { porciones, total } = useMemo(
     () => agruparGastosPorCategoria(gastos, categorias, periodo, moneda),
@@ -32,7 +33,7 @@ export function AnalyticsChart({ gastos, categorias }: Props) {
         <div className="flex items-center gap-2">
           <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Gastos por categoría</h2>
           <div role="group" aria-label="Moneda del gráfico" className="flex rounded-lg border border-border p-0.5">
-            {MONEDAS.map((opcion) => (
+            {monedasSeleccionadas.map((opcion) => (
               <button
                 key={opcion}
                 type="button"

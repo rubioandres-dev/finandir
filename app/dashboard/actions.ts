@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
+import type { Moneda } from '@/lib/types'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
 import { resolverPlan, sumarMeses } from '@/lib/cuotas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
@@ -12,7 +14,7 @@ export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
 const movimientoSchema = z.object({
   amount: z.number().positive('El importe tiene que ser mayor a cero.'),
   type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
-  currency: z.enum(['ARS', 'USD']).default('ARS'),
+  currency: z.enum(CODIGOS_DE_MONEDA).default('ARS'),
   category_suggested: z.string().max(60),
   description: z.string().trim().min(1, 'Escribí una descripción.').max(120),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.'),
@@ -202,7 +204,7 @@ export async function guardarTransaccion(
 
 const presupuestoSchema = z.object({
   categoriaId: z.uuid('Categoría inválida.'),
-  moneda: z.enum(['ARS', 'USD']),
+  moneda: z.enum(CODIGOS_DE_MONEDA),
   // null = quitar el presupuesto de esa moneda.
   monto: z.number().min(0, 'El presupuesto no puede ser negativo.').nullable(),
 })
@@ -217,7 +219,7 @@ const FALTA_TABLA =
  */
 export async function guardarPresupuesto(
   categoriaId: string,
-  moneda: 'ARS' | 'USD',
+  moneda: Moneda,
   monto: number | null
 ): Promise<ResultadoGuardado> {
   const datos = presupuestoSchema.safeParse({ categoriaId, moneda, monto })

@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { APICallError, NoObjectGeneratedError, RetryError, generateObject } from 'ai'
 import { z } from 'zod'
+import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -58,7 +59,7 @@ const transactionSchema = z.object({
         'TRANSFER solo si mueve dinero entre dos cuentas propias.'
     ),
   currency: z
-    .enum(['ARS', 'USD'])
+    .enum(CODIGOS_DE_MONEDA)
     .describe(
       'Moneda del movimiento. Por defecto ARS. Devolvé USD solo si el texto lo ' +
         'dice explícitamente: "USD", "dólares", "dolares", "verdes", "u$s", "US$". ' +

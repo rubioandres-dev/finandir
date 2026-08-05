@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { PiggyBank } from 'lucide-react'
 import { SmartSpendCalculator } from '@/components/smart-spend-calculator'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarInversiones } from '@/lib/investments-service'
 import { createClient } from '@/lib/supabase/server'
 
@@ -36,9 +37,10 @@ export default async function SmartSpendPage({
 
   // El contexto se resuelve acá una sola vez; la calculadora recalcula sola en
   // el cliente con cada tecla, sin volver al servidor.
+  const { monedas } = await cargarContextoDeMonedas()
   const [{ tarjetas, cuentas }, { inversiones, resumen }] = await Promise.all([
-    cargarCuentasYDeudas(supabase),
-    cargarInversiones(supabase),
+    cargarCuentasYDeudas(supabase, monedas),
+    cargarInversiones(supabase, monedas),
   ])
 
   const deudaPorTarjeta = Object.fromEntries(

@@ -4,12 +4,12 @@ import { TransactionFeedTabs } from '@/components/transaction-feed-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
-import { leerModoMoneda } from '@/lib/currency-mode-server'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { cargarFeedDeMovimientos } from '@/lib/transactions-feed'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto } from '@/lib/types'
+import { formatearMonto, type Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Movimientos' }
 
@@ -20,13 +20,13 @@ export default async function TransactionsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const modo = await leerModoMoneda()
+  const { modo, monedas } = await cargarContextoDeMonedas()
 
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
   // cotización; los movimientos ahora vienen del feed, partido por período.
   const [{ categorias, cotizacion, errorCarga }, { cuentas }, feed] = await Promise.all([
-    cargarDatosDelDashboard(modo),
-    cargarCuentasYDeudas(supabase),
+    cargarDatosDelDashboard(modo, monedas),
+    cargarCuentasYDeudas(supabase, monedas),
     cargarFeedDeMovimientos(supabase, modo),
   ])
 
@@ -36,7 +36,7 @@ export default async function TransactionsPage() {
     .filter((c) => esDeLaMoneda(c, modo))
     .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))
 
-  const equivalente = (m: { amount: number; currency: 'ARS' | 'USD' }) =>
+  const equivalente = (m: { amount: number; currency: Moneda }) =>
     equivalenteAproximado(Number(m.amount), m.currency, cotizacion)
 
   const error = errorCarga ?? feed.error

@@ -5,8 +5,8 @@ import { Lightbulb, Percent, TrendingUp, Zap } from 'lucide-react'
 import { InvestmentDistribution } from '@/components/investment-distribution'
 import { InvestmentManager } from '@/components/investment-manager'
 import { Card, CardLabel } from '@/components/ui/card'
+import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarInversiones, distribucionPorTipo } from '@/lib/investments-service'
-import { MONEDAS } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import { formatearMonto } from '@/lib/types'
 
@@ -19,10 +19,11 @@ export default async function InvestmentsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { inversiones, resumen, error } = await cargarInversiones(supabase)
+  const { monedas } = await cargarContextoDeMonedas()
+  const { inversiones, resumen, error } = await cargarInversiones(supabase, monedas)
 
   // Un reparto por moneda: los libros no se mezclan, igual que en cuentas.
-  const repartos = MONEDAS.map((moneda) => ({
+  const repartos = monedas.map((moneda) => ({
     moneda,
     tramos: distribucionPorTipo(inversiones, moneda),
   })).filter((r) => r.tramos.length > 0)
@@ -86,9 +87,9 @@ export default async function InvestmentsPage() {
             Rendimiento promedio
           </CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
-            {MONEDAS.map((moneda) => {
+            {monedas.map((moneda) => {
               const tna = resumen.tnaLiquida[moneda]
-              if (tna === null) return null
+              if (tna === null || tna === undefined) return null
               return (
                 <span
                   key={moneda}
@@ -98,7 +99,7 @@ export default async function InvestmentsPage() {
                 </span>
               )
             })}
-            {MONEDAS.every((m) => resumen.tnaLiquida[m] === null) && (
+            {monedas.every((m) => !resumen.tnaLiquida[m]) && (
               <span className="font-display text-lg font-bold tracking-tight text-subtle">—</span>
             )}
           </div>
