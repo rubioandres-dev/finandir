@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   ArrowLeftRight,
   Bell,
@@ -16,9 +16,9 @@ import {
   X,
 } from 'lucide-react'
 import { CurrencySelector } from '@/components/currency-selector'
+import { FloatingPanel } from '@/components/layout/floating-panel'
 import { ProfileMenu } from '@/components/layout/profile-menu'
 import type { Aviso, NivelAurem } from '@/lib/header-data'
-import { useCerrarAlTocarAfuera } from '@/lib/use-cerrar-al-tocar-afuera'
 
 const ENLACES = [
   { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
@@ -33,24 +33,25 @@ const ENLACES = [
 
 function Notificaciones({ avisos }: { avisos: Aviso[] }) {
   const [abierto, setAbierto] = useState(false)
-  const contenedor = useRef<HTMLDivElement>(null)
-
-  useCerrarAlTocarAfuera(contenedor, abierto, () => setAbierto(false))
+  const boton = useRef<HTMLButtonElement>(null)
+  const cerrar = useCallback(() => setAbierto(false), [])
 
   const hayUrgentes = avisos.some((a) => a.urgente)
 
   return (
-    <div ref={contenedor} className="relative">
+    <>
       <button
+        ref={boton}
         type="button"
         onClick={() => setAbierto((previo) => !previo)}
         aria-expanded={abierto}
+        aria-haspopup="dialog"
         aria-label={
           avisos.length === 0
             ? 'Notificaciones: sin avisos'
             : `Notificaciones: ${avisos.length} aviso${avisos.length === 1 ? '' : 's'}`
         }
-        className="relative grid size-9 place-items-center rounded-xl border border-glass-stroke/60 text-on-surface-variant transition active:scale-90 hover:border-gold-leaf/60 hover:text-gold-leaf"
+        className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-glass-stroke/60 text-on-surface-variant transition active:scale-90 hover:border-gold-leaf/60 hover:text-gold-leaf"
       >
         <Bell className="size-[18px]" aria-hidden />
         {avisos.length > 0 && (
@@ -64,19 +65,18 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
       </button>
 
       {abierto && (
-        <div
-          role="dialog"
-          aria-label="Próximos vencimientos"
-          // Sin `glass-card`: el panel flota sobre un header que ya es
-          // translúcido, así que necesita fondo opaco propio. El vidrio y su
-          // destello radial son justo lo que lo hacía perderse.
-          className="absolute right-0 top-11 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border-strong bg-menu p-1.5 shadow-2xl"
+        <FloatingPanel
+          ancla={boton}
+          onCerrar={cerrar}
+          ancho="w-72"
+          rol="dialog"
+          etiqueta="Próximos vencimientos"
         >
           <div className="flex items-center justify-between gap-2 px-2.5 py-2">
             <p className="aurem-caps text-[10px] text-gold-leaf/70">Próximos 7 días</p>
             <button
               type="button"
-              onClick={() => setAbierto(false)}
+              onClick={cerrar}
               aria-label="Cerrar notificaciones"
               className="-mr-1 grid size-6 place-items-center rounded-lg text-on-surface-variant transition active:scale-90 hover:bg-gold-leaf/[0.07] hover:text-gold-leaf"
             >
@@ -116,14 +116,14 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
 
           <Link
             href="/dashboard/calendar"
-            onClick={() => setAbierto(false)}
+            onClick={cerrar}
             className="mt-1 block rounded-xl px-2.5 py-2 text-[11px] font-medium text-gold-leaf transition hover:bg-gold-leaf/[0.07]"
           >
             Ver el calendario completo →
           </Link>
-        </div>
+        </FloatingPanel>
       )}
-    </div>
+    </>
   )
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
 import { useFormStatus } from 'react-dom'
 import {
@@ -16,7 +16,7 @@ import {
   UserCog,
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
-import { useCerrarAlTocarAfuera } from '@/lib/use-cerrar-al-tocar-afuera'
+import { FloatingPanel } from '@/components/layout/floating-panel'
 import { usePwaInstall } from '@/lib/use-pwa-install'
 
 const TEMAS = [
@@ -191,13 +191,13 @@ function SelectorDeTema() {
 
 export function ProfileMenu({ email, nombre }: { email: string; nombre: string | null }) {
   const [abierto, setAbierto] = useState(false)
-  const contenedor = useRef<HTMLDivElement>(null)
-
-  useCerrarAlTocarAfuera(contenedor, abierto, () => setAbierto(false))
+  const boton = useRef<HTMLButtonElement>(null)
+  const cerrar = useCallback(() => setAbierto(false), [])
 
   return (
-    <div ref={contenedor} className="relative">
+    <>
       <button
+        ref={boton}
         type="button"
         onClick={() => setAbierto((previo) => !previo)}
         aria-expanded={abierto}
@@ -209,12 +209,12 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
       </button>
 
       {abierto && (
-        <div
-          role="menu"
-          aria-label="Perfil y ajustes"
-          // Mismo criterio que el panel de notificaciones: fondo opaco propio
-          // en vez de vidrio, porque el header de atrás ya es translúcido.
-          className="absolute right-0 top-11 z-50 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-border-strong bg-menu p-1.5 shadow-2xl"
+        <FloatingPanel
+          ancla={boton}
+          onCerrar={cerrar}
+          ancho="w-64"
+          rol="menu"
+          etiqueta="Perfil y ajustes"
         >
           <div className="flex flex-col px-2.5 py-2">
             {nombre && (
@@ -226,7 +226,7 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
 
           <div className="my-1 h-px bg-glass-stroke/40" />
 
-          <Instalacion alCerrar={() => setAbierto(false)} />
+          <Instalacion alCerrar={cerrar} />
 
           <div className="my-1 h-px bg-glass-stroke/40" />
 
@@ -236,7 +236,7 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
 
           <Link
             href="/dashboard/settings#perfil"
-            onClick={() => setAbierto(false)}
+            onClick={cerrar}
             className={`${FILA} text-on-surface-variant`}
           >
             <UserCog className="size-4 shrink-0" aria-hidden />
@@ -246,8 +246,8 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
           <form action={cerrarSesion}>
             <BotonSalir />
           </form>
-        </div>
+        </FloatingPanel>
       )}
-    </div>
+    </>
   )
 }
