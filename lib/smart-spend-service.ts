@@ -112,10 +112,25 @@ function redondear(valor: number): number {
   return Math.round(valor * 100) / 100
 }
 
-/** "2026-08-04" -> Date en UTC a medianoche. Solo importan los días. */
-function desdeISO(fecha: string): Date {
-  const [anio, mes, dia] = fecha.split('-').map(Number)
-  return new Date(Date.UTC(anio, mes - 1, dia))
+/** "2026-08-04" -> Date en UTC a medianoche, o null si no es una fecha ISO. */
+function parsearISO(fecha: string): Date | null {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha)
+  if (!partes) return null
+
+  const candidata = new Date(Date.UTC(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3])))
+  return Number.isNaN(candidata.getTime()) ? null : candidata
+}
+
+/**
+ * Día de la compra. Solo importan los días, nunca la hora.
+ *
+ * Cae en hoy si la cadena no sirve: el `<input type="date">` de la UI devuelve
+ * "" cuando se lo vacía, y sin este resguardo el NaN se propagaba a todo el
+ * dictamen. `hoyEnArgentina()` siempre es ISO, así que el segundo intento no
+ * puede fallar; el `?? new Date()` es solo para no dejar el tipo en null.
+ */
+function diaDeCompra(fecha: string | undefined): Date {
+  return (fecha ? parsearISO(fecha) : null) ?? parsearISO(hoyEnArgentina()) ?? new Date()
 }
 
 /**
@@ -249,7 +264,7 @@ export function evaluateExpenseStrategy(
       ? installmentAmount
       : cashPrice / cuotas
 
-  const compra = desdeISO(purchaseDate ?? hoyEnArgentina())
+  const compra = diaDeCompra(purchaseDate)
   const vencimientos = calcularVencimientos(compra, cuotas, tarjeta)
 
   const pagos = vencimientos.map((fecha, i) => ({

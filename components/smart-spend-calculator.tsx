@@ -55,13 +55,17 @@ export function SmartSpendCalculator({
   const dictamen = useMemo(() => {
     if (!Number.isFinite(precioNumero) || precioNumero <= 0) return null
 
+    // Vaciar el campo de fecha deja "" y con eso getBestCardToPay produce
+    // NaN en todos los plazos: se cae a hoy, igual que el servicio.
+    const dia = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnArgentina()
+
     // La tarjeta se elige con el monto real de la compra: el cupo importa.
     const tarjeta = getBestCardToPay(
       tarjetas,
       precioNumero,
       moneda,
       new Map(Object.entries(deudaPorTarjeta)),
-      new Date(`${fecha}T00:00:00Z`)
+      new Date(`${dia}T00:00:00Z`)
     )
 
     return evaluateExpenseStrategy(
@@ -70,7 +74,7 @@ export function SmartSpendCalculator({
         cashDiscount: aNumero(descuento) || 0,
         installments: cuotas,
         installmentAmount: aNumero(valorCuota) || null,
-        purchaseDate: fecha,
+        purchaseDate: dia,
       },
       { tnaLiquida: tnaLiquida[moneda] ?? undefined, tarjeta, moneda }
     )
