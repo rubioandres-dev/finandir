@@ -18,6 +18,7 @@ import {
 import { CurrencySelector } from '@/components/currency-selector'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { ProfileMenu } from '@/components/layout/profile-menu'
+import { avanceDentroDelTier, siguienteTier, tierPara } from '@/lib/goals-service'
 import type { Aviso, NivelAurem } from '@/lib/header-data'
 
 const ENLACES = [
@@ -133,12 +134,15 @@ export function Header({
   cotizacion,
   nivel,
   avisos,
+  xp = 0,
 }: {
   email: string
   nombre: string | null
   cotizacion: number | null
   nivel: NivelAurem
   avisos: Aviso[]
+  /** Puntos AUREM acumulados. Definen el tier del badge. */
+  xp?: number
 }) {
   const ruta = usePathname()
 
@@ -206,37 +210,50 @@ export function Header({
         </div>
       </div>
 
-      {/* --- Badge de nivel: solo cuando hay una tasa de ahorro que mostrar --- */}
-      {nivel.tasaDeAhorro !== null && (
-        <div className="safe-x mx-auto flex w-full max-w-5xl items-center gap-3 pb-2">
+      {/* --- Badge de Tier -------------------------------------------------
+          El tier sale del XP, no de la tasa de ahorro: es un logro acumulado
+          por cumplir objetivos, no una nota del mes. La tasa de ahorro sigue
+          a la derecha, que es el dato que se mira todos los días.
+
+          Toda la barra es un enlace a /dashboard/goals: sin eso, el badge era
+          un número sin explicación ni forma de accionar sobre él. */}
+      {(nivel.tasaDeAhorro !== null || xp > 0) && (
+        <Link
+          href="/dashboard/goals"
+          aria-label={`Tier ${tierPara(xp).nombre}. Ver objetivos`}
+          className="safe-x mx-auto flex w-full max-w-5xl items-center gap-3 pb-2 transition hover:opacity-90"
+        >
           <span
-            className={`aurem-caps shrink-0 rounded-full px-2.5 py-1 text-[9px] ${
-              nivel.esGold
-                ? 'fire-gradient glow-gold text-midnight-navy'
-                : 'border border-glass-stroke text-gold-leaf/80'
-            }`}
+            className="aurem-caps shrink-0 rounded-full px-2.5 py-1 text-[9px] text-midnight-navy"
+            style={{ backgroundColor: tierPara(xp).color }}
           >
-            {nivel.nombre}
+            {tierPara(xp).nombre}
           </span>
 
           <div
             className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-gold-leaf/10"
             role="progressbar"
-            aria-valuenow={Math.round(nivel.progreso * 100)}
+            aria-valuenow={Math.round(avanceDentroDelTier(xp) * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Avance del nivel Aurem"
+            aria-label={
+              siguienteTier(xp)
+                ? `Avance hacia ${siguienteTier(xp)!.nombre}`
+                : 'Tier máximo alcanzado'
+            }
           >
             <div
               className="fire-gradient h-full rounded-full transition-all duration-700"
-              style={{ width: `${Math.max(3, nivel.progreso * 100)}%` }}
+              style={{ width: `${Math.max(3, avanceDentroDelTier(xp) * 100)}%` }}
             />
           </div>
 
-          <span className="shrink-0 text-[10px] font-medium tabular-nums text-on-surface-variant">
-            {nivel.tasaDeAhorro}% ahorrado
-          </span>
-        </div>
+          {nivel.tasaDeAhorro !== null && (
+            <span className="shrink-0 text-[10px] font-medium tabular-nums text-on-surface-variant">
+              {nivel.tasaDeAhorro}% ahorrado
+            </span>
+          )}
+        </Link>
       )}
     </header>
   )

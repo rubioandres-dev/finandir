@@ -49,17 +49,48 @@ export function MontoPorMoneda({
   className,
   signo,
   vacio = '—',
+  apilado = false,
 }: {
   totales: { moneda: Moneda; valor: number }[]
   className?: string
   signo?: string
   vacio?: string
+  /**
+   * Pone el código de moneda ARRIBA del importe en vez de a su izquierda.
+   *
+   * En línea, el código ocupa un carril fijo de 2rem y el importe se queda con
+   * el resto: en una card a media pantalla, "$ 1.500.000,00" no entra y el
+   * navegador lo parte por donde puede — típicamente dejando la coma decimal
+   * colgando sola en la segunda línea. Apilado, el importe dispone del ancho
+   * completo de la card.
+   */
+  apilado?: boolean
 }) {
   const { formatearMonto } = useFormatoRegional()
   const conMovimiento = totales.filter((t) => t.valor !== 0)
 
   if (conMovimiento.length === 0) {
     return <span className={className}>{vacio}</span>
+  }
+
+  if (apilado) {
+    return (
+      <span className="flex min-w-0 flex-col gap-1.5">
+        {conMovimiento.map((total) => (
+          <span key={total.moneda} className="flex min-w-0 flex-col">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">
+              {total.moneda}
+            </span>
+            {/* `break-all` y no `break-words`: un importe es una sola palabra
+                larga, así que solo un corte por carácter lo puede acomodar. */}
+            <span className={`min-w-0 break-all ${className ?? ''}`}>
+              {signo}
+              {formatearMonto(total.valor, total.moneda)}
+            </span>
+          </span>
+        ))}
+      </span>
+    )
   }
 
   return (

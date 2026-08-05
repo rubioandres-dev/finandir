@@ -1,6 +1,7 @@
 // Solo para el servidor: se usa desde Server Components y Server Actions.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LOCALE_POR_DEFECTO, normalizarLocale, type Locale } from './formatters'
+import { IDIOMA_POR_DEFECTO, normalizarIdioma, type Idioma } from './i18n'
 import { MONEDAS_POR_DEFECTO, normalizarListaDeMonedas } from './monedas'
 import type { Moneda, UserProfile } from './types'
 
@@ -25,6 +26,11 @@ export type ContextoDePerfil = {
   monedas: Moneda[]
   /** Formato regional activo. Cae a es-AR si falta la 009. */
   locale: Locale
+  /** Idioma de la interfaz. Cae a es-AR si falta la 010. */
+  idioma: Idioma
+  /** XP y tier del sistema de logros. En cero si falta la 010. */
+  xp: number
+  tier: string
   /** true si `user_profiles` todavía no existe en la base. */
   faltaMigracion: boolean
 }
@@ -43,30 +49,40 @@ const CONTEXTO_POR_DEFECTO = (): Omit<ContextoDePerfil, 'faltaMigracion'> => ({
   perfil: null,
   monedas: [...MONEDAS_POR_DEFECTO],
   locale: LOCALE_POR_DEFECTO,
+  idioma: IDIOMA_POR_DEFECTO,
+  xp: 0,
+  tier: 'BRONZE',
 })
 
 export async function cargarPerfil(
   supabase: SupabaseClient,
   userId: string
 ): Promise<ContextoDePerfil> {
-  const COLUMNAS =
-    'user_id, display_name, selected_currencies, onboarding_completed, updated_at, locale'
+  // Cada nivel agrega las columnas de una migración. Si PostgREST rechaza el
+  // select porque falta una columna, se baja un escalón: así el perfil sigue
+  // leyéndose con las migraciones que SÍ estén corridas, y lo que falta cae a
+  // su valor por defecto en vez de tumbar la app entera.
+  const BASE = 'user_id, display_name, selected_currencies, onboarding_completed, updated_at'
+  const NIVELES = [
+    `${BASE}, locale, language, aurem_xp, aurem_tier`, // 007 + 009 + 010
+    `${BASE}, locale`, // 007 + 009
+    BASE, // solo 007
+  ]
 
-  let { data, error } = await supabase
-    .from('user_profiles')
-    .select(COLUMNAS)
-    .eq('user_id', userId)
-    .maybeSingle()
+  let data: Record<string, unknown> | null = null
+  let error: { code?: string; message: string } | null = null
 
-  // Sin la 009 no existe `locale` y PostgREST rechaza el select entero. Se
-  // reintenta sin esa columna: el resto del perfil sigue sirviendo y el
-  // formato cae a es-AR, que es lo que la app hacía antes de la migración.
-  if (error && esColumnaFaltante(error.code)) {
-    ;({ data, error } = await supabase
+  for (const columnas of NIVELES) {
+    const respuesta = await supabase
       .from('user_profiles')
-      .select(COLUMNAS.replace(', locale', ''))
+      .select(columnas)
       .eq('user_id', userId)
-      .maybeSingle())
+      .maybeSingle()
+
+    data = respuesta.data as Record<string, unknown> | null
+    error = respuesta.error
+
+    if (!error || !esColumnaFaltante(error.code)) break
   }
 
   if (error) {
@@ -82,9 +98,12 @@ export async function cargarPerfil(
     return { ...CONTEXTO_POR_DEFECTO(), faltaMigracion: false }
   }
 
-  const fila = data as Record<string, unknown>
+  const fila = data
   const monedas = normalizarListaDeMonedas(fila.selected_currencies)
   const locale = normalizarLocale(fila.locale as string | null)
+  const idioma = normalizarIdioma(fila.language as string | null)
+  const xp = Number(fila.aurem_xp ?? 0)
+  const tier = (fila.aurem_tier as string | null) ?? 'BRONZE'
 
   return {
     perfil: {
@@ -92,11 +111,17 @@ export async function cargarPerfil(
       display_name: (fila.display_name as string | null) ?? null,
       selected_currencies: monedas,
       locale,
+      language: idioma,
+      aurem_xp: xp,
+      aurem_tier: tier,
       onboarding_completed: Boolean(fila.onboarding_completed),
       updated_at: (fila.updated_at as string | null) ?? null,
     },
     monedas,
     locale,
+    idioma,
+    xp,
+    tier,
     faltaMigracion: false,
   }
 }
@@ -115,6 +140,9 @@ export async function guardarPerfil(
     display_name?: string | null
     selected_currencies?: Moneda[]
     locale?: Locale
+    language?: Idioma
+    aurem_xp?: number
+    aurem_tier?: string
     onboarding_completed?: boolean
   }
 ): Promise<{ ok: true } | { ok: false; error: string; faltaMigracion: boolean }> {
@@ -122,15 +150,18 @@ export async function guardarPerfil(
     .from('user_profiles')
     .upsert({ user_id: userId, ...cambios }, { onConflict: 'user_id' })
 
-  // Igual que en la lectura: sin la 009 la columna `locale` no existe y el
-  // upsert entero rebota. Se reintenta sin ella para no perder el resto del
-  // cambio; el aviso de que falta la migración lo da la UI de Ajustes.
-  if (error && cambios.locale !== undefined && esColumnaFaltante(error.code)) {
-    const { locale: _descartado, ...resto } = cambios
-    void _descartado
-    ;({ error } = await supabase
-      .from('user_profiles')
-      .upsert({ user_id: userId, ...resto }, { onConflict: 'user_id' }))
+  // Igual que en la lectura: si falta una columna, el upsert entero rebota.
+  // Se reintenta sin las que dependen de migraciones nuevas para no perder el
+  // resto del cambio; el aviso de que falta la migración lo da la UI.
+  if (error && esColumnaFaltante(error.code)) {
+    const { locale: _l, language: _i, aurem_xp: _x, aurem_tier: _t, ...resto } = cambios
+    void [_l, _i, _x, _t]
+
+    if (Object.keys(resto).length > 0) {
+      ;({ error } = await supabase
+        .from('user_profiles')
+        .upsert({ user_id: userId, ...resto }, { onConflict: 'user_id' }))
+    }
   }
 
   if (error) {

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, Compass } from 'lucide-react'
-import { Card, CardLabel } from '@/components/ui/card'
+import { CardLabel } from '@/components/ui/card'
 
 /**
  * Las cuatro capacidades que no se descubren solas.
@@ -51,20 +51,24 @@ export const CAPACIDADES = [
  */
 export function GuideCarousel() {
   return (
-    <Card glass className="flex h-full flex-col justify-between gap-3 p-4">
+    // SIN card contenedora, a propósito. Antes las cuatro subcards vivían
+    // adentro de una `.glass-card`: vidrio dorado sobre vidrio dorado, con dos
+    // bordes concéntricos a 12 px de distancia. El marco de afuera no aportaba
+    // nada —el título ya agrupa— y comía ancho justo donde menos sobra.
+    <section className="flex h-full flex-col justify-between gap-3">
       <CardLabel>
         <Compass className="size-3.5 text-gold-leaf" aria-hidden />
         Cómo sacarle jugo
       </CardLabel>
 
-      {/* Los márgenes negativos dejan que las cards lleguen al borde de la
-          card contenedora al scrollear, sin perder el padding del contenido. */}
+      {/* Los márgenes negativos dejan que las subcards lleguen al borde de la
+          canaleta al scrollear, sin perder el padding del contenido. */}
       <ul className="-mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1">
         {CAPACIDADES.map((capacidad) => (
           <li key={capacidad.titulo} className="w-[10.5rem] shrink-0 snap-start">
             <Link
               href={capacidad.href}
-              className="flex h-full flex-col gap-1.5 rounded-xl border border-glass-stroke/50 bg-surface-container/40 p-3 transition hover:border-gold-leaf/60"
+              className="glass-card flex h-full flex-col gap-1.5 rounded-xl p-3 transition hover:border-gold-leaf/60"
             >
               <span className="text-lg leading-none" aria-hidden>
                 {capacidad.emoji}
@@ -80,11 +84,11 @@ export function GuideCarousel() {
 
       <Link
         href="/dashboard/guide"
-        className="btn-gold-subtle justify-center rounded-xl px-3 py-2 text-[11px] font-semibold"
+        className="btn-gold-subtle w-full justify-center rounded-xl px-3 py-2.5 text-[11px] font-semibold"
       >
         Ver guía completa
         <ArrowRight className="size-3.5" aria-hidden />
       </Link>
-    </Card>
+    </section>
   )
 }

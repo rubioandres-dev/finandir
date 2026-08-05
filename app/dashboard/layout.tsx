@@ -56,6 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       modoInicial={contexto.modo}
       monedas={contexto.monedas}
       locale={contexto.locale}
+      idioma={contexto.idioma}
     >
       <div className="flex flex-1 flex-col">
         <Header
@@ -66,6 +67,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           cotizacion={cotizacion?.venta ?? null}
           nivel={nivel}
           avisos={avisos}
+          xp={contexto.xp}
         />
 
         {/* pb-28 en mobile deja lugar para la barra inferior flotante.

@@ -9,6 +9,12 @@ import {
   type Formateadores,
   type Locale,
 } from '@/lib/formatters'
+import {
+  crearTraductor,
+  IDIOMA_POR_DEFECTO,
+  type Idioma,
+  type Traductor,
+} from '@/lib/i18n'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
 
@@ -20,6 +26,8 @@ type Contexto = {
   monedasSeleccionadas: Moneda[]
   /** Formato regional activo: define separadores, símbolo y orden de la fecha. */
   locale: Locale
+  /** Idioma de la interfaz. Es una preferencia DISTINTA del formato. */
+  idioma: Idioma
   /** true mientras el servidor recarga las vistas con la moneda nueva. */
   cambiando: boolean
   /**
@@ -51,11 +59,13 @@ export function CurrencyProvider({
   modoInicial,
   monedas = MONEDAS_POR_DEFECTO,
   locale = LOCALE_POR_DEFECTO,
+  idioma = IDIOMA_POR_DEFECTO,
 }: {
   children: React.ReactNode
   modoInicial: Moneda
   monedas?: Moneda[]
   locale?: Locale
+  idioma?: Idioma
 }) {
   const router = useRouter()
   const [modo, setModo] = useState<Moneda>(modoInicial)
@@ -75,6 +85,7 @@ export function CurrencyProvider({
       modo: modoEfectivo,
       monedasSeleccionadas: seleccionadas,
       locale,
+      idioma,
       cambiando,
       mostrarEquivalencias: modoEfectivo === 'USD',
       cambiarModo: (moneda: Moneda) => {
@@ -89,7 +100,7 @@ export function CurrencyProvider({
         iniciarCambio(() => router.refresh())
       },
     }
-  }, [modo, monedas, locale, cambiando, router])
+  }, [modo, monedas, locale, idioma, cambiando, router])
 
   return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
@@ -134,4 +145,15 @@ export function useEquivalencias(): { mostrarEquivalencias: boolean } {
 export function useFormatoRegional(): Formateadores {
   const { locale } = useMonedaContext()
   return useMemo(() => crearFormateadores(locale), [locale])
+}
+
+/**
+ * Traductor atado al idioma del usuario.
+ *
+ * Va aparte de `useFormatoRegional` porque idioma y región son preferencias
+ * independientes: se puede querer texto en inglés con formato argentino.
+ */
+export function useTraduccion(): { t: Traductor; idioma: Idioma } {
+  const { idioma } = useMonedaContext()
+  return useMemo(() => ({ t: crearTraductor(idioma), idioma }), [idioma])
 }

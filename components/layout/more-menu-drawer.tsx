@@ -12,9 +12,12 @@ import {
   PieChart,
   Rocket,
   Settings,
+  Target,
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { useTraduccion } from '@/components/currency-provider'
+import type { Clave } from '@/lib/i18n'
 
 /**
  * Lo que no entra en la barra inferior.
@@ -22,47 +25,48 @@ import {
  * El orden no es alfabético ni arbitrario: arriba lo que se consulta seguido
  * (FIRE, calendario), abajo lo que se abre de vez en cuando (guía, ajustes).
  */
-const SECCIONES: { href: string; etiqueta: string; detalle: string; Icono: LucideIcon }[] = [
+const SECCIONES: {
+  href: string
+  etiqueta: Clave
+  detalle: Clave
+  Icono: LucideIcon
+}[] = [
   {
-    href: '/dashboard/fire',
-    etiqueta: 'Calculadora FIRE',
-    detalle: 'Cuánto falta para vivir de tus inversiones',
-    Icono: Rocket,
+    href: '/dashboard/goals',
+    etiqueta: 'nav.objetivos',
+    detalle: 'nav.objetivosDetalle',
+    Icono: Target,
   },
+  { href: '/dashboard/fire', etiqueta: 'nav.fire', detalle: 'nav.fireDetalle', Icono: Rocket },
   {
     href: '/dashboard/calendar',
-    etiqueta: 'Calendario',
-    detalle: 'Cierres y vencimientos del mes',
+    etiqueta: 'nav.calendario',
+    detalle: 'nav.calendarioDetalle',
     Icono: CalendarDays,
   },
   {
     href: '/dashboard/debts',
-    etiqueta: 'Deudas y préstamos',
-    detalle: 'Lo que debés y lo que te deben',
+    etiqueta: 'nav.deudas',
+    detalle: 'nav.deudasDetalle',
     Icono: HandCoins,
   },
   {
     href: '/dashboard/smart-spend',
-    etiqueta: 'Gasto inteligente',
-    detalle: 'Contado con descuento o cuotas',
+    etiqueta: 'nav.gastoInteligente',
+    detalle: 'nav.gastoInteligenteDetalle',
     Icono: Lightbulb,
   },
   {
     href: '/dashboard/consolidated',
-    etiqueta: 'Vista consolidada',
-    detalle: 'Todas tus divisas en un solo total',
+    etiqueta: 'nav.consolidado',
+    detalle: 'nav.consolidadoDetalle',
     Icono: PieChart,
   },
-  {
-    href: '/dashboard/guide',
-    etiqueta: 'Guía de uso',
-    detalle: 'Cómo sacarle jugo a AUREM',
-    Icono: BookOpen,
-  },
+  { href: '/dashboard/guide', etiqueta: 'nav.guia', detalle: 'nav.guiaDetalle', Icono: BookOpen },
   {
     href: '/dashboard/settings',
-    etiqueta: 'Ajustes y perfil',
-    detalle: 'Divisas, región, presupuestos y cuenta',
+    etiqueta: 'nav.ajustes',
+    detalle: 'nav.ajustesDetalle',
     Icono: Settings,
   },
 ]
@@ -84,6 +88,7 @@ const SECCIONES: { href: string; etiqueta: string; detalle: string; Icono: Lucid
  */
 export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
   const ruta = usePathname()
+  const { t } = useTraduccion()
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {
@@ -99,7 +104,7 @@ export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Más secciones"
+      aria-label={t('nav.masSecciones')}
       className="fixed inset-0 z-[75] flex items-end justify-center"
     >
       <button
@@ -114,7 +119,7 @@ export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
         <div className="mx-auto h-1 w-10 shrink-0 rounded-full bg-glass-stroke" aria-hidden />
 
         <div className="flex items-center justify-between gap-3">
-          <h2 className="aurem-caps text-[11px] text-gold-leaf">Más secciones</h2>
+          <h2 className="aurem-caps text-[11px] text-gold-leaf">{t('nav.masSecciones')}</h2>
           <button
             type="button"
             onClick={onCerrar}
@@ -155,9 +160,9 @@ export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
                         activa ? 'text-gold-leaf' : 'text-on-background'
                       }`}
                     >
-                      {etiqueta}
+                      {t(etiqueta)}
                     </span>
-                    <span className="truncate text-[11px] text-subtle">{detalle}</span>
+                    <span className="truncate text-[11px] text-subtle">{t(detalle)}</span>
                   </span>
                 </Link>
               </li>

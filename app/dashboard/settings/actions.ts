@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { CATALOGO_LOCALES, normalizarLocale, type Locale } from '@/lib/formatters'
+import { CATALOGO_IDIOMAS, normalizarIdioma } from '@/lib/i18n'
 import { CATALOGO_MONEDAS, normalizarListaDeMonedas } from '@/lib/monedas'
 import { guardarPerfil } from '@/lib/profile-service'
 import { createClient } from '@/lib/supabase/server'
@@ -151,6 +152,41 @@ export async function guardarLocale(locale: string): Promise<EstadoDePerfil> {
   revalidatePath('/dashboard', 'layout')
 
   return { mensaje: 'Región actualizada.' }
+}
+
+const idiomaSchema = z
+  .string()
+  .refine((valor) => CATALOGO_IDIOMAS.some((i) => i.codigo === valor), {
+    message: 'Ese idioma todavía no está soportado.',
+  })
+
+/**
+ * Guarda el idioma de la interfaz.
+ *
+ * A diferencia de las divisas y la región, este SÍ pasa por una confirmación
+ * en la UI antes de llegar acá: cambiar el idioma reescribe toda la pantalla,
+ * y un toque accidental que deje la app en un idioma que no leés es difícil de
+ * deshacer justamente porque no sabés dónde tocar para volver.
+ */
+export async function guardarIdioma(idioma: string): Promise<EstadoDePerfil> {
+  const datos = idiomaSchema.safeParse(idioma)
+  if (!datos.success) return { error: datos.error.issues[0].message }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
+
+  const resultado = await guardarPerfil(supabase, user.id, {
+    language: normalizarIdioma(datos.data),
+  })
+
+  if (!resultado.ok) return { error: resultado.error }
+
+  revalidatePath('/dashboard', 'layout')
+
+  return { mensaje: 'Idioma actualizado.' }
 }
 
 const onboardingSchema = z.object({

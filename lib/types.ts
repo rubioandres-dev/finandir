@@ -194,6 +194,12 @@ export type UserProfile = {
   selected_currencies: Moneda[]
   /** Locale IETF que define el formato de números y fechas. Ver migrations/009. */
   locale: string
+  /** Idioma de la interfaz. Distinto del locale. Ver migrations/010. */
+  language: string
+  /** Puntos AUREM acumulados. Nunca baja. Ver migrations/010. */
+  aurem_xp: number
+  /** Tier derivado del XP: BRONZE|SILVER|GOLD|PLATINUM|BLACK. */
+  aurem_tier: string
   onboarding_completed: boolean
   updated_at: string | null
 }

@@ -143,30 +143,34 @@ export default async function DashboardPage() {
           <div className="fire-gradient mt-4 h-px w-full opacity-40" aria-hidden />
         </Card>
 
-        <Card glass className="p-4">
+        {/* `min-w-0` en las dos: sin él, un importe largo ensancha la columna
+            del grid en vez de partirse, y la card de al lado se achica. */}
+        <Card glass className="flex min-w-0 flex-col justify-between p-4">
           <CardLabel>
-            <TrendingUp className="size-3.5 text-success-emerald" aria-hidden />
+            <TrendingUp className="size-3.5 shrink-0 text-success-emerald" aria-hidden />
             Ingresos
           </CardLabel>
-          <div className="mt-2">
+          <div className="mt-2 min-w-0">
             <MontoPorMoneda
               totales={ingresosDelMes}
-              className="font-display text-lg font-bold tracking-tight tabular-nums text-success-emerald"
+              apilado
+              className="font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-success-emerald sm:text-xl"
               vacio="—"
             />
           </div>
           <p className="mt-1.5 text-[11px] text-subtle">Este mes</p>
         </Card>
 
-        <Card glass className="p-4">
+        <Card glass className="flex min-w-0 flex-col justify-between p-4">
           <CardLabel>
-            <TrendingDown className="size-3.5 text-error-rose" aria-hidden />
+            <TrendingDown className="size-3.5 shrink-0 text-error-rose" aria-hidden />
             Gastos
           </CardLabel>
-          <div className="mt-2">
+          <div className="mt-2 min-w-0">
             <MontoPorMoneda
               totales={gastosDelMes}
-              className="font-display text-lg font-bold tracking-tight tabular-nums text-error-rose"
+              apilado
+              className="font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-error-rose sm:text-xl"
               vacio="—"
             />
           </div>

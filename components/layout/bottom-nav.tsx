@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useState } from 'react'
 import { ArrowLeftRight, LayoutDashboard, Menu, TrendingUp, Wallet } from 'lucide-react'
+import { useTraduccion } from '@/components/currency-provider'
 import { MoreMenuDrawer } from '@/components/layout/more-menu-drawer'
+import type { Clave } from '@/lib/i18n'
 
 /**
  * Las cuatro de uso diario. El resto vive en la bandeja "Más".
@@ -14,15 +16,16 @@ import { MoreMenuDrawer } from '@/components/layout/more-menu-drawer'
  * se llegaba desde el enlace del dashboard o desde el menú de escritorio, que
  * en mobile no existe. Inversiones tenía el mismo problema.
  */
-const PESTANAS = [
-  { href: '/dashboard', etiqueta: 'Inicio', Icono: LayoutDashboard },
-  { href: '/dashboard/accounts', etiqueta: 'Cuentas', Icono: Wallet },
-  { href: '/dashboard/transactions', etiqueta: 'Movimientos', Icono: ArrowLeftRight },
-  { href: '/dashboard/investments', etiqueta: 'Inversiones', Icono: TrendingUp },
-] as const
+const PESTANAS: { href: string; etiqueta: Clave; Icono: typeof Wallet }[] = [
+  { href: '/dashboard', etiqueta: 'nav.inicio', Icono: LayoutDashboard },
+  { href: '/dashboard/accounts', etiqueta: 'nav.cuentas', Icono: Wallet },
+  { href: '/dashboard/transactions', etiqueta: 'nav.movimientos', Icono: ArrowLeftRight },
+  { href: '/dashboard/investments', etiqueta: 'nav.inversiones', Icono: TrendingUp },
+]
 
 /** Las rutas que viven en la bandeja: con cualquiera de ellas, "Más" va activo. */
 const RUTAS_DEL_MENU = [
+  '/dashboard/goals',
   '/dashboard/fire',
   '/dashboard/calendar',
   '/dashboard/debts',
@@ -39,6 +42,7 @@ const PESTANA =
 
 export function BottomNav() {
   const ruta = usePathname()
+  const { t } = useTraduccion()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const cerrarMenu = useCallback(() => setMenuAbierto(false), [])
 
@@ -74,7 +78,7 @@ export function BottomNav() {
                     />
                   )}
                   <Icono className="size-[22px]" strokeWidth={activa ? 2.4 : 1.8} aria-hidden />
-                  {etiqueta}
+                  {t(etiqueta)}
                 </Link>
               </li>
             )
@@ -99,7 +103,7 @@ export function BottomNav() {
                 />
               )}
               <Menu className="size-[22px]" strokeWidth={enElMenu ? 2.4 : 1.8} aria-hidden />
-              Más
+              {t('nav.mas')}
             </button>
           </li>
         </ul>

@@ -15,6 +15,7 @@ import {
   Share,
   Smartphone,
   Sun,
+  Target,
   UserCog,
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
@@ -245,6 +246,15 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
           >
             <UserCog className="size-4 shrink-0" aria-hidden />
             Ajustes y perfil
+          </Link>
+
+          <Link
+            href="/dashboard/goals"
+            onClick={cerrar}
+            className={`${FILA} text-on-surface-variant`}
+          >
+            <Target className="size-4 shrink-0" aria-hidden />
+            Objetivos y Tier AUREM
           </Link>
 
           <Link
