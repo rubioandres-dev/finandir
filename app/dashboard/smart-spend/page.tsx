@@ -54,8 +54,8 @@ export default async function SmartSpendPage({
           ¿Cómo conviene pagar?
         </h1>
         <p className="text-xs leading-snug text-subtle">
-          Compara el descuento por pagar contado contra lo que rinde tu plata mientras financiás.
-          Todo llevado a valor de hoy.
+          Descubrí si te conviene pagar de contado o financiar en cuotas poniendo a rendir tu
+          dinero mes a mes.
         </p>
       </div>
 
@@ -63,6 +63,7 @@ export default async function SmartSpendPage({
         tarjetas={tarjetas}
         deudaPorTarjeta={deudaPorTarjeta}
         tnaLiquida={resumen.tnaLiquida}
+        inversiones={inversiones}
         precioInicial={precioInicial}
         monedaInicial={monedaInicial}
       />

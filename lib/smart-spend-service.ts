@@ -71,9 +71,23 @@ export type Dictamen = {
   precioContado: number
   /** Suma nominal de las cuotas, sin descontar. */
   totalEnCuotas: number
-  /** Valor presente de cada opción, al día de la compra. */
+  /**
+   * Valor presente de cada opción, al día de la compra.
+   *
+   * En la UI `vpCuotas` se presenta como "costo real neto": es lo mismo, pero
+   * dicho sin jerga. Vale la identidad `totalEnCuotas − interesesGanados =
+   * vpCuotas` **a nivel de centavos**, que es la única precisión que la UI
+   * muestra. En binario la resta puede quedar a un ulp (1 − 0,97 da
+   * 0,030000000000000027): no compares estos tres campos con `===`.
+   */
   vpContado: number
   vpCuotas: number
+  /**
+   * Lo que rinde el capital mientras se va pagando el plan: la diferencia
+   * entre lo que se desembolsa nominalmente y lo que eso cuesta en plata de
+   * hoy. Es el ahorro de financiar, todavía sin compararlo con el contado.
+   */
+  interesesGanados: number
   /** Cuánto se gana eligiendo al ganador, en plata de hoy. Siempre >= 0. */
   ganancia: number
   /** La misma ganancia como porcentaje del precio de lista. */
@@ -283,13 +297,20 @@ export function evaluateExpenseStrategy(
   const ganador: 'CONTADO' | 'CUOTAS' = diferencia > 0 ? 'CUOTAS' : 'CONTADO'
   const diasDeFloat = pagos[0]?.dias ?? 0
 
+  // Los intereses se derivan de los DOS valores ya redondeados y no de los
+  // crudos: así la resta que muestra la UI (total − intereses = costo real)
+  // cierra al centavo y no queda desprolija por un redondeo independiente.
+  const totalEnCuotas = redondear(montoDeCuota * cuotas)
+  const vpCuotasRedondeado = redondear(vpCuotas)
+
   return {
     ganador,
     moneda,
     precioContado: redondear(precioContado),
-    totalEnCuotas: redondear(montoDeCuota * cuotas),
+    totalEnCuotas,
     vpContado: redondear(vpContado),
-    vpCuotas: redondear(vpCuotas),
+    vpCuotas: vpCuotasRedondeado,
+    interesesGanados: redondear(totalEnCuotas - vpCuotasRedondeado),
     ganancia: redondear(Math.abs(diferencia)),
     gananciaPorcentual: Math.round((Math.abs(diferencia) / cashPrice) * 1000) / 10,
     diasDeFloat,

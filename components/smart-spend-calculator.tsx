@@ -1,11 +1,18 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CalendarClock, CreditCard, Info, Sparkles, TrendingUp, Wallet } from 'lucide-react'
+import { CalendarClock, CreditCard, Info, PiggyBank, Sparkles, TrendingUp, Wallet } from 'lucide-react'
+import { InvestmentStrategyBreakdown } from '@/components/investment-strategy-breakdown'
 import { Card, CardLabel } from '@/components/ui/card'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { evaluateExpenseStrategy } from '@/lib/smart-spend-service'
-import { formatearMonto, hoyEnArgentina, type Moneda, type Tarjeta } from '@/lib/types'
+import {
+  formatearMonto,
+  hoyEnArgentina,
+  type Inversion,
+  type Moneda,
+  type Tarjeta,
+} from '@/lib/types'
 
 const CUOTAS_COMUNES = [1, 3, 6, 9, 12, 18, 24]
 
@@ -19,6 +26,8 @@ type Props = {
   deudaPorTarjeta: Record<string, number>
   /** TNA líquida ponderada del usuario por moneda; null = no tiene cartera. */
   tnaLiquida: Record<Moneda, number | null>
+  /** Cartera del usuario, para mostrar con qué activos se sostiene el plan. */
+  inversiones: Inversion[]
   /** Precio con el que llega el Smart Input, si vino desde un borrador. */
   precioInicial?: number | null
   monedaInicial?: Moneda
@@ -40,6 +49,7 @@ export function SmartSpendCalculator({
   tarjetas,
   deudaPorTarjeta,
   tnaLiquida,
+  inversiones,
   precioInicial = null,
   monedaInicial = 'ARS',
 }: Props) {
@@ -81,6 +91,8 @@ export function SmartSpendCalculator({
   }, [precioNumero, descuento, cuotas, valorCuota, moneda, fecha, tarjetas, deudaPorTarjeta, tnaLiquida])
 
   const ganaCuotas = dictamen?.ganador === 'CUOTAS'
+  // Se acota igual que en el servicio, para no anunciar un 150% de descuento.
+  const descuentoAplicado = Math.min(Math.max(aNumero(descuento) || 0, 0), 100)
 
   return (
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -171,7 +183,7 @@ export function SmartSpendCalculator({
               className={CAMPO}
             />
             <span className="text-[10px] font-normal leading-snug text-subtle">
-              Define en qué resumen cae y cuántos días de float ganás.
+              Define en qué resumen de la tarjeta cae y cuántos días tenés hasta pagarla.
             </span>
           </label>
         </div>
@@ -210,69 +222,111 @@ export function SmartSpendCalculator({
 
           <div className="fire-gradient h-px w-full opacity-40" aria-hidden />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="aurem-caps text-[9px] text-on-surface-variant/70">Ganancia estimada</p>
-              <p className="mt-0.5 font-display text-xl font-bold tabular-nums text-income">
-                {formatearMonto(dictamen.ganancia, dictamen.moneda)}
-              </p>
-              <p className="text-[10px] tabular-nums text-subtle">
-                {dictamen.gananciaPorcentual}% del precio
-              </p>
-            </div>
-
-            <div>
-              <p className="aurem-caps text-[9px] text-on-surface-variant/70">Días de float</p>
-              <p className="mt-0.5 font-display text-xl font-bold tabular-nums text-gold-leaf">
-                {dictamen.diasDeFloat}
+          {/* El número que la pantalla existe para dar. */}
+          <div className="flex items-center gap-3 rounded-xl border border-income/35 bg-income/10 px-3.5 py-3">
+            <PiggyBank className="size-5 shrink-0 text-income" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-on-surface-variant">
+                Ahorro real estimado
               </p>
               <p className="text-[10px] text-subtle">
-                {dictamen.diasDelPlan > dictamen.diasDeFloat
-                  ? `plan de ${dictamen.diasDelPlan} días`
-                  : 'hasta el vencimiento'}
+                pagando {ganaCuotas ? `en ${cuotas === 1 ? '1 pago' : `${cuotas} cuotas`}` : 'de contado'}
+              </p>
+            </div>
+            <p className="shrink-0 text-right">
+              <span className="font-display text-xl font-bold leading-none tabular-nums text-income">
+                {formatearMonto(dictamen.ganancia, dictamen.moneda)}
+              </span>
+              <span className="block text-[10px] tabular-nums text-income/80">
+                {dictamen.gananciaPorcentual}% del precio
+              </span>
+            </p>
+          </div>
+
+          {/* Las dos opciones, cada una contada como la vive el usuario: una es
+              plata que sale hoy, la otra un plan que rinde mientras se paga. */}
+          <div className="flex flex-col gap-2">
+            <div
+              className={`rounded-xl border px-3.5 py-3 ${
+                ganaCuotas
+                  ? 'border-glass-stroke/40 bg-surface-container/40'
+                  : 'border-gold-leaf/45 bg-gold-leaf/10'
+              }`}
+            >
+              <p className="text-xs font-semibold tracking-tight text-on-background">
+                Si pagás de contado
+              </p>
+              <div className="mt-2 flex items-baseline justify-between gap-3">
+                <span className="text-[11px] text-on-surface-variant">Desembolso inmediato</span>
+                <strong
+                  className={`font-display text-base font-bold tabular-nums ${
+                    ganaCuotas ? 'text-on-background' : 'text-gold-leaf'
+                  }`}
+                >
+                  {formatearMonto(dictamen.precioContado, dictamen.moneda)}
+                </strong>
+              </div>
+              {descuentoAplicado > 0 && (
+                <p className="mt-1 text-[10px] tabular-nums text-subtle">
+                  ya con el {descuentoAplicado}% de descuento
+                </p>
+              )}
+            </div>
+
+            <div
+              className={`rounded-xl border px-3.5 py-3 ${
+                ganaCuotas
+                  ? 'border-gold-leaf/45 bg-gold-leaf/10'
+                  : 'border-glass-stroke/40 bg-surface-container/40'
+              }`}
+            >
+              <p className="text-xs font-semibold tracking-tight text-on-background">
+                Si pagás en {cuotas === 1 ? '1 pago' : `${cuotas} cuotas`}
+              </p>
+
+              <div className="mt-2 flex flex-col gap-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[11px] text-on-surface-variant">
+                    Total pagado en cuotas
+                  </span>
+                  <span className="text-[13px] font-medium tabular-nums text-on-background">
+                    {formatearMonto(dictamen.totalEnCuotas, dictamen.moneda)}
+                  </span>
+                </div>
+
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[11px] text-on-surface-variant">
+                    Intereses ganados por invertir
+                  </span>
+                  <span className="text-[13px] font-medium tabular-nums text-income">
+                    −{formatearMonto(dictamen.interesesGanados, dictamen.moneda)}
+                  </span>
+                </div>
+
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-glass-stroke/40 pt-1.5">
+                  <span className="text-[11px] font-medium text-on-surface-variant">
+                    Costo real neto
+                  </span>
+                  <strong className="font-display text-base font-bold tabular-nums text-gold-leaf">
+                    {formatearMonto(dictamen.vpCuotas, dictamen.moneda)}
+                  </strong>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[10px] tabular-nums text-subtle">
+                {cuotas === 1 ? 'Un pago' : `${cuotas} cuotas`} de{' '}
+                {formatearMonto(dictamen.cronograma[0]?.monto ?? 0, dictamen.moneda)} · la primera
+                en {dictamen.diasDeFloat} días
               </p>
             </div>
           </div>
 
-          {/* Comparación de las dos opciones en plata de hoy. */}
-          <div className="grid grid-cols-2 gap-2">
-            <div
-              className={`rounded-lg border px-3 py-2 ${
-                ganaCuotas
-                  ? 'border-glass-stroke/40 bg-surface-container/50'
-                  : 'border-gold-leaf/40 bg-gold-leaf/10'
-              }`}
-            >
-              <p className="aurem-caps text-[8px] text-on-surface-variant/70">Contado hoy</p>
-              <p
-                className={`mt-0.5 text-sm font-semibold tabular-nums ${
-                  ganaCuotas ? 'text-on-surface-variant' : 'text-gold-leaf'
-                }`}
-              >
-                {formatearMonto(dictamen.vpContado, dictamen.moneda)}
-              </p>
-            </div>
-
-            <div
-              className={`rounded-lg border px-3 py-2 ${
-                ganaCuotas
-                  ? 'border-gold-leaf/40 bg-gold-leaf/10'
-                  : 'border-glass-stroke/40 bg-surface-container/50'
-              }`}
-            >
-              <p className="aurem-caps text-[8px] text-on-surface-variant/70">Cuotas a valor hoy</p>
-              <p
-                className={`mt-0.5 text-sm font-semibold tabular-nums ${
-                  ganaCuotas ? 'text-gold-leaf' : 'text-on-surface-variant'
-                }`}
-              >
-                {formatearMonto(dictamen.vpCuotas, dictamen.moneda)}
-              </p>
-              <p className="text-[10px] tabular-nums text-subtle">
-                nominal {formatearMonto(dictamen.totalEnCuotas, dictamen.moneda)}
-              </p>
-            </div>
-          </div>
+          {/* De dónde sale la plata que hace que financiar rinda. */}
+          <InvestmentStrategyBreakdown
+            inversiones={inversiones}
+            moneda={dictamen.moneda}
+            tnaAplicada={dictamen.tnaAplicada}
+          />
 
           {dictamen.tarjeta && (
             <div className="flex items-center gap-2.5 rounded-lg border border-glass-stroke/50 bg-surface-container/40 px-3 py-2.5">
@@ -298,28 +352,30 @@ export function SmartSpendCalculator({
           <div className="flex flex-col gap-1.5 border-t border-glass-stroke/40 pt-3">
             <p className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
               <TrendingUp className="size-3 shrink-0 text-gold-leaf" aria-hidden />
-              Descontado al{' '}
+              Calculado con tu plata rindiendo al{' '}
               <strong className="font-semibold tabular-nums text-on-background">
                 {dictamen.tnaAplicada}% TNA
               </strong>
-              {dictamen.tnaEsPorDefecto ? ' (estimada)' : ' (tu cartera líquida)'}
+              {dictamen.tnaEsPorDefecto ? ' (tasa estimada)' : ' (tu cartera)'}
             </p>
 
             {dictamen.tasaDeIndiferencia !== null && dictamen.tasaDeIndiferencia > 0 && (
               <p className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
                 <CalendarClock className="size-3 shrink-0 text-gold-leaf" aria-hidden />
-                Empatan al{' '}
+                Si tu plata rindiera menos del{' '}
                 <strong className="font-semibold tabular-nums text-on-background">
                   {dictamen.tasaDeIndiferencia}% TNA
                 </strong>
-                : por encima conviene financiar.
+                , convendría pagar de contado.
               </p>
             )}
 
+            {/* Sin cartera cargada, la card de la bombilla de arriba ya explica
+                qué hacer: acá solo se aclara de dónde sale el número. */}
             {dictamen.tnaEsPorDefecto && (
               <p className="text-[10px] leading-snug text-subtle">
-                No tenés inversiones líquidas cargadas, así que se asume una tasa de money market.
-                Cargá tu cartera para que el dictamen use tu tasa real.
+                Todavía no cargaste inversiones, así que se usa una tasa de referencia. Cargá las
+                tuyas y el cálculo pasa a usar tu rendimiento real.
               </p>
             )}
           </div>
