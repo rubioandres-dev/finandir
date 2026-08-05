@@ -44,6 +44,18 @@ yarn-error.log*
 # vercel
 .vercel
 
+# worktrees de Claude Code
+#
+# Cada uno es un checkout completo con su propio .git, así que `git add .` los
+# tomaba como repos embebidos y dejaba un gitlink roto en el índice.
+#
+# Sin barra inicial a propósito: el patrón vale a cualquier profundidad, así
+# que también alcanza a un worktree anidado dentro de otro.
+#
+# Se ignora solo `worktrees/` y no `.claude/` entero, para poder versionar la
+# configuración del proyecto (settings.json, skills) si algún día se agrega.
+.claude/worktrees/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
