@@ -59,6 +59,55 @@ export type Deuda = {
   created_at: string
 }
 
+// --- Inversiones (migrations/006) -------------------------------------------
+
+export type TipoDeActivo =
+  | 'MONEY_MARKET'
+  | 'FIXED_INCOME'
+  | 'STOCKS_CEDEARS'
+  | 'CRYPTO'
+  | 'REAL_ESTATE'
+
+export const ETIQUETA_TIPO_ACTIVO: Record<TipoDeActivo, string> = {
+  MONEY_MARKET: 'Money market',
+  FIXED_INCOME: 'Renta fija',
+  STOCKS_CEDEARS: 'Acciones y CEDEARs',
+  CRYPTO: 'Cripto',
+  REAL_ESTATE: 'Inmuebles',
+}
+
+/**
+ * Plazo de rescate. T0 se acredita el mismo día, T1 al hábil siguiente.
+ * LOCKED es plata inmovilizada: un plazo fijo no financia una compra de hoy.
+ */
+export type PlazoDeLiquidez = 'T0' | 'T1' | 'T2' | 'LOCKED'
+
+export const ETIQUETA_LIQUIDEZ: Record<PlazoDeLiquidez, string> = {
+  T0: 'Inmediata (T+0)',
+  T1: '24 h (T+1)',
+  T2: '48 h (T+2)',
+  LOCKED: 'Inmovilizada',
+}
+
+/** Plazos que sirven para cubrir un gasto: los que se rescatan a tiempo. */
+export const PLAZOS_LIQUIDOS: PlazoDeLiquidez[] = ['T0', 'T1']
+
+export type Inversion = {
+  id: string
+  user_id: string
+  name: string
+  asset_type: TipoDeActivo
+  currency: string
+  /** Lo que pusiste: el costo. */
+  amount_invested: number
+  /** Lo que vale hoy. Es el que manda para el patrimonio. */
+  current_value: number
+  /** Tasa nominal anual estimada, en porcentaje (40 = 40 % TNA). */
+  expected_tna: number
+  liquidity_term: PlazoDeLiquidez
+  created_at: string
+}
+
 export type Categoria = {
   id: string
   user_id: string

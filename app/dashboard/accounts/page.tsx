@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { FileScan, TrendingDown } from 'lucide-react'
+import { FileScan, PiggyBank, TrendingDown } from 'lucide-react'
 import { AccountForm } from '@/components/account-form'
 import { AccountRow } from '@/components/account-row'
 import { Card, CardLabel } from '@/components/ui/card'
@@ -100,6 +100,15 @@ export default async function AccountsPage() {
 
       {/* Accesos a las vistas que dependen de las tarjetas. */}
       <div className="grid grid-cols-2 gap-3">
+        <Link
+          href="/dashboard/investments"
+          className="col-span-2 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"
+        >
+          <PiggyBank className="size-4 shrink-0 text-gold-leaf" aria-hidden />
+          <span className="min-w-0 flex-1 text-sm font-medium tracking-tight">Inversiones</span>
+          <span className="shrink-0 text-[11px] text-subtle">Cartera y rendimiento</span>
+        </Link>
+
         <Link
           href="/dashboard/commitments"
           className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-3.5 transition hover:border-primary/40"

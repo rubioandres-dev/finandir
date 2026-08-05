@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { CreditCard, Loader2, Mic, Sparkles, Square } from 'lucide-react'
@@ -278,6 +279,21 @@ export function SmartInput({ categorias, cuentas = [] }: Props) {
           {analizando ? 'Interpretando…' : 'Analizar con IA'}
         </button>
       </form>
+
+      {/* Puente al asistente de gasto. Si ya hay un borrador con importe, se lo
+          lleva en la URL: registrar el gasto y decidir cómo pagarlo son la
+          misma conversación, y volver a tipear el precio la corta. */}
+      <Link
+        href={
+          borrador?.amount
+            ? `/dashboard/smart-spend?precio=${borrador.amount}&moneda=${borrador.currency}`
+            : '/dashboard/smart-spend'
+        }
+        className="flex items-center justify-center gap-2 rounded-xl border border-glass-stroke/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-gold-leaf/60 hover:text-gold-leaf"
+      >
+        <span aria-hidden>💡</span>
+        ¿Cómo conviene pagar?
+      </Link>
 
       {!borrador && !analizando && (
         <div className="flex flex-wrap gap-1.5">
