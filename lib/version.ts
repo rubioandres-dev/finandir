@@ -13,4 +13,4 @@ export const VERSION = '0.9.0-dev.3'
 export const FASE = 'Fase Alpha · Desarrollo activo'
 
 /** A dónde escribir cuando algo se rompe. */
-export const CONTACTO_SOPORTE = 'arubio@segurarse.com.ar'
+export const CONTACTO_SOPORTE = 'rubioandres.dev@gmail.com'
