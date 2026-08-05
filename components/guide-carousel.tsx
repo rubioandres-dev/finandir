@@ -51,7 +51,7 @@ export const CAPACIDADES = [
  */
 export function GuideCarousel() {
   return (
-    <Card glass className="flex flex-col gap-3 p-4">
+    <Card glass className="flex h-full flex-col justify-between gap-3 p-4">
       <CardLabel>
         <Compass className="size-3.5 text-gold-leaf" aria-hidden />
         Cómo sacarle jugo

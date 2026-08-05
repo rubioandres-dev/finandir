@@ -139,7 +139,7 @@ async function ultimaCotizacionConocida(
  * no se guardan porque ningún cálculo depende de ellas.
  */
 export type CotizacionDeMercado = {
-  clave: 'mep' | 'blue' | 'oficial' | 'eur'
+  clave: 'mep' | 'blue' | 'oficial' | 'ccl' | 'tarjeta' | 'eur'
   nombre: string
   compra: number | null
   venta: number
@@ -151,6 +151,8 @@ const PANEL: { clave: CotizacionDeMercado['clave']; nombre: string; url: string 
   { clave: 'mep', nombre: 'Dólar MEP', url: 'https://dolarapi.com/v1/dolares/bolsa' },
   { clave: 'blue', nombre: 'Dólar Blue', url: 'https://dolarapi.com/v1/dolares/blue' },
   { clave: 'oficial', nombre: 'Dólar Oficial', url: 'https://dolarapi.com/v1/dolares/oficial' },
+  { clave: 'ccl', nombre: 'Dólar CCL', url: 'https://dolarapi.com/v1/dolares/contadoconliqui' },
+  { clave: 'tarjeta', nombre: 'Dólar Tarjeta', url: 'https://dolarapi.com/v1/dolares/tarjeta' },
   { clave: 'eur', nombre: 'Euro', url: 'https://dolarapi.com/v1/cotizaciones/eur' },
 ]
 

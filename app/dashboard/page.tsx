@@ -175,7 +175,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* --- Cotizaciones y guía: dos columnas, apiladas en mobile -------- */}
-      <section className="grid gap-3 sm:grid-cols-2 sm:items-start">
+      <section className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2">
         <MarketRatesCard
           cotizaciones={cotizacionesDeMercado}
           fechaMep={cotizacion?.fecha ?? null}
