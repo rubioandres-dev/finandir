@@ -54,6 +54,10 @@
   --glass-wash: rgba(242, 202, 79, 0.05);
   --glass-glow: rgba(242, 202, 79, 0.18);
 
+  /* Canaleta horizontal base de las páginas. La usa `.safe-x`, que la combina
+   * con el inset del notch. Sube en pantallas anchas más abajo. */
+  --gutter: 1rem;
+
   /* Superficie de los menús flotantes. Opaca y un paso MÁS clara que --card:
    * un panel translúcido sobre un header que también es translúcido no se lee.
    * Es un token propio y no --elevated porque ese valor, en el tema claro,
@@ -237,6 +241,13 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Más aire desde `sm`, donde ya hay ancho para gastarlo. */
+@media (min-width: 640px) {
+  :root {
+    --gutter: 1.5rem;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -338,6 +349,31 @@ body {
 }
 
 /**
+ * Variante discreta del botón dorado: borde y tinta de oro sobre un relleno
+ * casi transparente. Para acciones secundarias que van al lado de un control
+ * ya cargado de color —el toggle ARS/USD del header— donde un segundo relleno
+ * sólido de oro competiría con el primero.
+ */
+.btn-gold-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--glass-stroke);
+  background: color-mix(in srgb, var(--gold-leaf) 8%, transparent);
+  color: var(--gold-leaf);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-gold-subtle:hover {
+  background: color-mix(in srgb, var(--gold-leaf) 16%, transparent);
+  border-color: var(--gold-leaf);
+}
+
+.btn-gold-subtle:active {
+  transform: scale(0.96);
+}
+
+/**
  * Barra central del splash. En modo carga respira entre el 18% y el 82%:
  * comunica actividad sin prometer un avance real que no podemos medir.
  */
@@ -386,7 +422,32 @@ textarea,
   user-select: text;
 }
 
-/* Áreas seguras del notch y de la barra de gestos. */
+/* -----------------------------------------------------------------------------
+ * Áreas seguras del notch y de la barra de gestos
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Canaleta horizontal mínima de las páginas.
+ *
+ * EL BUG QUE ARREGLA `max()`
+ *
+ * Esta regla decía `padding-left: env(safe-area-inset-left, 0px)` y estaba
+ * FUERA de toda capa. En la cascada, lo que no está en ninguna capa le gana a
+ * cualquier capa, y Tailwind emite sus utilidades en `@layer utilities`: así
+ * que este `padding-left` le ganaba al `px-4` del mismo contenedor. En un
+ * teléfono en vertical el inset lateral es 0px, con lo cual el padding
+ * efectivo quedaba en CERO y las cards terminaban pegadas al borde físico.
+ * Es el mismo problema de cascada que ya está documentado en `.glass-card`.
+ *
+ * Se arregla por los dos lados a la vez:
+ *
+ *   · la regla pasa a `@layer utilities`, así deja de ganarle por estar fuera;
+ *   · el valor pasa a `max(--gutter, env(...))`, así nunca puede dar menos que
+ *     la canaleta base, gane quien gane el desempate.
+ *
+ * En horizontal con notch el inset supera a `--gutter` y manda el inset, que
+ * es justo lo que se quiere.
+ */
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -395,9 +456,11 @@ textarea,
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.safe-x {
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+@layer utilities {
+  .safe-x {
+    padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  }
 }
 
 /* Scrollbars casi invisibles, visibles solo al pasar el mouse. */

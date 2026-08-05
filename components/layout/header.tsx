@@ -147,7 +147,7 @@ export function Header({
   // z-index del header y quedarían tapados por la barra.
   return (
     <header className="safe-top sticky top-0 z-50 border-b border-glass-stroke/50 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2.5 sm:px-6">
+      <div className="safe-x mx-auto flex w-full max-w-5xl items-center gap-3 py-2.5">
         <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5">
           <span className="fire-gradient glow-gold grid size-8 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
             A
@@ -182,6 +182,22 @@ export function Header({
 
         <div className="ml-auto flex items-center gap-2">
           <CurrencySelector cotizacion={cotizacion} />
+
+          {/* Pegado al toggle a propósito: el consolidado es la salida cuando
+              el modo de una sola moneda no alcanza. En mobile queda el ícono
+              solo, que es lo único que entra al lado del toggle. */}
+          <Link
+            href="/dashboard/consolidated"
+            aria-label="Vista consolidada"
+            title="Ver las dos monedas juntas"
+            className={`btn-gold-subtle shrink-0 rounded-xl px-2 py-1.5 text-[11px] font-medium ${
+              ruta.startsWith('/dashboard/consolidated') ? 'border-gold-leaf' : ''
+            }`}
+          >
+            <span aria-hidden>📊</span>
+            <span className="hidden sm:inline">Consolidado</span>
+          </Link>
+
           <Notificaciones avisos={avisos} />
 
           {/* El avatar con aro dorado es el ancla visual del sistema, y ahora
@@ -192,7 +208,7 @@ export function Header({
 
       {/* --- Badge de nivel: solo cuando hay una tasa de ahorro que mostrar --- */}
       {nivel.tasaDeAhorro !== null && (
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 pb-2 sm:px-6">
+        <div className="safe-x mx-auto flex w-full max-w-5xl items-center gap-3 pb-2">
           <span
             className={`aurem-caps shrink-0 rounded-full px-2.5 py-1 text-[9px] ${
               nivel.esGold

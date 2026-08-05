@@ -129,6 +129,69 @@ async function ultimaCotizacionConocida(
   }
 }
 
+// --- Panel de cotizaciones del mercado --------------------------------------
+
+/**
+ * Cotizaciones que se muestran en el dashboard.
+ *
+ * Es SOLO informativo: el MEP que usa la app para convertir sigue saliendo de
+ * `obtenerCotizacionDelDia`, que lo persiste en `exchange_rates`. Estas otras
+ * no se guardan porque ningún cálculo depende de ellas.
+ */
+export type CotizacionDeMercado = {
+  clave: 'mep' | 'blue' | 'oficial' | 'eur'
+  nombre: string
+  compra: number | null
+  venta: number
+  /** ISO de la última actualización que informa la API, si la informa. */
+  actualizado: string | null
+}
+
+const PANEL: { clave: CotizacionDeMercado['clave']; nombre: string; url: string }[] = [
+  { clave: 'mep', nombre: 'Dólar MEP', url: 'https://dolarapi.com/v1/dolares/bolsa' },
+  { clave: 'blue', nombre: 'Dólar Blue', url: 'https://dolarapi.com/v1/dolares/blue' },
+  { clave: 'oficial', nombre: 'Dólar Oficial', url: 'https://dolarapi.com/v1/dolares/oficial' },
+  { clave: 'eur', nombre: 'Euro', url: 'https://dolarapi.com/v1/cotizaciones/eur' },
+]
+
+async function pedirUna(
+  entrada: (typeof PANEL)[number]
+): Promise<CotizacionDeMercado | null> {
+  try {
+    const respuesta = await fetch(entrada.url, {
+      next: { revalidate: 3600 },
+      headers: { accept: 'application/json' },
+    })
+    if (!respuesta.ok) return null
+
+    const datos = (await respuesta.json()) as RespuestaDolarApi
+    if (!Number.isFinite(datos?.venta) || datos.venta <= 0) return null
+
+    return {
+      clave: entrada.clave,
+      nombre: entrada.nombre,
+      compra: Number.isFinite(datos.compra) ? Number(datos.compra) : null,
+      venta: Number(datos.venta),
+      actualizado: datos.fechaActualizacion ?? null,
+    }
+  } catch (error) {
+    console.error(`[rates] falló ${entrada.clave}`, error)
+    return null
+  }
+}
+
+/**
+ * Todas las cotizaciones del panel, en paralelo.
+ *
+ * Nunca lanza y nunca es todo-o-nada: si una API falla se devuelven las que
+ * respondieron. Una cotización de referencia caída no puede tumbar el
+ * dashboard entero.
+ */
+export async function obtenerCotizacionesDelMercado(): Promise<CotizacionDeMercado[]> {
+  const resultados = await Promise.all(PANEL.map(pedirUna))
+  return resultados.filter((cotizacion): cotizacion is CotizacionDeMercado => cotizacion !== null)
+}
+
 /** Redondea a 2 decimales sin arrastrar el error binario de los flotantes. */
 function aDosDecimales(valor: number): number {
   return Math.round((valor + Number.EPSILON) * 100) / 100

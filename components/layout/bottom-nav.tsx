@@ -19,7 +19,7 @@ export function BottomNav() {
       aria-label="Navegación principal"
       className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-glass-stroke bg-background/80 backdrop-blur-xl lg:hidden"
     >
-      <ul className="mx-auto flex w-full max-w-2xl items-stretch">
+      <ul className="safe-x mx-auto flex w-full max-w-2xl items-stretch">
         {PESTANAS.map(({ href, etiqueta, Icono }) => {
           // /dashboard sería prefijo de todas: solo coincide exacto.
           const activa = href === '/dashboard' ? ruta === href : ruta.startsWith(href)

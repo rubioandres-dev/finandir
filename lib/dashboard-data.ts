@@ -1,3 +1,4 @@
+import { esDeLaMoneda } from './currency-mode'
 import { obtenerCuentasPorMoneda, type Moneda } from './finanzas'
 import { MONEDAS, totalizarPorMoneda } from './monedas'
 import { obtenerCotizacionDelDia } from './rates'
@@ -27,8 +28,16 @@ export type Presupuesto = {
  *
  * ARS y USD son libros paralelos: los saldos vienen por cuenta (una por
  * moneda) y los totales se devuelven desagregados, nunca sumados.
+ *
+ * `moneda` es el modo global del header. Cuando viene, TODO lo que devuelve
+ * esta función queda restringido a esa moneda: movimientos, ventana del
+ * gráfico, presupuestos y saldos. El filtro va acá y no en cada vista para que
+ * no haya forma de que una se olvide y muestre las dos monedas mezcladas.
+ *
+ * Sin `moneda` devuelve los dos libros, que es lo que necesita la vista
+ * consolidada.
  */
-export async function cargarDatosDelDashboard() {
+export async function cargarDatosDelDashboard(moneda?: Moneda) {
   const supabase = await createClient()
 
   const { desde, hasta } = rangoDelMesActual()
@@ -64,11 +73,18 @@ export async function cargarDatosDelDashboard() {
   const cotizacion = await obtenerCotizacionDelDia(supabase)
 
   const categorias = (resCategorias.data ?? []) as Categoria[]
-  const movimientos = (resRecientes.data ?? []) as Transaccion[]
-  const ventana = (resVentana.data ?? []) as MovimientoDeVentana[]
-  const presupuestos = (resPresupuestos.data ?? []) as Presupuesto[]
+
+  // El modo del header recorta todo desde acá.
+  const deLaMoneda = <T extends { currency?: string | null }>(filas: T[]) =>
+    moneda ? filas.filter((fila) => esDeLaMoneda(fila, moneda)) : filas
+
+  const movimientos = deLaMoneda((resRecientes.data ?? []) as Transaccion[])
+  const ventana = deLaMoneda((resVentana.data ?? []) as MovimientoDeVentana[])
+  const presupuestos = deLaMoneda((resPresupuestos.data ?? []) as Presupuesto[])
 
   const delMes = ventana.filter((t) => t.date >= desde && t.date <= hasta)
+
+  const monedasVisibles = moneda ? [moneda] : MONEDAS
 
   return {
     cuentas: resCuentas.cuentas,
@@ -78,10 +94,12 @@ export async function cargarDatosDelDashboard() {
     ventana,
     delMes,
     presupuestos,
+    /** Monedas que las vistas deben mostrar: una en modo filtrado, las dos si no. */
+    monedasVisibles,
     // Un saldo por moneda: sumar pesos con dólares no significa nada.
-    saldos: MONEDAS.map((moneda) => ({
-      moneda,
-      valor: Number(resCuentas.cuentas[moneda]?.balance ?? 0),
+    saldos: monedasVisibles.map((visible) => ({
+      moneda: visible,
+      valor: Number(resCuentas.cuentas[visible]?.balance ?? 0),
     })),
     ingresosDelMes: totalizarPorMoneda(delMes.filter((t) => t.type === 'INCOME')),
     gastosDelMes: totalizarPorMoneda(delMes.filter((t) => t.type === 'EXPENSE')),

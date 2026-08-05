@@ -9,10 +9,15 @@ import { SmartCardSuggester } from '@/components/smart-card-suggester'
 import { SmartInput } from '@/components/smart-input'
 import { TransactionList } from '@/components/transaction-list'
 import { Card, CardLabel } from '@/components/ui/card'
+import { GuideCarousel } from '@/components/guide-carousel'
+import { MarketRatesCard } from '@/components/market-rates-card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { getBestCardToPay } from '@/lib/card-optimizer'
+import { esDeLaMoneda } from '@/lib/currency-mode'
+import { leerModoMoneda } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
-import { MONEDAS, equivalenteAproximado } from '@/lib/monedas'
+import { equivalenteAproximado } from '@/lib/monedas'
+import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -23,6 +28,9 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // Moneda activa del header: recorta todo lo que se muestra abajo.
+  const modo = await leerModoMoneda()
 
   const {
     cotizacion,
@@ -36,16 +44,23 @@ export default async function DashboardPage() {
     gastosDelMes,
     faltaMigracion,
     errorCarga,
-  } = await cargarDatosDelDashboard()
+  } = await cargarDatosDelDashboard(modo)
 
   // Recomendación de tarjeta: se calcula en el servidor y el widget solo muestra.
-  const { tarjetas, cuentas } = await cargarCuentasYDeudas(supabase)
+  const [{ tarjetas, cuentas }, cotizacionesDeMercado] = await Promise.all([
+    cargarCuentasYDeudas(supabase),
+    obtenerCotizacionesDelMercado(),
+  ])
+
+  const tarjetasDeLaMoneda = tarjetas.filter((t) => esDeLaMoneda(t, modo))
+  const cuentasDeLaMoneda = cuentas.filter((c) => esDeLaMoneda(c, modo))
+
   const deudaPorTarjeta = new Map(
     cuentas
       .filter((c) => c.type === 'CREDIT_CARD')
       .map((c) => [c.id, Math.max(0, -Number(c.balance ?? 0))])
   )
-  const recomendacion = getBestCardToPay(tarjetas, 0, 'ARS', deudaPorTarjeta)
+  const recomendacion = getBestCardToPay(tarjetasDeLaMoneda, 0, modo, deudaPorTarjeta)
 
   // Gasto del mes por categoría y moneda: cada moneda se compara solo con su
   // propio presupuesto.
@@ -67,11 +82,16 @@ export default async function DashboardPage() {
       nombre: c.name,
       icono: c.icon,
       color: c.color,
-      lineas: MONEDAS.map((moneda) => ({
-        moneda,
-        presupuesto: limitePorClave.get(`${c.id}:${moneda}`) ?? null,
-        gastado: gastado.get(`${c.id}:${moneda}`) ?? 0,
-      })),
+      // Una sola línea: la de la moneda activa. Mostrar el presupuesto en
+      // dólares mientras se está mirando el libro en pesos era justo el ruido
+      // que el modo global viene a sacar.
+      lineas: [
+        {
+          moneda: modo,
+          presupuesto: limitePorClave.get(`${c.id}:${modo}`) ?? null,
+          gastado: gastado.get(`${c.id}:${modo}`) ?? 0,
+        },
+      ],
     }))
 
   const gastosParaGrafico = ventana
@@ -146,11 +166,23 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
-      <SmartCardSuggester recomendacion={recomendacion} hayTarjetas={tarjetas.length > 0} />
+      {/* --- Cotizaciones y guía: dos columnas, apiladas en mobile -------- */}
+      <section className="grid gap-3 sm:grid-cols-2 sm:items-start">
+        <MarketRatesCard
+          cotizaciones={cotizacionesDeMercado}
+          fechaMep={cotizacion?.fecha ?? null}
+        />
+        <GuideCarousel />
+      </section>
+
+      <SmartCardSuggester
+        recomendacion={recomendacion}
+        hayTarjetas={tarjetasDeLaMoneda.length > 0}
+      />
 
       <SmartInput
         categorias={categorias.map((c) => ({ nombre: c.name, tipo: c.type }))}
-        cuentas={cuentas.map((c) => ({
+        cuentas={cuentasDeLaMoneda.map((c) => ({
           id: c.id,
           name: c.name,
           type: c.type,

@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation'
 import { DebtManager } from '@/components/debt-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { esDeLaMoneda } from '@/lib/currency-mode'
+import { leerModoMoneda } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'
-import { formatearMonto } from '@/lib/types'
+import { formatearMonto, type Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Deudas' }
 
@@ -15,7 +17,13 @@ export default async function DebtsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const modo = await leerModoMoneda()
   const { deudas, patrimonio, error } = await cargarCuentasYDeudas(supabase)
+
+  // Solo el libro activo, igual que en cuentas y movimientos.
+  const deudasVisibles = deudas.filter((d) => esDeLaMoneda(d, modo))
+  const soloModo = (totales: { moneda: Moneda; valor: number }[]) =>
+    totales.filter((total) => total.moneda === modo)
 
   return (
     <div className="flex flex-col gap-5">
@@ -34,7 +42,7 @@ export default async function DebtsPage() {
         <Card className="p-4">
           <CardLabel>Me deben</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
-            {patrimonio.porCobrar.map((t) => (
+            {soloModo(patrimonio.porCobrar).map((t) => (
               <span key={t.moneda} className="text-base font-semibold tabular-nums text-income">
                 {formatearMonto(t.valor, t.moneda)}
               </span>
@@ -45,7 +53,7 @@ export default async function DebtsPage() {
         <Card className="p-4">
           <CardLabel>Debo</CardLabel>
           <div className="mt-2 flex flex-col gap-0.5">
-            {patrimonio.deudaPersonal.map((t) => (
+            {soloModo(patrimonio.deudaPersonal).map((t) => (
               <span key={t.moneda} className="text-base font-semibold tabular-nums text-expense">
                 {formatearMonto(t.valor, t.moneda)}
               </span>
@@ -54,7 +62,7 @@ export default async function DebtsPage() {
         </Card>
       </div>
 
-      <DebtManager deudas={deudas} />
+      <DebtManager deudas={deudasVisibles} />
     </div>
   )
 }

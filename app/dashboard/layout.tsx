@@ -3,6 +3,7 @@ import { CurrencyProvider } from '@/components/currency-provider'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Header } from '@/components/layout/header'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { leerModoMoneda } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
@@ -23,8 +24,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { nivel, avisos } = await cargarDatosDeCabecera(supabase, tarjetas, hoyEnArgentina())
 
+  // La moneda activa sale de la cookie, así el HTML ya viene filtrado y el
+  // cliente arranca con el mismo valor: sin parpadeo ni mismatch.
+  const modoMoneda = await leerModoMoneda()
+
   return (
-    <CurrencyProvider>
+    <CurrencyProvider modoInicial={modoMoneda}>
       <div className="flex flex-1 flex-col">
         <Header
           email={user.email ?? ''}
@@ -40,8 +45,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           avisos={avisos}
         />
 
-        {/* pb-28 en mobile deja lugar para la barra inferior flotante. */}
-        <main className="safe-x mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-12">
+        {/* pb-28 en mobile deja lugar para la barra inferior flotante.
+            La canaleta horizontal la pone `safe-x`, que ya combina la base con
+            el inset del notch: un `px-4` acá volvería a pisarla. */}
+        <main className="safe-x mx-auto w-full max-w-2xl flex-1 pb-28 pt-5 lg:pb-12">
           {children}
         </main>
 

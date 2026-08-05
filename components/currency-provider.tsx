@@ -1,73 +1,92 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
-
-const CLAVE = 'finandir:equivalencias'
+import { useRouter } from 'next/navigation'
+import { createContext, useContext, useMemo, useState, useTransition } from 'react'
+import { COOKIE_MONEDA, MAX_EDAD_COOKIE_MONEDA } from '@/lib/currency-mode'
+import type { Moneda } from '@/lib/types'
 
 type Contexto = {
-  /** Si se muestran las conversiones aproximadas junto a cada importe. */
+  /** Moneda activa. Filtra cuentas, movimientos, tarjetas y presupuestos. */
+  modo: Moneda
+  cambiarModo: (moneda: Moneda) => void
+  /** true mientras el servidor recarga las vistas con la moneda nueva. */
+  cambiando: boolean
+  /**
+   * Si se muestran las conversiones aproximadas junto a cada importe.
+   *
+   * Derivado de `modo`: en USD se muestran, en ARS no. Se mantiene el nombre
+   * porque `<Monto>` y sus llamadas ya dependen de él, y el significado es el
+   * mismo que antes del modo global.
+   */
   mostrarEquivalencias: boolean
-  alternar: () => void
 }
 
-const EquivalenciasContext = createContext<Contexto | null>(null)
+const MonedaContext = createContext<Contexto | null>(null)
 
-// --- store externo mínimo sobre localStorage -------------------------------
-// useSyncExternalStore en vez de useState + useEffect: el server no tiene
-// localStorage, y este hook está hecho para ese caso sin romper la hidratación.
+/**
+ * Provee la moneda activa de la app.
+ *
+ * El valor inicial LO DA EL SERVIDOR (`modoInicial`, leído de la cookie), no
+ * localStorage. Es lo que evita el parpadeo y el mismatch de hidratación: el
+ * HTML ya viene filtrado con la misma moneda con la que arranca el cliente.
+ *
+ * Al cambiar de moneda se escribe la cookie y se pide `router.refresh()`, que
+ * vuelve a ejecutar los Server Components y trae los datos de la otra moneda.
+ */
+export function CurrencyProvider({
+  children,
+  modoInicial,
+}: {
+  children: React.ReactNode
+  modoInicial: Moneda
+}) {
+  const router = useRouter()
+  const [modo, setModo] = useState<Moneda>(modoInicial)
+  const [cambiando, iniciarCambio] = useTransition()
 
-const suscriptores = new Set<() => void>()
+  const valor = useMemo<Contexto>(
+    () => ({
+      modo,
+      cambiando,
+      mostrarEquivalencias: modo === 'USD',
+      cambiarModo: (moneda: Moneda) => {
+        if (moneda === modo) return
 
-function suscribir(alCambiar: () => void) {
-  suscriptores.add(alCambiar)
-  window.addEventListener('storage', alCambiar)
-  return () => {
-    suscriptores.delete(alCambiar)
-    window.removeEventListener('storage', alCambiar)
-  }
-}
+        // `path=/` para que valga en todas las rutas, y `SameSite=Lax` porque
+        // es una preferencia de UI, no algo que deba viajar entre sitios.
+        document.cookie = `${COOKIE_MONEDA}=${moneda}; path=/; max-age=${MAX_EDAD_COOKIE_MONEDA}; SameSite=Lax`
 
-function leer(): boolean {
-  try {
-    return window.localStorage.getItem(CLAVE) === '1'
-  } catch {
-    return false
-  }
-}
-
-/** Por defecto apagadas: la conversión es referencia, no el dato principal. */
-function leerEnServidor(): boolean {
-  return false
-}
-
-function escribir(valor: boolean) {
-  try {
-    window.localStorage.setItem(CLAVE, valor ? '1' : '0')
-  } catch {
-    // Modo incógnito con storage bloqueado: la preferencia dura la sesión.
-  }
-  for (const notificar of suscriptores) notificar()
-}
-
-export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const mostrarEquivalencias = useSyncExternalStore(suscribir, leer, leerEnServidor)
-
-  const alternar = useCallback(() => escribir(!leer()), [])
-
-  const valor = useMemo(
-    () => ({ mostrarEquivalencias, alternar }),
-    [mostrarEquivalencias, alternar]
+        // Optimista: el toggle se pinta ya, sin esperar al servidor.
+        setModo(moneda)
+        iniciarCambio(() => router.refresh())
+      },
+    }),
+    [modo, cambiando, router]
   )
 
-  return (
-    <EquivalenciasContext.Provider value={valor}>{children}</EquivalenciasContext.Provider>
-  )
+  return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
 
-export function useEquivalencias(): Contexto {
-  const contexto = useContext(EquivalenciasContext)
+function useMonedaContext(): Contexto {
+  const contexto = useContext(MonedaContext)
   if (!contexto) {
-    throw new Error('useEquivalencias debe usarse dentro de <CurrencyProvider>')
+    throw new Error('useModoMoneda debe usarse dentro de <CurrencyProvider>')
   }
   return contexto
+}
+
+/** Moneda activa y su setter. */
+export function useModoMoneda(): Contexto {
+  return useMonedaContext()
+}
+
+/**
+ * Solo la parte de equivalencias.
+ *
+ * Se conserva con este nombre y esta forma para no tocar `<Monto>` ni sus
+ * llamadas: antes venía de su propio contexto y ahora se deriva del modo.
+ */
+export function useEquivalencias(): { mostrarEquivalencias: boolean } {
+  const { mostrarEquivalencias } = useMonedaContext()
+  return { mostrarEquivalencias }
 }
