@@ -7,7 +7,7 @@
  * líneas, y la alternativa es enviarle al navegador la lista completa de
  * dependencias para mostrar un string.
  */
-export const VERSION = '0.9.0-dev.3'
+export const VERSION = '0.9.0-dev.4'
 
 /** Etapa del ciclo de vida. Es lo que le dice al usuario qué esperar. */
 export const FASE = 'Fase Alpha · Desarrollo activo'

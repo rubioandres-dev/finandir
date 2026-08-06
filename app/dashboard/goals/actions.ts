@@ -75,16 +75,6 @@ export async function guardarObjetivo(
   const datos = objetivoSchema.safeParse(entrada)
   if (!datos.success) return { ok: false, error: datos.error.issues[0].message }
 
-  if (datos.data.tipo === 'CATEGORY_BUDGET' && !datos.data.categoriaId) {
-    return { ok: false, error: 'Elegí la categoría del presupuesto.' }
-  }
-
-  // Una categoría en un objetivo que no es de presupuesto rompería la clave
-  // única sin que se note: dos metas de tasa de ahorro con categorías
-  // distintas serían dos filas legales para una regla que dice "una sola".
-  const categoriaId =
-    datos.data.tipo === 'CATEGORY_BUDGET' ? (datos.data.categoriaId ?? null) : null
-
   const supabase = await createClient()
   const {
     data: { user },
@@ -99,7 +89,11 @@ export async function guardarObjetivo(
         type: datos.data.tipo,
         target_value: datos.data.valor,
         currency: datos.data.moneda,
-        category_id: categoriaId,
+        // Desde la 013 ningún tipo vigente usa categoría: los presupuestos
+        // viven en `category_budgets`. Se manda explícito para que la clave
+        // única (user_id, type, category_id) siga siendo, en los hechos,
+        // (user_id, type) — que es lo que la regla del producto quiere decir.
+        category_id: null,
         is_active: true,
       },
       { onConflict: CLAVE_UNICA_DE_OBJETIVO, ignoreDuplicates: false }

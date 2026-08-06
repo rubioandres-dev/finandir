@@ -8,7 +8,10 @@ import {
   Coins,
   Download,
   Globe,
+  Compass,
+  FileSpreadsheet,
   Info,
+  Loader2,
   LogOut,
   Monitor,
   Moon,
@@ -20,6 +23,8 @@ import {
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
 import { AboutModal } from '@/components/about-modal'
+import { useTraduccion } from '@/components/currency-provider'
+import { useTour } from '@/components/guided-tour'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { usePwaInstall } from '@/lib/use-pwa-install'
 
@@ -39,6 +44,73 @@ export function inicialesDe(texto: string): string {
 
 const FILA =
   'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition hover:bg-gold-leaf/[0.07] disabled:opacity-50'
+
+/**
+ * Descarga del libro en Excel.
+ *
+ * POR QUÉ `fetch` + Blob Y NO UN `<a href>` PELADO
+ *
+ * Un enlace directo funcionaría, pero el archivo tarda: hay que leer cuentas,
+ * inversiones, movimientos del año y las cotizaciones antes de armarlo. Con un
+ * `<a>` no hay forma de saber que empezó ni de mostrar el spinner, y el usuario
+ * toca tres veces creyendo que no pasó nada. Con `fetch` se sabe cuándo termina
+ * y recién ahí se dispara la descarga con un enlace efímero.
+ */
+function BotonExcel() {
+  const { t } = useTraduccion()
+  const [bajando, setBajando] = useState(false)
+  const [error, setError] = useState(false)
+
+  async function descargar() {
+    if (bajando) return
+    setBajando(true)
+    setError(false)
+
+    try {
+      const respuesta = await fetch('/api/export/excel')
+      if (!respuesta.ok) throw new Error(String(respuesta.status))
+
+      const blob = await respuesta.blob()
+      const url = URL.createObjectURL(blob)
+
+      // El nombre lo manda el servidor en Content-Disposition, pero el atributo
+      // `download` de un blob: no lo lee: hay que repetirlo acá.
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = respuesta.headers
+        .get('Content-Disposition')
+        ?.match(/filename="(.+)"/)?.[1] ?? 'aurem.xlsx'
+      document.body.appendChild(enlace)
+      enlace.click()
+      enlace.remove()
+
+      // Sin esto el blob queda retenido hasta que se recargue la página.
+      URL.revokeObjectURL(url)
+    } catch {
+      setError(true)
+    } finally {
+      setBajando(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={descargar}
+      disabled={bajando}
+      className={`${FILA} text-on-surface-variant`}
+    >
+      {bajando ? (
+        <Loader2 className="size-4 shrink-0 animate-spin text-gold-leaf" aria-hidden />
+      ) : (
+        <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+      )}
+      <span className="min-w-0 flex-1 truncate">
+        {bajando ? t('excel.generando') : error ? t('excel.error') : t('excel.descargar')}
+      </span>
+    </button>
+  )
+}
 
 function BotonSalir() {
   const { pending } = useFormStatus()
@@ -198,6 +270,8 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
   const [acercaDeAbierto, setAcercaDeAbierto] = useState(false)
   const boton = useRef<HTMLButtonElement>(null)
   const cerrar = useCallback(() => setAbierto(false), [])
+  const { t } = useTraduccion()
+  const { abrirTour } = useTour()
 
   return (
     <>
@@ -265,6 +339,25 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
             <Coins className="size-4 shrink-0" aria-hidden />
             Preferencias de moneda
           </Link>
+
+          {/* El tour arranca desde el Home: si estamos en otra sección, sus
+              anclas no existen y los pasos caen al modo centrado. Es aceptable
+              —el texto se entiende igual— y evita una navegación forzada. */}
+          {/* No cierra el panel: el spinner es la única señal de que el
+              archivo se está armando, y cerrarlo la escondería. */}
+          <BotonExcel />
+
+          <button
+            type="button"
+            onClick={() => {
+              cerrar()
+              abrirTour()
+            }}
+            className={`${FILA} text-on-surface-variant`}
+          >
+            <Compass className="size-4 shrink-0" aria-hidden />
+            {t('tour.abrir')}
+          </button>
 
           <button
             type="button"

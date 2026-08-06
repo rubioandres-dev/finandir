@@ -8,6 +8,7 @@ import {
   Bell,
   CalendarDays,
   HandCoins,
+  HelpCircle,
   LayoutDashboard,
   Settings,
   TrendingDown,
@@ -15,7 +16,9 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
+import { useTraduccion } from '@/components/currency-provider'
 import { CurrencySelector } from '@/components/currency-selector'
+import { useTour } from '@/components/guided-tour'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { ProfileMenu } from '@/components/layout/profile-menu'
 import { avanceDentroDelTier, siguienteTier, tierPara } from '@/lib/goals-service'
@@ -128,6 +131,30 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
   )
 }
 
+/**
+ * Botón de ayuda.
+ *
+ * Va en dorado pleno y no con el tratamiento sobrio del resto de los iconos del
+ * header: es el único control que no hace nada con el dinero, y tiene que ser
+ * encontrable por alguien que se perdió. Ese es todo el trabajo que hace.
+ */
+function BotonDeAyuda() {
+  const { t } = useTraduccion()
+  const { abrirTour } = useTour()
+
+  return (
+    <button
+      type="button"
+      onClick={abrirTour}
+      aria-label={t('tour.ayuda')}
+      title={t('tour.ayuda')}
+      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-gold-leaf/60 text-gold-leaf transition active:scale-90 hover:bg-gold-leaf/10"
+    >
+      <HelpCircle className="size-[18px]" aria-hidden />
+    </button>
+  )
+}
+
 export function Header({
   email,
   nombre,
@@ -201,6 +228,8 @@ export function Header({
             <span aria-hidden>📊</span>
             <span className="hidden sm:inline">Consolidado</span>
           </Link>
+
+          <BotonDeAyuda />
 
           <Notificaciones avisos={avisos} />
 

@@ -2,6 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import {
+  FALTA_MIGRACION_PRESUPUESTOS,
+  TABLA_PRESUPUESTOS,
+  faltaLaTabla as faltaLaTablaDePresupuestos,
+} from '@/lib/category-budgets-service'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import type { Moneda } from '@/lib/types'
@@ -209,13 +214,17 @@ const presupuestoSchema = z.object({
   monto: z.number().min(0, 'El presupuesto no puede ser negativo.').nullable(),
 })
 
-const FALTA_TABLA =
-  'Falta la tabla budgets. Ejecutá migrations/002_multi_moneda.sql en el SQL Editor.'
-
 /**
  * Define (o borra, con monto null) el presupuesto mensual de una categoría
  * en una moneda. Cada moneda lleva su propio límite y se compara solo contra
  * los gastos de esa misma moneda.
+ *
+ * ESCRIBE EN `category_budgets` DESDE LA 013
+ *
+ * Antes escribía en `budgets`, que era una de las dos fuentes del mismo número
+ * —la otra eran los objetivos CATEGORY_BUDGET— y por eso Ajustes y el Home
+ * podían mostrar techos distintos para la misma categoría. La tabla vieja sigue
+ * existiendo con sus datos, pero ya nadie la lee ni la escribe.
  */
 export async function guardarPresupuesto(
   categoriaId: string,
@@ -237,24 +246,25 @@ export async function guardarPresupuesto(
   const { error } =
     datos.data.monto === null
       ? await supabase
-          .from('budgets')
+          .from(TABLA_PRESUPUESTOS)
           .delete()
+          .eq('user_id', user.id)
           .eq('category_id', datos.data.categoriaId)
           .eq('currency', datos.data.moneda)
-      : await supabase.from('budgets').upsert(
+      : await supabase.from(TABLA_PRESUPUESTOS).upsert(
           {
             user_id: user.id,
             category_id: datos.data.categoriaId,
             currency: datos.data.moneda,
             amount: datos.data.monto,
           },
-          { onConflict: 'category_id,currency' }
+          // Coincide con `category_budgets_user_category_currency_key` de la 013.
+          { onConflict: 'user_id,category_id,currency' }
         )
 
   if (error) {
-    // PGRST205 = la tabla no existe todavía en el esquema.
-    if (error.code === 'PGRST205' || error.code === '42P01') {
-      return { ok: false, error: FALTA_TABLA }
+    if (faltaLaTablaDePresupuestos(error.code)) {
+      return { ok: false, error: FALTA_MIGRACION_PRESUPUESTOS }
     }
     console.error('[guardarPresupuesto]', error)
     return { ok: false, error: 'No se pudo guardar el presupuesto.' }

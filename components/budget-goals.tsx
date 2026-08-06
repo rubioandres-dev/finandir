@@ -3,34 +3,26 @@
 import Link from 'next/link'
 import { Target } from 'lucide-react'
 import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
+import type { AvanceDePresupuesto } from '@/lib/category-budgets-service'
 import { IconoCategoria } from '@/lib/category-icons'
-import type { Moneda } from '@/lib/types'
 
-export type PresupuestoDeObjetivo = {
-  id: string
-  categoriaId: string
-  nombre: string
-  icono: string
-  color: string
-  gastado: number
-  limite: number
-  moneda: Moneda
-}
+/** Se conserva el nombre para no tocar los imports; la forma la da el servicio. */
+export type PresupuestoDeObjetivo = AvanceDePresupuesto
 
 /**
- * Presupuestos del Home, leídos de los objetivos.
+ * Presupuestos del Home.
  *
- * POR QUÉ NO SON LA TABLA `budgets`
+ * FUENTE ÚNICA DESDE LA 013
  *
  * Había dos lugares donde definir el techo de gasto de una categoría: la tabla
- * `budgets` (de la 002) y los objetivos de tipo CATEGORY_BUDGET (de la 010).
- * Dos fuentes para el mismo número es la receta de que digan cosas distintas,
- * y encima solo una de las dos suma XP al cumplirse.
+ * `budgets` (de la 002), que editaba Ajustes, y los objetivos de tipo
+ * CATEGORY_BUDGET (de la 010), que mostraba esta sección. Dos fuentes para el
+ * mismo número es la receta de que digan cosas distintas, y eso es exactamente
+ * lo que pasaba.
  *
- * Esta sección lee los OBJETIVOS. La tabla `budgets` sigue existiendo y la
- * sigue usando la vista de Ajustes: no se migró nada ni se borró nada, así que
- * quien ya tenía presupuestos cargados ahí no los perdió. Pero el Home muestra
- * los objetivos, que son los que cuentan para el Tier.
+ * Ahora las dos se unificaron en `category_budgets`. Ninguna fila se borró: los
+ * objetivos migrados quedaron `is_active = false` y la tabla `budgets` sigue
+ * intacta, así que volver atrás no necesita un backup.
  */
 export function BudgetGoals({
   presupuestos,
@@ -46,11 +38,13 @@ export function BudgetGoals({
         <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
           {t('presupuestos.titulo')}
         </h2>
+        {/* Apunta a Ajustes y no a Objetivos: desde la 013 el techo de gasto se
+            edita ahí, y ya no es una meta que sume XP. */}
         <Link
-          href="/dashboard/goals"
+          href="/dashboard/settings#presupuestos"
           className="shrink-0 text-xs font-medium text-gold-leaf hover:underline"
         >
-          {t('nav.objetivos')}
+          {t('presupuestos.administrar')}
         </Link>
       </div>
 
@@ -58,7 +52,7 @@ export function BudgetGoals({
         <div className="flex flex-col items-start gap-2.5 rounded-2xl border border-dashed border-glass-stroke/60 px-4 py-5">
           <p className="text-xs leading-snug text-subtle">{t('presupuestos.sinObjetivos')}</p>
           <Link
-            href="/dashboard/goals"
+            href="/dashboard/settings#presupuestos"
             className="btn-gold-subtle rounded-xl px-3 py-2 text-[11px] font-semibold"
           >
             <Target className="size-3.5" aria-hidden />
@@ -89,7 +83,10 @@ export function BudgetGoals({
                     : 'text-income'
 
               return (
-                <li key={presupuesto.id} className="glass-card flex flex-col gap-2 rounded-2xl p-3.5">
+                <li
+                  key={presupuesto.categoriaId}
+                  className="glass-card flex flex-col gap-2 rounded-2xl p-3.5"
+                >
                   <div className="flex items-center gap-2.5">
                     <span
                       className="grid size-7 shrink-0 place-items-center rounded-lg"

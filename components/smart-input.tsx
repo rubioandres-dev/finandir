@@ -228,7 +228,11 @@ export function SmartInput({
   return (
     // `scroll-mt-24` deja que el header sticky no tape la sección cuando se
     // llega por el ancla.
-    <section id={ancla ?? undefined} className="flex scroll-mt-24 flex-col gap-3">
+    <section
+      id={ancla ?? undefined}
+      data-tour={ancla ? 'smart-input' : undefined}
+      className="flex scroll-mt-24 flex-col gap-3"
+    >
       <form onSubmit={analizar} className="flex flex-col gap-2.5">
         <div className="relative">
           <Sparkles

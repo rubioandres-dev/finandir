@@ -16,15 +16,28 @@ import type { Moneda } from './types'
  * se limpia, aunque el objetivo después deje de cumplirse.
  */
 
+/**
+ * CATEGORY_BUDGET YA NO ESTÁ ACÁ
+ *
+ * Los presupuestos por categoría se fueron a `category_budgets` con la 013. El
+ * valor sigue existiendo en el enum `goal_type` de Postgres —sacarlo
+ * invalidaría las filas viejas, que se conservan apagadas para poder volver
+ * atrás—, pero la app ya no lo ofrece ni lo mide.
+ *
+ * El motivo no es de esquema sino de semántica: el XP no baja nunca, y un techo
+ * de gasto es una pregunta que se rehace todos los meses. Ver la nota de
+ * `lib/category-budgets-service.ts`.
+ */
 export const TIPOS_DE_OBJETIVO = [
   'SAVINGS_RATE',
   'INVESTMENT_RATE',
   'EMERGENCY_FUND',
-  'CATEGORY_BUDGET',
   'DEBT_REDUCTION',
 ] as const
 
 export type TipoDeObjetivo = (typeof TIPOS_DE_OBJETIVO)[number]
+
+const TIPOS_VIGENTES = new Set<string>(TIPOS_DE_OBJETIVO)
 
 export type Objetivo = {
   id: string
@@ -99,8 +112,6 @@ export type BaseDeMedicion = {
   liquido: number
   /** Deuda total en positivo: tarjetas + personales. */
   deuda: number
-  /** Gasto del mes por categoría. */
-  gastoPorCategoria: Map<string, number>
 }
 
 /**
@@ -127,11 +138,6 @@ export function medirObjetivo(objetivo: Objetivo, base: BaseDeMedicion): number 
       if (base.gastosDelMes <= 0) return base.liquido > 0 ? objetivo.target_value : 0
       return redondear(base.liquido / base.gastosDelMes)
 
-    case 'CATEGORY_BUDGET':
-      return redondear(
-        objetivo.category_id ? (base.gastoPorCategoria.get(objetivo.category_id) ?? 0) : 0
-      )
-
     case 'DEBT_REDUCTION':
       return redondear(base.deuda)
   }
@@ -141,12 +147,12 @@ export function medirObjetivo(objetivo: Objetivo, base: BaseDeMedicion): number 
  * Un objetivo se cumple hacia arriba o hacia abajo según el tipo.
  *
  * Ahorrar, invertir y tener fondo de emergencia son metas de MÍNIMO: se
- * cumplen al superarlas. Presupuesto y deuda son de MÁXIMO: se cumplen al
- * quedar por debajo. Tratarlos igual daría por logrado un presupuesto
- * justamente cuando se lo revienta.
+ * cumplen al superarlas. Reducir deuda es de MÁXIMO: se cumple al quedar por
+ * debajo. Tratarlos igual daría por lograda una meta de deuda justamente
+ * cuando se la revienta.
  */
 export function esDeMaximo(tipo: TipoDeObjetivo): boolean {
-  return tipo === 'CATEGORY_BUDGET' || tipo === 'DEBT_REDUCTION'
+  return tipo === 'DEBT_REDUCTION'
 }
 
 export function calcularAvance(objetivo: Objetivo, medido: number): ObjetivoConAvance {
@@ -228,11 +234,18 @@ export async function cargarObjetivos(supabase: SupabaseClient): Promise<{
   }
 
   return {
-    objetivos: (data ?? []).map((fila) => ({
-      ...fila,
-      target_value: Number(fila.target_value),
-      current_value: Number(fila.current_value),
-    })) as Objetivo[],
+    // Los CATEGORY_BUDGET viejos se descartan acá y no sólo con el
+    // `is_active = false` que les pone la 013: si alguien todavía no corrió esa
+    // migración, sus filas siguen activas y `medirObjetivo` no tiene un `case`
+    // para ellas. Filtrar por el catálogo vigente hace que la app funcione
+    // igual antes y después de migrar.
+    objetivos: (data ?? [])
+      .filter((fila) => TIPOS_VIGENTES.has(fila.type as string))
+      .map((fila) => ({
+        ...fila,
+        target_value: Number(fila.target_value),
+        current_value: Number(fila.current_value),
+      })) as Objetivo[],
     error: null,
     faltaMigracion: false,
   }

@@ -222,8 +222,16 @@ export function SettingsDraftProvider({
           aria-label={t('ajustes.barraAria')}
           className="safe-bottom safe-x pointer-events-none fixed inset-x-0 bottom-0 z-[45]"
         >
+          {/* Fondo SÓLIDO, no `glass-card`.
+              El vidrio deja ver el contenido de abajo, y esta barra se apoya
+              justo encima de un listado de switches: los textos quedaban
+              compitiendo con las filas que se transparentaban detrás. `bg-menu`
+              es el mismo sólido que usan las hojas modales —#232633 en oscuro,
+              blanco en claro— así que sirve en los dos temas. El borde dorado
+              entero (y no al 30 % como `glass-stroke`) más la sombra la
+              despegan del fondo sin depender del blur. */}
           <div
-            className={`glass-card barra-ajustes pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-3 rounded-2xl border border-glass-stroke p-3.5 sm:flex-row sm:items-center sm:justify-between ${ALTURA_NAV}`}
+            className={`barra-ajustes pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-3 rounded-2xl border border-gold-leaf bg-menu p-3.5 shadow-2xl shadow-midnight-navy/60 sm:flex-row sm:items-center sm:justify-between ${ALTURA_NAV}`}
           >
             {/* --- Estado ------------------------------------------------- */}
             <div className="flex min-w-0 items-start gap-2.5">

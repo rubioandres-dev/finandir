@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { CurrencyProvider } from '@/components/currency-provider'
 import { FloatingActionButton } from '@/components/floating-action-button'
+import { GuidedTourProvider } from '@/components/guided-tour'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Header } from '@/components/layout/header'
 import { OnboardingModal } from '@/components/onboarding-modal'
@@ -59,6 +60,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       idioma={contexto.idioma}
       modulos={contexto.modulos}
     >
+      {/* El tour arranca solo la primera vez, pero NO durante el onboarding:
+          dos capas modales encimadas dejan al usuario sin saber cuál cerrar.
+          Que ya se haya visto lo decide `localStorage`, del lado del cliente. */}
+      <GuidedTourProvider arrancarSolo={!mostrarOnboarding}>
       <div className="flex flex-1 flex-col">
         <Header
           email={user.email ?? ''}
@@ -103,6 +108,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           localeInicial={contexto.locale}
         />
       )}
+      </GuidedTourProvider>
     </CurrencyProvider>
   )
 }

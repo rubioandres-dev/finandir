@@ -173,9 +173,10 @@ const ES_AR = {
 
   // --- Presupuestos ---------------------------------------------------------
   'presupuestos.titulo': 'Presupuestos por categoría',
+  'presupuestos.administrar': 'Administrar',
   'presupuestos.sinObjetivos':
-    'Todavía no definiste presupuestos. Cargá uno como objetivo y lo vas a ver acá.',
-  'presupuestos.cargar': '+ Cargar objetivo de presupuesto',
+    'Todavía no definiste presupuestos. Cargá un techo por categoría en Ajustes y lo vas a ver acá.',
+  'presupuestos.cargar': '+ Cargar un presupuesto',
   'presupuestos.deLimite': 'de',
   'presupuestos.excedido': 'Excedido por {monto}',
   'presupuestos.quedan': 'Quedan {monto}',
@@ -567,21 +568,49 @@ const ES_AR = {
     'Los cambios de esta sección se aplican cuando confirmás abajo.',
 
   // --- Card de balance del dashboard ----------------------------------------
+  // Textos CORTOS a propósito: la card es una sola superficie y cada renglón de
+  // prosa que se agrega la empuja hacia abajo. Lo que explica el modelo vive en
+  // los comentarios del componente y en la guía de uso, no en pantalla.
+  'balance.patrimonioTotal': 'Patrimonio neto total',
   'balance.liquidezHoy': 'Liquidez hoy',
-  'balance.liquidezDetalle': 'Disponible ya: cuentas, efectivo, billeteras y rescates T+0.',
-  'balance.tarjetas': 'Tarjetas y comprometido',
-  'balance.tarjetasDetalle': 'Saldo de tarjetas más las cuotas que vencen este mes.',
+  'balance.tarjetas': 'Tarjetas · comprometido',
   'balance.inversiones': 'Inversiones y activos',
-  'balance.inversionesDetalle': 'Lo que no se rescata hoy: T+1, T+2, CEDEARs, cripto y plazos fijos.',
-  'balance.cuotasDelMes': 'Cuotas de este mes',
-  'balance.alertaLiquidez': 'Tu liquidez de hoy no alcanza para cubrir lo que vence en tarjetas.',
+  'balance.venceEsteMes': 'Vence este mes:',
+  'balance.alertaCorta': 'No lo cubre tu liquidez',
   'balance.sinCotizacion': 'Sin cotización',
-  'balance.sinCotizacionDetalle':
-    'No se pudo cotizar {monedas}, así que no se unifican los libros. Preferimos no mostrar un total antes que mostrarlo con un tipo de cambio inventado.',
-  'balance.expresadoEn':
-    'Expresado en {moneda}, la divisa del header. Es una foto a los tipos de cambio de hoy: si se mueven, el número se mueve sin que hayas hecho nada.',
-  'balance.noSeRestan':
-    'La liquidez NO tiene descontadas las tarjetas: son dos capas distintas a propósito.',
+  'balance.sinCotizacionCorto': 'No se pudo cotizar {monedas}: los libros no se unifican.',
+
+  // --- Evolutivo mensual y accesos rápidos ----------------------------------
+  'evolutivo.titulo': 'Ingresos vs. gastos · 12 meses',
+  'evolutivo.sinDatos': 'Todavía no hay movimientos en {moneda} para dibujar la serie.',
+  'accesos.titulo': 'Accesos rápidos',
+
+  // --- Recorrido guiado -----------------------------------------------------
+  'tour.titulo': 'Recorrido guiado',
+  'tour.abrir': 'Ver recorrido guiado',
+  'tour.ayuda': 'Ayuda y recorrido guiado',
+  'tour.anterior': 'Atrás',
+  'tour.siguiente': 'Siguiente',
+  'tour.terminar': 'Listo',
+  'tour.saltar': 'Saltar el recorrido',
+  'tour.contador': 'Paso {actual} de {total}',
+  'tour.balanceTitulo': 'Tu patrimonio, en una sola lectura',
+  'tour.balanceCuerpo':
+    'Arriba, cuánto tenés en total. Abajo, las tres capas que lo componen: lo que podés gastar hoy, lo que ya está comprometido en tarjetas y lo que está invertido. Las tarjetas NO se descuentan de la liquidez: ese consumo no sale de tu caja hasta el vencimiento.',
+  'tour.entradaTitulo': 'Cargá un gasto hablando',
+  'tour.entradaCuerpo':
+    'Escribí o dictá "gasté 15 lucas en el súper" y la IA arma el movimiento: importe, categoría, fecha y cuenta. Nada se guarda solo — siempre revisás antes de confirmar.',
+  'tour.gastoTitulo': 'Con qué tarjeta conviene pagar',
+  'tour.gastoCuerpo':
+    'AUREM mira los días de cierre de cada tarjeta y te dice cuál te da más plazo. Y en el asistente de gasto podés comparar contado con descuento contra cuotas, usando la tasa real de tus inversiones.',
+  'tour.inversionesTitulo': 'Tu tasa real, no una estimada',
+  'tour.inversionesCuerpo':
+    'Cargá tus inversiones con su TNA y su plazo de rescate. Lo que se rescata el mismo día cuenta como liquidez; el resto es patrimonio que no está disponible hoy. Esa distinción es la que hace útil al asistente de gasto.',
+
+  // --- Exportación a Excel --------------------------------------------------
+  'excel.descargar': 'Descargar Excel',
+  'excel.generando': 'Armando el archivo…',
+  'excel.error': 'No se pudo generar. Reintentá',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -619,8 +648,8 @@ const ES_NEUTRO: Parcial = {
   'dashboard.verTodasLasCotizaciones': 'Ver todas las cotizaciones',
 
   'presupuestos.sinObjetivos':
-    'Aún no has definido presupuestos. Registra uno como objetivo y lo verás aquí.',
-  'presupuestos.cargar': '+ Agregar objetivo de presupuesto',
+    'Aún no has definido presupuestos. Registra un techo por categoría en Ajustes y lo verás aquí.',
+  'presupuestos.cargar': '+ Agregar un presupuesto',
 
   'objetivos.sinIngresos': 'Registra algún ingreso del mes para ver el equivalente en dinero.',
   'objetivos.sinDeuda': 'Hoy no tienes deuda registrada.',
@@ -691,10 +720,6 @@ const ES_NEUTRO: Parcial = {
   'ajustes.sinGuardar': 'Tienes cambios sin guardar',
   'ajustes.avisoDiferido': 'Los cambios de esta sección se aplican cuando confirmas abajo.',
 
-  'balance.inversionesDetalle': 'Lo que no se rescata hoy: T+1, T+2, ETFs, cripto y plazos fijos.',
-  'balance.alertaLiquidez': 'Tu liquidez de hoy no alcanza para cubrir lo que vence en tarjetas.',
-  'balance.expresadoEn':
-    'Expresado en {moneda}, la divisa del encabezado. Es una foto a los tipos de cambio de hoy: si se mueven, el número se mueve sin que hayas hecho nada.',
 }
 
 const EN: Parcial = {
@@ -781,9 +806,10 @@ const EN: Parcial = {
   'dashboard.errorCarga': 'There was a problem loading your data: {error}',
 
   'presupuestos.titulo': 'Category budgets',
+  'presupuestos.administrar': 'Manage',
   'presupuestos.sinObjetivos':
-    'You have not set any budgets yet. Add one as a goal and it will show up here.',
-  'presupuestos.cargar': '+ Add a budget goal',
+    'You have not set any budgets yet. Add a per-category cap in Settings and it will show up here.',
+  'presupuestos.cargar': '+ Add a budget',
   'presupuestos.deLimite': 'of',
   'presupuestos.excedido': 'Over by {monto}',
   'presupuestos.quedan': '{monto} left',
@@ -1123,22 +1149,43 @@ const EN: Parcial = {
   'ajustes.cambioIdioma': 'Language',
   'ajustes.avisoDiferido': 'Changes in this section apply once you confirm below.',
 
+  'balance.patrimonioTotal': 'Total net worth',
   'balance.liquidezHoy': 'Liquid today',
-  'balance.liquidezDetalle': 'Available right now: accounts, cash, wallets and T+0 redemptions.',
-  'balance.tarjetas': 'Cards and committed',
-  'balance.tarjetasDetalle': 'Card balance plus the instalments due this month.',
+  'balance.tarjetas': 'Cards · committed',
   'balance.inversiones': 'Investments and assets',
-  'balance.inversionesDetalle':
-    'What you cannot cash out today: T+1, T+2, ETFs, crypto and fixed-term deposits.',
-  'balance.cuotasDelMes': 'Instalments due this month',
-  'balance.alertaLiquidez': 'Your liquid money today does not cover what is due on your cards.',
+  'balance.venceEsteMes': 'Due this month:',
+  'balance.alertaCorta': 'Your liquid money does not cover it',
   'balance.sinCotizacion': 'No exchange rate',
-  'balance.sinCotizacionDetalle':
-    '{monedas} could not be priced, so the books are not combined. We would rather show no total than one built on a made-up exchange rate.',
-  'balance.expresadoEn':
-    'Expressed in {moneda}, the currency picked in the header. It is a snapshot at today rates: if they move, this number moves without you doing anything.',
-  'balance.noSeRestan':
-    'Liquidity does NOT have card debt deducted: they are two separate layers on purpose.',
+  'balance.sinCotizacionCorto': '{monedas} could not be priced: the books are not combined.',
+
+  'evolutivo.titulo': 'Income vs. spending · 12 months',
+  'evolutivo.sinDatos': 'No transactions in {moneda} yet to draw the series.',
+  'accesos.titulo': 'Quick access',
+
+  'tour.titulo': 'Guided tour',
+  'tour.abrir': 'Take the guided tour',
+  'tour.ayuda': 'Help and guided tour',
+  'tour.anterior': 'Back',
+  'tour.siguiente': 'Next',
+  'tour.terminar': 'Done',
+  'tour.saltar': 'Skip the tour',
+  'tour.contador': 'Step {actual} of {total}',
+  'tour.balanceTitulo': 'Your net worth, in one read',
+  'tour.balanceCuerpo':
+    'At the top, what you own in total. Below, the three layers behind it: what you can spend today, what is already committed on cards and what is invested. Card debt is NOT deducted from your liquid money — that spending does not leave your account until the due date.',
+  'tour.entradaTitulo': 'Record an expense by talking',
+  'tour.entradaCuerpo':
+    'Type or dictate "spent 15 on groceries" and the AI builds the transaction: amount, category, date and account. Nothing is saved on its own — you always review before confirming.',
+  'tour.gastoTitulo': 'Which card to pay with',
+  'tour.gastoCuerpo':
+    'AUREM reads each card closing day and tells you which one buys you the most time. And in the spending assistant you can weigh a cash discount against instalments, using the real rate of your own investments.',
+  'tour.inversionesTitulo': 'Your real rate, not an estimate',
+  'tour.inversionesCuerpo':
+    'Add your investments with their annual rate and settlement term. Whatever settles same-day counts as liquid; the rest is net worth you cannot touch today. That distinction is what makes the spending assistant useful.',
+
+  'excel.descargar': 'Download Excel',
+  'excel.generando': 'Building the file…',
+  'excel.error': 'Could not generate it. Try again',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {

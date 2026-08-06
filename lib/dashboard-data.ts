@@ -1,3 +1,10 @@
+import {
+  COLUMNAS_PRESUPUESTO,
+  faltaLaTabla,
+  normalizarPresupuesto,
+  TABLA_PRESUPUESTOS,
+  type PresupuestoDeCategoria,
+} from './category-budgets-service'
 import { esDeLaMoneda } from './currency-mode'
 import { obtenerCuentasPorMoneda, type Moneda } from './finanzas'
 import { MONEDAS_POR_DEFECTO, totalizarPorMoneda } from './monedas'
@@ -15,12 +22,13 @@ export type MovimientoDeVentana = Pick<
   'amount' | 'currency' | 'amount_usd' | 'type' | 'date' | 'category_id'
 >
 
-export type Presupuesto = {
-  id: string
-  category_id: string
-  currency: Moneda
-  amount: number
-}
+/**
+ * Alias del tipo de `category-budgets-service`.
+ *
+ * Se conserva el nombre `Presupuesto` para no tocar las vistas que ya lo
+ * importan de acá; la forma es la misma desde que la 013 unificó la fuente.
+ */
+export type Presupuesto = PresupuestoDeCategoria
 
 
 /**
@@ -63,12 +71,12 @@ export async function cargarDatosDelDashboard(
       .from('transactions')
       .select('amount, currency, amount_usd, type, date, category_id')
       .gte('date', desdeVentana),
-    supabase.from('budgets').select('id, category_id, currency, amount'),
+    supabase.from(TABLA_PRESUPUESTOS).select(COLUMNAS_PRESUPUESTO),
   ])
 
-  // PGRST205 = la tabla budgets todavía no existe (falta migrations/002).
-  const faltaMigracion =
-    resPresupuestos.error?.code === 'PGRST205' || resPresupuestos.error?.code === '42P01'
+  // Desde la 013 los presupuestos salen de `category_budgets`, no de `budgets`
+  // ni de los objetivos CATEGORY_BUDGET. `faltaMigracion` ahora señala a la 013.
+  const faltaMigracion = faltaLaTabla(resPresupuestos.error?.code)
 
   const errorCarga =
     resCuentas.error ??
@@ -87,7 +95,9 @@ export async function cargarDatosDelDashboard(
 
   const movimientos = deLaMoneda((resRecientes.data ?? []) as Transaccion[])
   const ventana = deLaMoneda((resVentana.data ?? []) as MovimientoDeVentana[])
-  const presupuestos = deLaMoneda((resPresupuestos.data ?? []) as Presupuesto[])
+  const presupuestos = deLaMoneda(
+    (resPresupuestos.data ?? []).map(normalizarPresupuesto)
+  )
 
   const delMes = ventana.filter((t) => t.date >= desde && t.date <= hasta)
 

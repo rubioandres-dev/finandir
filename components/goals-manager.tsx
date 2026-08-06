@@ -23,12 +23,10 @@ function unidadDe(tipo: TipoDeObjetivo): 'porcentaje' | 'meses' | 'monto' {
 
 export function GoalsManager({
   objetivos,
-  categorias,
   contexto,
   faltaMigracion,
 }: {
   objetivos: ObjetivoConAvance[]
-  categorias: { id: string; nombre: string }[]
   /** Ingresos, gastos y deuda reales: la carga dual los necesita para
    *  mostrar la contraparte de cada número. */
   contexto: ContextoDeMetas
@@ -200,11 +198,7 @@ export function GoalsManager({
       )}
 
       {abierto && (
-        <GoalModal
-          contexto={contexto}
-          categorias={categorias}
-          onCerrar={() => setAbierto(false)}
-        />
+        <GoalModal contexto={contexto} onCerrar={() => setAbierto(false)} />
       )}
     </div>
   )

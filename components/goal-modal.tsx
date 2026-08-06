@@ -33,18 +33,16 @@ export type ContextoDeMetas = {
  * LO QUE SE GUARDA SIGUE SIENDO UNO SOLO
  *
  * En la base, cada tipo tiene su unidad canónica: porcentaje en las tasas,
- * meses en el fondo de emergencia, dinero en presupuesto y deuda. El toggle es
+ * meses en el fondo de emergencia, dinero en la deuda. El toggle es
  * de ENTRADA, no de almacenamiento. Guardar las dos cosas dejaría dos números
  * que se desincronizan en cuanto cambian los ingresos.
  */
 export function GoalModal({
   contexto,
-  categorias,
   tipoInicial = 'SAVINGS_RATE',
   onCerrar,
 }: {
   contexto: ContextoDeMetas
-  categorias: { id: string; nombre: string }[]
   tipoInicial?: TipoDeObjetivo
   onCerrar: () => void
 }) {
@@ -55,7 +53,6 @@ export function GoalModal({
   const [tipo, setTipo] = useState<TipoDeObjetivo>(tipoInicial)
   const [modo, setModo] = useState<'monto' | 'porcentaje'>('porcentaje')
   const [valor, setValor] = useState('20')
-  const [categoriaId, setCategoriaId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [guardando, iniciar] = useTransition()
 
@@ -96,7 +93,7 @@ export function GoalModal({
       return Math.round((numero / contexto.gastosDelMes) * 100) / 100
     }
 
-    // CATEGORY_BUDGET y DEBT_REDUCTION guardan dinero.
+    // DEBT_REDUCTION guarda dinero.
     if (modoEfectivo === 'monto') return numero
     if (base <= 0) return null
     return Math.round(base * (numero / 100) * 100) / 100
@@ -128,7 +125,7 @@ export function GoalModal({
       return t('objetivos.equivaleDeuda', { monto: formatearMonto(monto, contexto.moneda) })
     }
 
-    // Tasas y presupuesto: la contraparte se calcula contra los ingresos.
+    // Tasas: la contraparte se calcula contra los ingresos.
     if (base <= 0) return t('objetivos.sinIngresos')
 
     if (modoEfectivo === 'porcentaje') {
@@ -159,7 +156,6 @@ export function GoalModal({
         tipo,
         valor: canonico,
         moneda: contexto.moneda,
-        categoriaId: tipo === 'CATEGORY_BUDGET' ? categoriaId || null : null,
       })
 
       if (!resultado.ok) {
@@ -226,24 +222,8 @@ export function GoalModal({
           {t(`objetivos.ayuda.${tipo}` as const)}
         </p>
 
-        {tipo === 'CATEGORY_BUDGET' && (
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-            {t('objetivos.categoria')}
-            <select
-              value={categoriaId}
-              onChange={(e) => setCategoriaId(e.target.value)}
-              disabled={guardando}
-              className={CAMPO}
-            >
-              <option value="">{t('objetivos.elegiUna')}</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        {/* El selector de categoría se fue con la 013: ningún tipo vigente usa
+            categoría. Los techos de gasto se editan en su propia sección. */}
 
         {/* --- Toggle $ / % ------------------------------------------------ */}
         {!soloMonto && (

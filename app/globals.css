@@ -543,6 +543,38 @@ textarea,
     padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
     padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
   }
+
+  /**
+   * El Home se ensancha en escritorio; el resto de las vistas no.
+   *
+   * EL PROBLEMA
+   *
+   * El `<main>` del layout es `max-w-2xl` para todas las páginas del dashboard.
+   * Es el ancho correcto para un listado de movimientos o un formulario —una
+   * columna de texto de 1200px es incómoda de leer— pero deja el dashboard de
+   * dos columnas apretado en un monitor de 27".
+   *
+   * POR QUÉ NO SE RESUELVE EN EL LAYOUT
+   *
+   * El layout es un Server Component y no puede leer la ruta. Las alternativas
+   * eran un layout anidado sólo para el Home (que duplicaría el header y los
+   * providers) o márgenes negativos con `calc()` anidado dentro de un valor
+   * arbitrario de Tailwind, que hace fallar el build entero sin stack —el mismo
+   * problema ya documentado en `.respiro-hoja`.
+   *
+   * `:has()` deja que la PÁGINA decida el ancho de su contenedor sin que el
+   * layout sepa quién es. La regla gana por especificidad (0,2,1 contra 0,1,0
+   * de `.max-w-2xl`), así que no depende del orden de las capas.
+   */
+  main:has(> .ancho-dashboard) {
+    max-width: 42rem;
+  }
+
+  @media (min-width: 1024px) {
+    main:has(> .ancho-dashboard) {
+      max-width: 80rem;
+    }
+  }
 }
 
 /* Scrollbars casi invisibles, visibles solo al pasar el mouse. */

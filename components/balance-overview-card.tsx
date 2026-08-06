@@ -1,4 +1,5 @@
-import { CreditCard, Droplets, Scale, TrendingUp, TriangleAlert } from 'lucide-react'
+import { CreditCard, Droplets, TrendingUp, TriangleAlert } from 'lucide-react'
+import { CurrencySelector } from '@/components/currency-selector'
 import { Card, CardLabel } from '@/components/ui/card'
 import type { CapaDeBalance, ResumenDeBalance } from '@/lib/balance-overview'
 import { crearFormateadores, type Locale } from '@/lib/formatters'
@@ -6,85 +7,91 @@ import { crearTraductor, type Clave, type Idioma } from '@/lib/i18n'
 import type { Moneda } from '@/lib/types'
 
 /**
- * Balance del Home en tres capas.
+ * Balance del Home: patrimonio neto y sus tres lecturas, en UNA sola card.
  *
- * POR QUÉ ES UN SERVER COMPONENT
+ * POR QUÉ UNA Y NO CUATRO
  *
- * No tiene estado ni interacción: recibe el resumen ya calculado y lo pinta.
- * Dejarlo del lado del servidor mantiene los formateadores y el traductor fuera
- * del bundle del cliente, igual que hace la vista consolidada.
+ * La versión anterior eran cuatro cards sueltas. Leídas de arriba abajo daban a
+ * entender cuatro cosas independientes, cuando en realidad las tres de abajo
+ * son el desglose de la de arriba: liquidez + inversiones − tarjetas ES el
+ * patrimonio neto. Separarlas en superficies distintas rompía justamente la
+ * relación que la pantalla existe para mostrar.
  *
- * LA JERARQUÍA ES EL MENSAJE
+ * QUÉ SE SACÓ
  *
- * El patrimonio neto va arriba y grande porque es el único número que responde
- * "cuánto tengo". Las tres columnas de abajo responden preguntas distintas
- * —"cuánto puedo gastar hoy", "cuánto debo", "cuánto está invertido"— y por eso
- * tienen el mismo peso visual entre ellas: ninguna es más importante, son tres
- * lecturas del mismo patrimonio.
+ * Los párrafos explicativos de cada bloque. Explicaban bien —qué entra en la
+ * liquidez, por qué las tarjetas no se restan— pero convertían la card en un
+ * texto: cuatro renglones de prosa gris debajo de cada número. Lo que quedó es
+ * lo accionable: los importes, la relación entre ellos y la alerta ámbar.
+ *
+ * POR QUÉ LAS TARJETAS NO SE RESTAN DE LA LIQUIDEZ
+ *
+ * Esta es la única regla que no se puede leer del layout, así que va acá y no
+ * en pantalla: el consumo de tarjeta no sale de la caja hasta el vencimiento.
+ * Restarlo daría un "disponible real" que suena prudente y es falso, y haría
+ * creer que hay menos plata de la que hay. La relación entre las dos capas la
+ * comunica la alerta ámbar, no una resta.
  */
 
-/** Un número de capa, o el aviso de que no se pudo unificar. */
-function TotalDeCapa({
+/** Sub-bloque del desglose: rótulo, importe y lo que haga falta abajo. */
+function Bloque({
+  etiqueta,
+  Icono,
+  color,
   capa,
   moneda,
   locale,
   idioma,
-  className = '',
+  children,
 }: {
+  etiqueta: Clave
+  Icono: typeof Droplets
+  color: string
   capa: CapaDeBalance
   moneda: Moneda
   locale: Locale
   idioma: Idioma
-  className?: string
+  children?: React.ReactNode
 }) {
   const { formatearMonto } = crearFormateadores(locale)
   const t = crearTraductor(idioma)
 
-  if (capa.total === null) {
-    return <span className="text-sm font-medium text-subtle">{t('balance.sinCotizacion')}</span>
-  }
+  // Con más de una divisa en juego, el desglose sin convertir es lo único que
+  // deja ver de dónde salió el total sin creerle a ciegas al tipo de cambio.
+  const detalle = capa.porMoneda.filter((linea) => linea.moneda !== moneda)
 
   return (
-    <span className={`font-display text-lg font-bold tabular-nums tracking-tight ${className}`}>
-      {formatearMonto(capa.total, moneda)}
-    </span>
+    <div className="flex min-w-0 flex-col gap-1 px-1 py-2 sm:px-3">
+      <CardLabel className="text-[9px]">
+        <Icono className={`size-3 ${color}`} aria-hidden />
+        {t(etiqueta)}
+      </CardLabel>
+
+      {capa.total === null ? (
+        <p className="text-sm font-medium text-subtle">{t('balance.sinCotizacion')}</p>
+      ) : (
+        <p className={`font-display text-lg font-bold tabular-nums tracking-tight ${color}`}>
+          {formatearMonto(capa.total, moneda)}
+        </p>
+      )}
+
+      {detalle.length > 0 && (
+        <ul className="flex flex-wrap gap-x-2">
+          {detalle.map(({ moneda: divisa, valor }) => (
+            <li key={divisa} className="text-[10px] tabular-nums text-subtle">
+              {formatearMonto(valor, divisa)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {children}
+    </div>
   )
 }
 
-/**
- * El desglose sin convertir, cuando hay más de una divisa en juego.
- *
- * Con una sola divisa sería repetir el número de arriba. Con dos o más es la
- * única forma de ver qué parte del total vino de dónde sin creerle a ciegas al
- * tipo de cambio.
- */
-function PorMoneda({
-  capa,
-  destino,
-  locale,
-}: {
-  capa: CapaDeBalance
-  destino: Moneda
-  locale: Locale
-}) {
-  const { formatearMonto } = crearFormateadores(locale)
-  const otras = capa.porMoneda.filter((linea) => linea.moneda !== destino)
-
-  if (capa.porMoneda.length < 2 && otras.length === 0) return null
-
-  return (
-    <ul className="flex flex-col gap-0.5">
-      {capa.porMoneda.map(({ moneda, valor }) => (
-        <li key={moneda} className="text-[10px] tabular-nums text-subtle">
-          {formatearMonto(valor, moneda)}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-/** Una línea del desglose del neto: rótulo a la izquierda, monto a la derecha. */
-function Linea({
+/** Un término del neto que no tiene bloque propio: "me deben", "debo". */
+function Chip({
   etiqueta,
   capa,
   moneda,
@@ -102,21 +109,18 @@ function Linea({
   const { formatearMonto } = crearFormateadores(locale)
   const t = crearTraductor(idioma)
 
-  // Una línea en cero no aporta: el desglose tiene que caber de un vistazo.
   if (capa.total === null || capa.total === 0) return null
 
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="min-w-0 truncate text-[11px] text-on-surface-variant">{t(etiqueta)}</span>
-      <span
-        className={`shrink-0 text-xs font-medium tabular-nums ${
-          resta ? 'text-expense' : 'text-on-background'
-        }`}
+    <span className="flex items-baseline gap-1.5 text-[10px] text-on-surface-variant">
+      {t(etiqueta)}
+      <strong
+        className={`font-semibold tabular-nums ${resta ? 'text-expense' : 'text-on-background'}`}
       >
         {resta ? '−' : ''}
         {formatearMonto(capa.total, moneda)}
-      </span>
-    </div>
+      </strong>
+    </span>
   )
 }
 
@@ -130,127 +134,103 @@ export function BalanceOverviewCard({
   resumen: ResumenDeBalance
   locale: Locale
   idioma: Idioma
-  /** Módulo `investments`: apagado, la columna no se muestra. */
+  /** Módulo `investments`: apagado, el bloque no se muestra. */
   mostrarInversiones?: boolean
-  /** Módulo `debts`: apagado, las líneas de deuda personal no se muestran. */
+  /** Módulo `debts`: apagado, el chip de deuda personal no se muestra. */
   mostrarDeudas?: boolean
 }) {
   const { formatearMonto } = crearFormateadores(locale)
   const t = crearTraductor(idioma)
 
   const { moneda, patrimonioNeto } = resumen
-  const columnas = mostrarInversiones ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+  const bloques = mostrarInversiones ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
 
   return (
-    <section className="flex flex-col gap-3">
-      {/* --- Capa 1 · Patrimonio neto ----------------------------------- */}
-      <Card glass className="glow-gold flex flex-col gap-2 p-5">
-        <CardLabel className="text-gold-leaf">
-          <Scale className="size-3.5" aria-hidden />
-          {t('cuentas.patrimonioNeto')} · {moneda}
-        </CardLabel>
+    <Card
+      glass
+      data-tour="balance"
+      className="glow-gold flex flex-col gap-3 border-glass-stroke p-5"
+    >
+      {/* --- Cabecera ---------------------------------------------------- */}
+      <div className="flex items-start justify-between gap-3">
+        <CardLabel className="text-gold-leaf">{t('balance.patrimonioTotal')}</CardLabel>
+        {/* El mismo selector del header. Acá tiene sentido repetirlo: es el
+            control que decide en qué divisa está expresado el número grande
+            que está justo debajo. */}
+        <CurrencySelector cotizacion={null} />
+      </div>
 
-        {patrimonioNeto === null ? (
-          <>
-            <p className="mt-1 font-display text-2xl font-bold tracking-tighter text-subtle">
-              {t('balance.sinCotizacion')}
-            </p>
-            <p className="text-[11px] leading-snug text-subtle">
-              {t('balance.sinCotizacionDetalle', {
-                monedas: resumen.sinCotizacion.join(', '),
-              })}
-            </p>
-          </>
-        ) : (
-          <>
-            <p
-              className={`mt-1 font-display text-[2rem] font-bold leading-tight tracking-tighter tabular-nums ${
-                patrimonioNeto < 0 ? 'text-expense' : 'text-gold-leaf'
-              }`}
-            >
-              {formatearMonto(patrimonioNeto, moneda)}
-            </p>
-
-            {/* Desglose de los términos que no tienen columna propia abajo.
-                Sin esto, "me deben" y las deudas personales entran al neto sin
-                aparecer en ningún lado y el número no se puede reconstruir. */}
-            <div className="mt-1 flex flex-col gap-1">
-              <Linea
-                etiqueta="consolidado.meDeben"
-                capa={resumen.porCobrar}
-                moneda={moneda}
-                locale={locale}
-                idioma={idioma}
-              />
-              {mostrarDeudas && (
-                <Linea
-                  etiqueta="consolidado.deudasPersonales"
-                  capa={resumen.deudaPersonal}
-                  moneda={moneda}
-                  locale={locale}
-                  idioma={idioma}
-                  resta
-                />
-              )}
-            </div>
-
-            {/* Filamento dorado al pie: cierra la card sin agregar otro borde. */}
-            <div className="fire-gradient mt-3 h-px w-full opacity-40" aria-hidden />
-
-            <p className="text-[10px] leading-snug text-subtle">
-              {t('cuentas.formula')}. {t('balance.expresadoEn', { moneda })}
-            </p>
-          </>
-        )}
-      </Card>
-
-      {/* --- Capa 2 · las tres lecturas --------------------------------- */}
-      <div className={`grid grid-cols-1 items-stretch gap-3 ${columnas}`}>
-        {/* Liquidez hoy */}
-        <Card className="flex flex-col gap-1.5 p-4">
-          <CardLabel>
-            <Droplets className="size-3.5 text-income" aria-hidden />
-            {t('balance.liquidezHoy')}
-          </CardLabel>
-
-          <TotalDeCapa
-            capa={resumen.liquidez}
-            moneda={moneda}
-            locale={locale}
-            idioma={idioma}
-            className="text-income"
-          />
-          <PorMoneda capa={resumen.liquidez} destino={moneda} locale={locale} />
-
-          <p className="mt-auto pt-1.5 text-[10px] leading-snug text-subtle">
-            {t('balance.liquidezDetalle')}
+      {patrimonioNeto === null ? (
+        <>
+          <p className="font-display text-2xl font-bold tracking-tighter text-subtle">
+            {t('balance.sinCotizacion')}
           </p>
-        </Card>
-
-        {/* Tarjetas y comprometido */}
-        <Card
-          className={`flex flex-col gap-1.5 p-4 ${
-            resumen.alertaLiquidez ? 'border-budget-warn/50 bg-budget-warn/[0.06]' : ''
+          <p className="text-[11px] leading-snug text-subtle">
+            {t('balance.sinCotizacionCorto', { monedas: resumen.sinCotizacion.join(', ') })}
+          </p>
+        </>
+      ) : (
+        <p
+          className={`font-display text-[2.25rem] font-bold leading-none tracking-tighter tabular-nums ${
+            patrimonioNeto < 0 ? 'text-expense' : 'text-gold-leaf'
           }`}
         >
-          <CardLabel>
-            <CreditCard className="size-3.5 text-budget-warn" aria-hidden />
-            {t('balance.tarjetas')}
-          </CardLabel>
+          {formatearMonto(patrimonioNeto, moneda)}
+        </p>
+      )}
 
-          <TotalDeCapa
-            capa={resumen.tarjetas}
+      {/* Los dos términos del neto que no tienen bloque propio abajo. Sin
+          esto el número grande no se puede reconstruir. */}
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <Chip
+          etiqueta="consolidado.meDeben"
+          capa={resumen.porCobrar}
+          moneda={moneda}
+          locale={locale}
+          idioma={idioma}
+        />
+        {mostrarDeudas && (
+          <Chip
+            etiqueta="consolidado.deudasPersonales"
+            capa={resumen.deudaPersonal}
             moneda={moneda}
             locale={locale}
             idioma={idioma}
-            className="text-budget-warn"
+            resta
           />
+        )}
+      </div>
 
+      <div className="fire-gradient h-px w-full opacity-40" aria-hidden />
+
+      {/* --- Las tres lecturas, adentro de la misma superficie ------------ */}
+      <div
+        className={`grid grid-cols-1 gap-y-2 divide-y divide-glass-stroke/25 sm:gap-y-0 sm:divide-x sm:divide-y-0 ${bloques}`}
+      >
+        <Bloque
+          etiqueta="balance.liquidezHoy"
+          Icono={Droplets}
+          color="text-income"
+          capa={resumen.liquidez}
+          moneda={moneda}
+          locale={locale}
+          idioma={idioma}
+        />
+
+        <Bloque
+          etiqueta="balance.tarjetas"
+          Icono={CreditCard}
+          color="text-budget-warn"
+          capa={resumen.tarjetas}
+          moneda={moneda}
+          locale={locale}
+          idioma={idioma}
+        >
           {/* Las cuotas del mes son un RECORTE del saldo de arriba, no un
               sumando: el trigger de saldo ya las metió adentro al insertarlas. */}
           {resumen.cuotasDelMes.total !== null && resumen.cuotasDelMes.total > 0 && (
             <p className="text-[10px] tabular-nums text-on-surface-variant">
-              {t('balance.cuotasDelMes')}:{' '}
+              {t('balance.venceEsteMes')}{' '}
               <strong className="font-semibold">
                 {formatearMonto(resumen.cuotasDelMes.total, moneda)}
               </strong>
@@ -260,41 +240,28 @@ export function BalanceOverviewCard({
           {resumen.alertaLiquidez && (
             <p
               role="status"
-              className="flex items-start gap-1.5 rounded-lg border border-budget-warn/30 bg-budget-warn/10 px-2 py-1.5 text-[10px] leading-snug text-budget-warn"
+              className="mt-0.5 flex items-start gap-1 rounded-lg border border-budget-warn/40 bg-budget-warn/10 px-1.5 py-1 text-[10px] leading-tight text-budget-warn"
             >
               <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden />
-              {t('balance.alertaLiquidez')}
+              {t('balance.alertaCorta')}
             </p>
           )}
+        </Bloque>
 
-          <p className="mt-auto pt-1.5 text-[10px] leading-snug text-subtle">
-            {t('balance.tarjetasDetalle')} {t('balance.noSeRestan')}
-          </p>
-        </Card>
-
-        {/* Inversiones y activos */}
         {mostrarInversiones && (
-          <Card className="flex flex-col gap-1.5 p-4">
-            <CardLabel>
-              <TrendingUp className="size-3.5 text-gold-leaf" aria-hidden />
-              {t('balance.inversiones')}
-            </CardLabel>
-
-            <TotalDeCapa
+          <div data-tour="inversiones" className="min-w-0">
+            <Bloque
+              etiqueta="balance.inversiones"
+              Icono={TrendingUp}
+              color="text-gold-leaf"
               capa={resumen.inversiones}
               moneda={moneda}
               locale={locale}
               idioma={idioma}
-              className="text-gold-leaf"
             />
-            <PorMoneda capa={resumen.inversiones} destino={moneda} locale={locale} />
-
-            <p className="mt-auto pt-1.5 text-[10px] leading-snug text-subtle">
-              {t('balance.inversionesDetalle')}
-            </p>
-          </Card>
+          </div>
         )}
       </div>
-    </section>
+    </Card>
   )
 }

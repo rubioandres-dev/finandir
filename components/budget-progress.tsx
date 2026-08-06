@@ -222,7 +222,10 @@ export function BudgetProgress({
   })
 
   return (
-    <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4">
+    <section
+      id="presupuestos"
+      className="flex scroll-mt-24 flex-col gap-2 rounded-2xl border border-border bg-card p-4"
+    >
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">Presupuestos del mes</h2>
         <span className="text-xs text-subtle">Un límite por moneda</span>
@@ -231,7 +234,7 @@ export function BudgetProgress({
       {faltaMigracion ? (
         <p className="rounded-xl border border-budget-warn/30 bg-budget-warn/10 px-3.5 py-2.5 text-xs text-budget-warn">
           Para usar presupuestos, ejecutá{' '}
-          <code className="font-mono">migrations/002_multi_moneda.sql</code> en el SQL Editor de
+          <code className="font-mono">migrations/013_category_budgets.sql</code> en el SQL Editor de
           Supabase.
         </p>
       ) : ordenadas.length === 0 ? (

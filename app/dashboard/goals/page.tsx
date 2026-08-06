@@ -51,19 +51,9 @@ export default async function GoalsPage() {
   // Todo se mide en la divisa PRINCIPAL. Un objetivo de ahorro no puede
   // promediar una tasa en pesos con otra en dólares: serían dos números
   // distintos sumados como si fueran el mismo.
-  const delMesPrincipal = datos.delMes.filter(
-    (m) => (m.currency ?? 'ARS') === principal
-  )
-
-  const gastoPorCategoria = new Map<string, number>()
-  for (const movimiento of delMesPrincipal) {
-    if (movimiento.type !== 'EXPENSE' || !movimiento.category_id) continue
-    gastoPorCategoria.set(
-      movimiento.category_id,
-      (gastoPorCategoria.get(movimiento.category_id) ?? 0) + Number(movimiento.amount)
-    )
-  }
-
+  // El gasto por categoría ya no se calcula acá: era sólo para medir los
+  // objetivos CATEGORY_BUDGET, que desde la 013 son `category_budgets` y se
+  // miden en su propia sección.
   const base: BaseDeMedicion = {
     ingresosDelMes: enPrincipal(datos.ingresosDelMes, principal),
     gastosDelMes: enPrincipal(datos.gastosDelMes, principal),
@@ -72,7 +62,6 @@ export default async function GoalsPage() {
     deuda:
       enPrincipal(patrimonio.deudaTarjetas, principal) +
       enPrincipal(patrimonio.deudaPersonal, principal),
-    gastoPorCategoria,
   }
 
   const conAvance = objetivos.map((objetivo) =>
@@ -161,9 +150,6 @@ export default async function GoalsPage() {
 
       <GoalsManager
         objetivos={conAvance}
-        categorias={datos.categorias
-          .filter((c) => c.type === 'EXPENSE')
-          .map((c) => ({ id: c.id, nombre: c.name }))}
         contexto={{
           ingresosDelMes: base.ingresosDelMes,
           gastosDelMes: base.gastosDelMes,
