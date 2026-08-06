@@ -248,6 +248,20 @@ html {
   }
 }
 
+/**
+ * Y un escalón más en escritorio.
+ *
+ * Equivale al `px-4 sm:px-6 lg:px-8` que uno escribiría a mano, pero pasando
+ * por `--gutter` sigue entrando en el `max()` de `.safe-x`: en un teléfono
+ * apaisado con notch manda el inset, y en escritorio manda la canaleta. Con las
+ * utilidades sueltas de Tailwind habría que elegir una de las dos cosas.
+ */
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
