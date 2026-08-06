@@ -1,6 +1,6 @@
 'use client'
 
-import { useFormatoRegional } from '@/components/currency-provider'
+import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Check, Loader2, Plus, Trash2, X } from 'lucide-react'
@@ -18,7 +18,8 @@ const CAMPO =
 const ETIQUETA = 'flex flex-col gap-1 text-xs font-medium text-muted'
 
 function FilaDeuda({ deuda }: { deuda: Deuda }) {
-  const { formatearMonto } = useFormatoRegional()
+  const { formatearMonto, formatearFecha } = useFormatoRegional()
+  const { t } = useTraduccion()
   const router = useRouter()
   const [pagando, setPagando] = useState(false)
   const [monto, setMonto] = useState('')
@@ -34,7 +35,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
   function pagar() {
     const valor = Number(monto.replace(',', '.'))
     if (!Number.isFinite(valor) || valor <= 0) {
-      setError('Ingresá un monto válido.')
+      setError(t('deudas.errorMonto'))
       return
     }
 
@@ -82,9 +83,12 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
             {deuda.counterparty_name}
           </span>
           <span className="truncate text-xs text-subtle">
-            {meDeben ? 'Me debe' : 'Le debo'}
+            {meDeben ? t('deudas.meDebe') : t('deudas.leDebo')}
             {deuda.description && ` · ${deuda.description}`}
-            {deuda.due_date && ` · vence ${deuda.due_date}`}
+            {/* La fecha pasa por el formateador regional: guardada es ISO, y
+                "2026-03-09" no se lee igual en Buenos Aires que en Chicago. */}
+            {deuda.due_date &&
+              ` · ${t('deudas.venceEl', { fecha: formatearFecha(deuda.due_date) })}`}
           </span>
         </div>
 
@@ -97,7 +101,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
             {formatearMonto(pendiente, deuda.currency)}
           </span>
           <span className="text-[10px] tabular-nums text-subtle">
-            de {formatearMonto(total, deuda.currency)}
+            {t('deudas.deTotal', { monto: formatearMonto(total, deuda.currency) })}
           </span>
         </div>
       </div>
@@ -110,7 +114,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
             aria-valuenow={Math.round(avance)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Saldado de ${deuda.counterparty_name}`}
+            aria-label={t('deudas.progresoDe', { nombre: deuda.counterparty_name })}
           >
             <div
               className={`h-full rounded-full transition-all duration-500 ${
@@ -122,7 +126,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
 
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] tabular-nums text-subtle">
-              {avance.toFixed(0)}% saldado
+              {t('deudas.saldadoPorcentaje', { porcentaje: avance.toFixed(0) })}
             </span>
 
             {pagando ? (
@@ -138,14 +142,14 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
                     if (e.key === 'Enter') pagar()
                     if (e.key === 'Escape') setPagando(false)
                   }}
-                  placeholder="Monto"
+                  placeholder={t('comun.monto')}
                   className="w-24 rounded-md border border-border bg-card px-2 py-1 text-right text-xs tabular-nums text-foreground outline-none focus:border-primary"
                 />
                 <button
                   type="button"
                   onClick={pagar}
                   disabled={enCurso}
-                  aria-label="Registrar pago"
+                  aria-label={t('deudas.registrarPago')}
                   className="grid size-7 place-items-center rounded-md text-income hover:bg-primary/10 disabled:opacity-50"
                 >
                   {enCurso ? (
@@ -157,7 +161,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
                 <button
                   type="button"
                   onClick={() => setPagando(false)}
-                  aria-label="Cancelar"
+                  aria-label={t('comun.cancelar')}
                   className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5"
                 >
                   <X className="size-3.5" aria-hidden />
@@ -170,13 +174,13 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
                   onClick={() => setPagando(true)}
                   className="rounded-md px-2 py-0.5 text-[11px] font-medium text-muted transition hover:bg-foreground/5 hover:text-foreground"
                 >
-                  Registrar pago
+                  {t('deudas.registrarPago')}
                 </button>
                 <button
                   type="button"
                   onClick={eliminar}
                   disabled={enCurso}
-                  aria-label="Borrar deuda"
+                  aria-label={t('deudas.borrar')}
                   className="grid size-7 place-items-center rounded-md text-subtle transition hover:bg-expense/10 hover:text-expense disabled:opacity-50"
                 >
                   <Trash2 className="size-3.5" aria-hidden />
@@ -188,7 +192,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
       )}
 
       {deuda.is_settled && (
-        <span className="text-[11px] font-medium text-income">Saldada</span>
+        <span className="text-[11px] font-medium text-income">{t('deudas.saldada')}</span>
       )}
 
       {error && (
@@ -201,6 +205,7 @@ function FilaDeuda({ deuda }: { deuda: Deuda }) {
 }
 
 export function DebtManager({ deudas }: { deudas: Deuda[] }) {
+  const { t } = useTraduccion()
   const router = useRouter()
   const [abierto, setAbierto] = useState(false)
   const [enCurso, iniciar] = useTransition()
@@ -252,11 +257,11 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
           className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4"
         >
           <div className="flex items-center justify-between">
-            <h3 className="aurem-caps text-[11px] text-gold-leaf">Nueva deuda</h3>
+            <h3 className="aurem-caps text-[11px] text-gold-leaf">{t('deudas.nueva')}</h3>
             <button
               type="button"
               onClick={() => setAbierto(false)}
-              aria-label="Cerrar"
+              aria-label={t('comun.cerrar')}
               className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5"
             >
               <X className="size-4" aria-hidden />
@@ -265,7 +270,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
 
           <div
             role="group"
-            aria-label="Tipo de deuda"
+            aria-label={t('deudas.tipoDeDeuda')}
             className="flex rounded-lg border border-border p-0.5"
           >
             {(['OWED_TO_ME', 'OWED_BY_ME'] as TipoDeDeuda[]).map((opcion) => (
@@ -282,26 +287,26 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
                     : 'text-muted hover:text-foreground'
                 }`}
               >
-                {opcion === 'OWED_TO_ME' ? 'Me deben' : 'Debo'}
+                {opcion === 'OWED_TO_ME' ? t('deudas.meDeben') : t('deudas.debo')}
               </button>
             ))}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className={`col-span-2 ${ETIQUETA}`}>
-              {tipo === 'OWED_TO_ME' ? '¿Quién te debe?' : '¿A quién le debés?'}
+              {tipo === 'OWED_TO_ME' ? t('deudas.quienTeDebe') : t('deudas.aQuienLeDebes')}
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 required
                 maxLength={80}
-                placeholder="Nombre"
+                placeholder={t('deudas.placeholderNombre')}
                 className={CAMPO}
               />
             </label>
 
             <label className={ETIQUETA}>
-              Monto
+              {t('comun.monto')}
               <input
                 type="number"
                 min="0.01"
@@ -314,7 +319,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
             </label>
 
             <label className={ETIQUETA}>
-              Moneda
+              {t('comun.moneda')}
               <select
                 value={moneda}
                 onChange={(e) => setMoneda(e.target.value as Moneda)}
@@ -325,7 +330,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
             </label>
 
             <label className={ETIQUETA}>
-              Vence (opcional)
+              {t('deudas.vence')}
               <input
                 type="date"
                 value={vence}
@@ -335,12 +340,12 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
             </label>
 
             <label className={ETIQUETA}>
-              Nota (opcional)
+              {t('deudas.nota')}
               <input
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
                 maxLength={200}
-                placeholder="Cena, préstamo…"
+                placeholder={t('deudas.placeholderNota')}
                 className={CAMPO}
               />
             </label>
@@ -358,7 +363,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
             className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
           >
             {enCurso && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            Guardar
+            {t('comun.guardar')}
           </button>
         </form>
       ) : (
@@ -368,7 +373,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
           className="flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted transition hover:border-primary/50 hover:text-foreground"
         >
           <Plus className="size-4" aria-hidden />
-          Registrar deuda o préstamo
+          {t('deudas.registrar')}
         </button>
       )}
 
@@ -383,7 +388,9 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
       {saldadas.length > 0 && (
         <details className="flex flex-col gap-2">
           <summary className="cursor-pointer text-xs font-medium text-subtle">
-            {saldadas.length} {saldadas.length === 1 ? 'saldada' : 'saldadas'}
+            {saldadas.length === 1
+              ? t('deudas.contadorSaldada', { cantidad: saldadas.length })
+              : t('deudas.contadorSaldadas', { cantidad: saldadas.length })}
           </summary>
           <ul className="mt-2 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
             {saldadas.map((deuda) => (
@@ -395,7 +402,7 @@ export function DebtManager({ deudas }: { deudas: Deuda[] }) {
 
       {deudas.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">
-          No tenés deudas ni préstamos registrados.
+          {t('deudas.sinDeudas')}
         </p>
       )}
     </div>

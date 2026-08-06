@@ -1,6 +1,6 @@
 'use client'
 
-import { useFormatoRegional } from '@/components/currency-provider'
+import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
@@ -9,9 +9,9 @@ import { guardarTransaccion } from '@/app/dashboard/actions'
 import { CurrencyOptions } from '@/components/currency-options'
 import { VoiceMeter } from '@/components/voice-meter'
 import { resolverPlan } from '@/lib/cuotas'
+import type { Clave } from '@/lib/i18n'
 import { useVoiceInput } from '@/lib/use-voice-input'
 import {
-  ETIQUETA_TIPO,
   hoyEnArgentina,
   type CuentaElegible,
   type Moneda,
@@ -19,7 +19,10 @@ import {
   type TipoTransaccion,
 } from '@/lib/types'
 
-const EJEMPLOS = ['Gasté 1500 en la carnicería hoy', 'Cargué 25 lucas de nafta', 'Cobré el sueldo']
+/** Los ejemplos son claves y no texto: cada idioma tiene el suyo. */
+const EJEMPLOS: Clave[] = ['smart.ejemplo1', 'smart.ejemplo2', 'smart.ejemplo3']
+
+const TIPOS: TipoTransaccion[] = ['INCOME', 'EXPENSE', 'TRANSFER']
 
 const CUOTAS_COMUNES = [1, 3, 6, 9, 12, 18, 24]
 
@@ -47,6 +50,7 @@ export function SmartInput({
   autoFoco = false,
 }: Props) {
   const { formatearMonto } = useFormatoRegional()
+  const { t, idioma } = useTraduccion()
   const router = useRouter()
   const [texto, setTexto] = useState('')
   const [analizando, setAnalizando] = useState(false)
@@ -109,7 +113,7 @@ export function SmartInput({
       const datos = await respuesta.json()
 
       if (!respuesta.ok) {
-        setError(datos?.error ?? `Error ${respuesta.status}`)
+        setError(datos?.error ?? t('comun.errorEstado', { status: respuesta.status }))
         return
       }
 
@@ -123,7 +127,7 @@ export function SmartInput({
         : undefined
       setCuentaId(coincidencia?.id ?? '')
     } catch {
-      setError('No se pudo conectar con el servidor.')
+      setError(t('smart.sinConexion'))
     } finally {
       enVueloRef.current = false
       setAnalizando(false)
@@ -178,7 +182,7 @@ export function SmartInput({
       setMontoFinanciado('')
       escribir('')
       setError(null)
-      setExito('Movimiento guardado.')
+      setExito(t('smart.guardado'))
       // Vuelve a ejecutar el Server Component del dashboard con los datos nuevos.
       router.refresh()
     })
@@ -191,7 +195,7 @@ export function SmartInput({
           ...categorias.filter((c) => c.tipo === borrador.type).map((c) => c.nombre),
           ...(borrador.type !== 'TRANSFER' ? [borrador.category_suggested] : []),
         ])
-      ).sort((a, b) => a.localeCompare(b, 'es'))
+      ).sort((a, b) => a.localeCompare(b, idioma))
     : []
 
   // Solo se ofrecen cuentas de la misma moneda: la action las rechaza si no.
@@ -236,12 +240,12 @@ export function SmartInput({
             type="text"
             value={voz.escuchando && voz.parcial ? `${texto} ${voz.parcial}`.trim() : texto}
             onChange={(e) => escribir(e.target.value)}
-            placeholder={voz.escuchando ? 'Te escucho…' : 'Gasté $1500 en la carnicería hoy'}
+            placeholder={voz.escuchando ? t('smart.escuchando') : t('smart.placeholder')}
             maxLength={500}
             autoComplete="off"
             enterKeyHint="send"
             disabled={analizando || guardando}
-            aria-label="Describí el movimiento en lenguaje natural"
+            aria-label={t('smart.ariaCampo')}
             className={`w-full rounded-2xl border bg-charcoal py-3.5 pl-10 text-base tracking-tight outline-none transition placeholder:text-subtle disabled:opacity-60 ${
               voz.soportado ? 'pr-12' : 'pr-3.5'
             } ${
@@ -256,16 +260,8 @@ export function SmartInput({
               type="button"
               onClick={voz.alternar}
               disabled={analizando || guardando}
-              aria-label={
-                voz.escuchando
-                  ? 'Detener dictado sin analizar'
-                  : 'Dictar por voz: al hacer una pausa se analiza solo'
-              }
-              title={
-                voz.escuchando
-                  ? 'Detener sin analizar'
-                  : 'Dictar por voz — al pausar se analiza automáticamente'
-              }
+              aria-label={voz.escuchando ? t('smart.detenerDictado') : t('smart.dictar')}
+              title={voz.escuchando ? t('smart.detenerCorto') : t('smart.dictarCorto')}
               aria-pressed={voz.escuchando}
               className={`absolute right-1.5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg transition disabled:opacity-40 ${
                 voz.escuchando
@@ -308,7 +304,7 @@ export function SmartInput({
           className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-display text-sm font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-45"
         >
           {analizando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-          {analizando ? 'Interpretando…' : 'Analizar con IA'}
+          {analizando ? t('smart.interpretando') : t('smart.analizar')}
         </button>
       </form>
 
@@ -324,19 +320,19 @@ export function SmartInput({
         className="flex items-center justify-center gap-2 rounded-xl border border-glass-stroke/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-gold-leaf/60 hover:text-gold-leaf"
       >
         <span aria-hidden>💡</span>
-        ¿Cómo conviene pagar?
+        {t('smart.comoPagar')}
       </Link>
 
       {!borrador && !analizando && (
         <div className="flex flex-wrap gap-1.5">
-          {EJEMPLOS.map((ejemplo) => (
+          {EJEMPLOS.map((clave) => (
             <button
-              key={ejemplo}
+              key={clave}
               type="button"
-              onClick={() => escribir(ejemplo)}
+              onClick={() => escribir(t(clave))}
               className="rounded-full border border-glass-stroke/50 px-2.5 py-1 text-xs text-on-surface-variant/75 transition hover:border-gold-leaf/60 hover:text-gold-leaf"
             >
-              {ejemplo}
+              {t(clave)}
             </button>
           ))}
         </div>
@@ -348,9 +344,7 @@ export function SmartInput({
           className="flex animate-pulse items-center gap-2 rounded-xl border border-glass-stroke/40 bg-gold-leaf/[0.04] px-4 py-3 text-sm text-on-surface-variant/70"
         >
           <Loader2 className="size-4 animate-spin" aria-hidden />
-          {analizadoPorVoz
-            ? 'Terminaste de hablar: interpretando lo que dictaste…'
-            : 'Gemini está interpretando tu movimiento…'}
+          {analizadoPorVoz ? t('smart.interpretandoVoz') : t('smart.interpretandoTexto')}
         </div>
       )}
 
@@ -375,7 +369,7 @@ export function SmartInput({
       {borrador && (
         <div className="glass-card flex flex-col gap-4 rounded-2xl p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="aurem-caps text-[10px] text-gold-leaf">Revisá antes de guardar</h2>
+            <h2 className="aurem-caps text-[10px] text-gold-leaf">{t('smart.revisa')}</h2>
             <span
               className={`font-display text-lg font-bold tabular-nums ${
                 borrador.type === 'INCOME' ? 'text-success-emerald' : 'text-on-background'
@@ -388,7 +382,7 @@ export function SmartInput({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-              Importe
+              {t('comun.importe')}
               <div className="flex overflow-hidden rounded-lg border border-border bg-card focus-within:border-primary">
                 <input
                   type="number"
@@ -404,7 +398,7 @@ export function SmartInput({
                 <select
                   value={borrador.currency}
                   onChange={(e) => actualizar('currency', e.target.value as Moneda)}
-                  aria-label="Moneda del movimiento"
+                  aria-label={t('smart.monedaDelMovimiento')}
                   className="border-l border-border bg-foreground/[0.03] px-2 text-xs font-medium tabular-nums text-foreground outline-none"
                 >
                   <CurrencyOptions actual={borrador.currency} />
@@ -413,22 +407,22 @@ export function SmartInput({
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-              Tipo
+              {t('objetivos.tipoCampo')}
               <select
                 value={borrador.type}
                 onChange={(e) => actualizar('type', e.target.value as TipoTransaccion)}
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
               >
-                {(Object.keys(ETIQUETA_TIPO) as TipoTransaccion[]).map((tipo) => (
+                {TIPOS.map((tipo) => (
                   <option key={tipo} value={tipo}>
-                    {ETIQUETA_TIPO[tipo]}
+                    {t(`tipoMov.${tipo}`)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-              Categoría
+              {t('objetivos.categoria')}
               <select
                 value={borrador.category_suggested}
                 disabled={borrador.type === 'TRANSFER'}
@@ -436,7 +430,7 @@ export function SmartInput({
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary disabled:opacity-45"
               >
                 {borrador.type === 'TRANSFER' ? (
-                  <option value="">Sin categoría</option>
+                  <option value="">{t('smart.sinCategoria')}</option>
                 ) : (
                   categoriasDisponibles.map((nombre) => (
                     <option key={nombre} value={nombre}>
@@ -448,7 +442,7 @@ export function SmartInput({
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-              Fecha
+              {t('comun.fecha')}
               <input
                 type="date"
                 value={borrador.date}
@@ -460,13 +454,13 @@ export function SmartInput({
 
             {cuentasCompatibles.length > 0 && (
               <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-                Pagado con
+                {t('smart.pagadoCon')}
                 <select
                   value={cuentaId}
                   onChange={(e) => setCuentaId(e.target.value)}
                   className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
                 >
-                  <option value="">Cuenta por defecto</option>
+                  <option value="">{t('comun.cuentaPorDefecto')}</option>
                   {cuentasCompatibles.map((cuenta) => (
                     <option key={cuenta.id} value={cuenta.id}>
                       {cuenta.type === 'CREDIT_CARD' ? `💳 ${cuenta.name}` : cuenta.name}
@@ -479,7 +473,7 @@ export function SmartInput({
             {/* Las cuotas solo tienen sentido en un gasto con tarjeta. */}
             {admiteCuotas && (
               <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-                Cuotas
+                {t('comun.cuotas')}
                 <select
                   value={borrador.installment_total ?? 1}
                   onChange={(e) => actualizar('installment_total', Number(e.target.value))}
@@ -487,7 +481,7 @@ export function SmartInput({
                 >
                   {CUOTAS_COMUNES.map((n) => (
                     <option key={n} value={n}>
-                      {n === 1 ? 'Un pago' : `${n} cuotas`}
+                      {n === 1 ? t('smart.unPago') : t('smart.cuotasN', { cantidad: n })}
                     </option>
                   ))}
                 </select>
@@ -498,7 +492,7 @@ export function SmartInput({
               <div className="col-span-2 flex flex-col gap-2.5">
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-glass-stroke/60 px-3 py-2">
                   <span className="text-xs font-medium text-on-surface-variant">
-                    ¿Tiene interés?
+                    {t('smart.tieneInteres')}
                   </span>
                   <input
                     type="checkbox"
@@ -512,7 +506,7 @@ export function SmartInput({
                   <div className="flex flex-col gap-2.5 rounded-lg border border-budget-warn/25 bg-budget-warn/[0.07] p-3">
                     <div
                       role="group"
-                      aria-label="Cómo informás el financiamiento"
+                      aria-label={t('smart.comoInformas')}
                       className="flex rounded-lg border border-glass-stroke/60 p-0.5"
                     >
                       {(['total', 'cuota'] as const).map((modo) => (
@@ -527,7 +521,7 @@ export function SmartInput({
                               : 'text-subtle hover:text-gold-leaf'
                           }`}
                         >
-                          {modo === 'total' ? 'Monto financiado total' : 'Valor de cada cuota'}
+                          {modo === 'total' ? t('smart.financiadoTotal') : t('smart.valorCuota')}
                         </button>
                       ))}
                     </div>
@@ -541,8 +535,8 @@ export function SmartInput({
                       onChange={(e) => setMontoFinanciado(e.target.value)}
                       placeholder={
                         modoInteres === 'total'
-                          ? 'Total a pagar con recargo'
-                          : 'Valor de cada cuota'
+                          ? t('smart.totalConRecargo')
+                          : t('smart.valorCuota')
                       }
                       className="rounded-lg border border-glass-stroke/60 bg-charcoal px-3 py-2 text-sm tabular-nums text-foreground outline-none focus:border-gold-leaf"
                     />
@@ -553,7 +547,7 @@ export function SmartInput({
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-lg border border-glass-stroke/40 bg-surface-container/60 px-2.5 py-2">
                           <p className="aurem-caps text-[8px] text-on-surface-variant/70">
-                            Precio contado
+                            {t('smart.precioContado')}
                           </p>
                           <p className="mt-0.5 text-sm font-semibold tabular-nums text-on-background">
                             {formatearMonto(plan.precioContado ?? 0, borrador.currency)}
@@ -561,7 +555,7 @@ export function SmartInput({
                         </div>
                         <div className="rounded-lg border border-budget-warn/30 bg-budget-warn/10 px-2.5 py-2">
                           <p className="aurem-caps text-[8px] text-budget-warn/80">
-                            Financiado total
+                            {t('smart.tituloFinanciado')}
                           </p>
                           <p className="mt-0.5 text-sm font-semibold tabular-nums text-budget-warn">
                             {formatearMonto(plan.totalAPagar, borrador.currency)}
@@ -572,12 +566,12 @@ export function SmartInput({
 
                     {plan.recargo > 0 && (
                       <p className="text-[11px] tabular-nums text-budget-warn">
-                        Recargo:{' '}
+                        {t('smart.recargo')}{' '}
                         <strong className="font-semibold">
                           {formatearMonto(plan.recargo, borrador.currency)}
                         </strong>
-                        {plan.recargoPorcentual !== null && ` (${plan.recargoPorcentual}%)`} sobre
-                        el contado
+                        {plan.recargoPorcentual !== null && ` (${plan.recargoPorcentual}%)`}{' '}
+                        {t('smart.sobreElContado')}
                       </p>
                     )}
                   </div>
@@ -586,19 +580,20 @@ export function SmartInput({
                 <p className="flex items-center gap-2 rounded-lg border border-glass-stroke bg-gold-leaf/[0.07] px-3 py-2 text-xs text-gold-leaf">
                   <CreditCard className="size-3.5 shrink-0" aria-hidden />
                   <span className="tabular-nums">
-                    {cuotas} cuotas de{' '}
+                    {t('smart.cuotasDe', { cuotas })}{' '}
                     <strong className="font-semibold">
                       {formatearMonto(montoPorCuota, borrador.currency)}
                     </strong>
-                    /mes (Total Financiado:{' '}
-                    {formatearMonto(plan.totalAPagar, borrador.currency)})
+                    {t('smart.porMesTotal', {
+                      total: formatearMonto(plan.totalAPagar, borrador.currency),
+                    })}
                   </span>
                 </p>
               </div>
             )}
 
             <label className="col-span-2 flex flex-col gap-1 text-xs font-medium text-muted">
-              Descripción
+              {t('comun.descripcion')}
               <input
                 type="text"
                 value={borrador.description}
@@ -617,7 +612,7 @@ export function SmartInput({
               className="btn-gold flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-45"
             >
               {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {guardando ? 'Guardando…' : 'Confirmar y guardar'}
+              {guardando ? t('comun.guardando') : t('smart.confirmar')}
             </button>
             <button
               type="button"
@@ -628,7 +623,7 @@ export function SmartInput({
               disabled={guardando}
               className="rounded-lg border border-glass-stroke/50 px-4 py-2.5 text-sm font-medium text-on-surface-variant transition hover:border-gold-leaf/50 hover:text-gold-leaf disabled:opacity-45"
             >
-              Descartar
+              {t('smart.descartar')}
             </button>
           </div>
         </div>

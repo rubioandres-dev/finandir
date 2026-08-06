@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Check, FileText, Loader2, ScanLine, X } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
-import { useModoMoneda, useFormatoRegional } from '@/components/currency-provider'
+import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CurrencyOptions } from '@/components/currency-options'
 import type { ComprobanteParseado } from '@/app/api/ai/parse-document/route'
 import {
@@ -64,6 +64,7 @@ export function DocumentScannerModal({
   onCerrar: () => void
 }) {
   const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
   const router = useRouter()
   const { modo } = useModoMoneda()
   const hoja = useRef<HTMLDivElement>(null)
@@ -118,12 +119,12 @@ export function DocumentScannerModal({
         if (cancelado) return
 
         if (!respuesta.ok) {
-          setError(datos?.error ?? 'No se pudo leer el comprobante.')
+          setError(datos?.error ?? t('escaner.errorLectura'))
         } else {
           setBorrador(aBorrador(datos as ComprobanteParseado))
         }
       } catch {
-        if (!cancelado) setError('No se pudo contactar al servidor. Revisá tu conexión.')
+        if (!cancelado) setError(t('escaner.errorConexion'))
       } finally {
         if (!cancelado) setAnalizando(false)
       }
@@ -133,14 +134,16 @@ export function DocumentScannerModal({
     return () => {
       cancelado = true
     }
-  }, [archivo, categorias])
+    // `t` sólo cambia si cambia el idioma, y ahí volver a analizar no molesta:
+    // el modal vive lo que dura una confirmación.
+  }, [archivo, categorias, t])
 
   function guardar() {
     if (!borrador) return
 
     const importe = Number(borrador.importe.replace(',', '.'))
     if (!Number.isFinite(importe) || importe <= 0) {
-      setError('El importe tiene que ser un número mayor a cero.')
+      setError(t('escaner.errorImporte'))
       return
     }
 
@@ -189,7 +192,7 @@ export function DocumentScannerModal({
     >
       <button
         type="button"
-        aria-label="Cerrar"
+        aria-label={t('comun.cerrar')}
         onClick={onCerrar}
         className="absolute inset-0 bg-midnight-navy/70 backdrop-blur-sm"
       />
@@ -204,12 +207,12 @@ export function DocumentScannerModal({
             className="aurem-caps flex items-center gap-1.5 text-[11px] text-gold-leaf"
           >
             <ScanLine className="size-3.5" aria-hidden />
-            Comprobante
+            {t('escaner.titulo')}
           </h3>
           <button
             type="button"
             onClick={onCerrar}
-            aria-label="Cerrar"
+            aria-label={t('comun.cerrar')}
             className="grid size-7 cursor-pointer place-items-center rounded-md text-subtle transition hover:bg-foreground/5"
           >
             <X className="size-4" aria-hidden />
@@ -222,7 +225,7 @@ export function DocumentScannerModal({
             // eslint-disable-next-line @next/next/no-img-element -- es un blob: local, next/image no lo optimiza
             <img
               src={vistaPrevia}
-              alt="Comprobante a analizar"
+              alt={t('escaner.altPrevia')}
               className="max-h-52 w-full bg-midnight-navy/40 object-contain"
             />
           ) : (
@@ -242,8 +245,8 @@ export function DocumentScannerModal({
         {analizando && (
           <div className="flex flex-col items-center gap-2.5 py-6" role="status">
             <Loader2 className="size-7 animate-spin text-gold-leaf" aria-hidden />
-            <p className="text-xs text-on-surface-variant">Leyendo el comprobante…</p>
-            <p className="text-[11px] text-subtle">Suele tardar unos segundos.</p>
+            <p className="text-xs text-on-surface-variant">{t('escaner.leyendo')}</p>
+            <p className="text-[11px] text-subtle">{t('escaner.demora')}</p>
           </div>
         )}
 
@@ -262,7 +265,7 @@ export function DocumentScannerModal({
           <>
             <div className="grid grid-cols-2 gap-3">
               <label className={`col-span-2 ${ETIQUETA}`}>
-                Comercio
+                {t('escaner.comercio')}
                 <input
                   type="text"
                   value={borrador.descripcion}
@@ -274,7 +277,7 @@ export function DocumentScannerModal({
               </label>
 
               <label className={ETIQUETA}>
-                Importe total
+                {t('escaner.importeTotal')}
                 <div className="flex overflow-hidden rounded-lg border border-glass-stroke/50 bg-charcoal/60 focus-within:border-gold-leaf">
                   <input
                     type="text"
@@ -287,7 +290,7 @@ export function DocumentScannerModal({
                   <select
                     value={borrador.moneda}
                     onChange={(e) => editar('moneda', e.target.value)}
-                    aria-label="Moneda del comprobante"
+                    aria-label={t('escaner.monedaDelComprobante')}
                     disabled={guardando}
                     className="border-l border-glass-stroke/50 bg-foreground/[0.03] px-2 text-xs font-medium outline-none"
                   >
@@ -297,7 +300,7 @@ export function DocumentScannerModal({
               </label>
 
               <label className={ETIQUETA}>
-                Fecha
+                {t('comun.fecha')}
                 <input
                   type="date"
                   value={borrador.fecha}
@@ -309,7 +312,7 @@ export function DocumentScannerModal({
               </label>
 
               <label className={ETIQUETA}>
-                Categoría
+                {t('objetivos.categoria')}
                 <input
                   type="text"
                   list="categorias-escaner"
@@ -327,7 +330,7 @@ export function DocumentScannerModal({
               </label>
 
               <label className={ETIQUETA}>
-                Cuotas
+                {t('comun.cuotas')}
                 <input
                   type="number"
                   min={1}
@@ -343,7 +346,7 @@ export function DocumentScannerModal({
                   Un ticket en cuotas casi siempre se pagó con tarjeta, y sin
                   este selector el gasto caía en la cuenta líquida por defecto. */}
               <label className={`col-span-2 ${ETIQUETA}`}>
-                Cuenta
+                {t('comun.cuenta')}
                 <select
                   value={cuentaId}
                   onChange={(e) => setCuentaId(e.target.value)}
@@ -352,13 +355,13 @@ export function DocumentScannerModal({
                 >
                   <option value="">
                     {cuentasCompatibles.length === 0
-                      ? `Sin cuentas en ${borrador.moneda}`
-                      : 'Cuenta por defecto'}
+                      ? t('escaner.sinCuentas', { moneda: borrador.moneda })
+                      : t('comun.cuentaPorDefecto')}
                   </option>
                   {cuentasCompatibles.map((cuenta) => (
                     <option key={cuenta.id} value={cuenta.id}>
                       {cuenta.name}
-                      {cuenta.type === 'CREDIT_CARD' ? ' (tarjeta)' : ''}
+                      {cuenta.type === 'CREDIT_CARD' ? ` ${t('escaner.esTarjeta')}` : ''}
                     </option>
                   ))}
                 </select>
@@ -367,19 +370,19 @@ export function DocumentScannerModal({
 
             {borrador.cuotas > 1 && (
               <p className="rounded-lg border border-glass-stroke/40 px-3 py-2 text-[11px] leading-snug text-subtle">
-                Se van a crear {borrador.cuotas} cuotas de{' '}
-                {formatearMonto(
-                  (Number(borrador.importe.replace(',', '.')) || 0) / borrador.cuotas,
-                  borrador.moneda
-                )}
-                , una por mes. El importe de arriba es el total de la operación.
+                {t('escaner.avisoCuotas', {
+                  cuotas: borrador.cuotas,
+                  monto: formatearMonto(
+                    (Number(borrador.importe.replace(',', '.')) || 0) / borrador.cuotas,
+                    borrador.moneda
+                  ),
+                })}
               </p>
             )}
 
             {borrador.moneda !== modo && (
               <p className="rounded-lg border border-budget-warn/30 bg-budget-warn/10 px-3 py-2 text-[11px] leading-snug text-budget-warn">
-                Este movimiento va al libro de {borrador.moneda} y estás mirando el de {modo}: no
-                lo vas a ver en la lista hasta que cambies de moneda en el header.
+                {t('escaner.avisoMoneda', { moneda: borrador.moneda, actual: modo })}
               </p>
             )}
 
@@ -394,7 +397,7 @@ export function DocumentScannerModal({
               ) : (
                 <Check className="size-4" aria-hidden />
               )}
-              {guardando ? 'Guardando…' : 'Guardar movimiento'}
+              {guardando ? t('comun.guardando') : t('escaner.guardar')}
             </button>
           </>
         )}

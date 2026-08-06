@@ -21,14 +21,18 @@
  *
  * Cubierto: navegación (header, barra inferior, bandeja "Más"), dashboard,
  * presupuestos, objetivos y Tier, ajustes de idioma y región, el modal de
- * confirmación de localización, y la guía de uso completa —esta última con
- * contenido propio por idioma en `lib/guide-content.ts`.
+ * confirmación de localización, la guía de uso completa —esta última con
+ * contenido propio por idioma en `lib/guide-content.ts`—, el editor de
+ * movimientos y los formularios de carga: Smart Input, escáner de
+ * comprobantes, importador de resúmenes, inversiones, alta de cuentas y
+ * tarjetas, y deudas y préstamos.
  *
- * NO cubierto todavía: los formularios profundos de cuentas, movimientos,
- * inversiones, deudas, el importador de resúmenes y el editor de movimientos.
- * Son varios cientos de cadenas de microcopy y están en español en los tres
- * idiomas. `t()` devuelve la clave si falta una traducción, así que lo que
- * falte se ve pero no rompe.
+ * NO cubierto todavía: las vistas de solo lectura que muestran etiquetas de
+ * enums desde `ETIQUETA_*` de `lib/types.ts` (`transaction-row`,
+ * `account-row`, `investment-distribution`,
+ * `investment-strategy-breakdown`), el onboarding y los mensajes de error que
+ * devuelven las server actions. `t()` devuelve la clave si falta una
+ * traducción, así que lo que falte se ve pero no rompe.
  */
 
 export type Idioma = 'es-AR' | 'es' | 'en'
@@ -337,6 +341,214 @@ const ES_AR = {
 
   'tier.comoFunciona':
     'Cada objetivo que cumplís por primera vez suma XP, y el XP no baja nunca. Un mes flojo no te saca un logro que ya conseguiste.',
+
+  // ===========================================================================
+  // Microcopy de los formularios de carga
+  // ===========================================================================
+  // Smart Input, escáner de comprobantes, importador de resúmenes, inversiones,
+  // alta de cuentas y deudas. Es el bloque más voluminoso de la app: son las
+  // pantallas donde se ESCRIBE el dato, y ahí una etiqueta ambigua no molesta,
+  // cuesta un movimiento mal cargado.
+  //
+  // LOS EJEMPLOS Y LOS PLACEHOLDERS NO SE TRADUCEN LITERAL
+  //
+  // "Cargué 25 lucas de nafta" enseña a usar el campo sólo si se entiende:
+  // fuera de Argentina no significa nada. Cada idioma tiene su propio ejemplo,
+  // equivalente en intención y no en palabras. Lo mismo con "Visa Galicia" o
+  // "FCI Galileo T+0", que son nombres de productos locales.
+  //
+  // NO SE INVENTAN CLAVES NUEVAS PARA CADENAS QUE YA EXISTEN
+  //
+  // Los formularios reusan `comun.*`, `mov.guardarCambios`, `mov.editarNombre`,
+  // `objetivos.categoria` y `objetivos.tipoCampo` cuando el texto es idéntico.
+  // Una segunda clave con el mismo valor es una traducción más para mantener y
+  // una oportunidad más de que las dos se desincronicen.
+
+  // --- Etiquetas de los enums -----------------------------------------------
+  // Duplican los `ETIQUETA_*` de `lib/types.ts`. Esas constantes siguen ahí
+  // porque las usan las vistas de solo lectura que todavía no están traducidas
+  // (`transaction-row`, `account-row`, `investment-distribution`); los
+  // formularios de este bloque leen de acá.
+  'tipoMov.INCOME': 'Ingreso',
+  'tipoMov.EXPENSE': 'Gasto',
+  'tipoMov.TRANSFER': 'Transferencia',
+
+  'tipoCuenta.BANK': 'Banco',
+  'tipoCuenta.WALLET': 'Billetera',
+  'tipoCuenta.CASH': 'Efectivo',
+  'tipoCuenta.INVESTMENT': 'Inversión',
+  'tipoCuenta.CREDIT_CARD': 'Tarjeta de crédito',
+
+  'tipoActivo.MONEY_MARKET': 'Money market',
+  'tipoActivo.FIXED_INCOME': 'Renta fija',
+  'tipoActivo.STOCKS_CEDEARS': 'Acciones y CEDEARs',
+  'tipoActivo.CRYPTO': 'Cripto',
+  'tipoActivo.REAL_ESTATE': 'Inmuebles',
+
+  'liquidez.T0': 'Inmediata (T+0)',
+  'liquidez.T1': '24 h (T+1)',
+  'liquidez.T2': '48 h (T+2)',
+  'liquidez.LOCKED': 'Inmovilizada',
+
+  // --- Comunes de los formularios -------------------------------------------
+  'comun.nombre': 'Nombre',
+  'comun.monto': 'Monto',
+  'comun.cuentaPorDefecto': 'Cuenta por defecto',
+  'comun.borrarNombre': 'Borrar {nombre}',
+  'comun.errorEstado': 'Error {status}',
+
+  // --- Smart Input ----------------------------------------------------------
+  'smart.placeholder': 'Gasté $1500 en la carnicería hoy',
+  'smart.escuchando': 'Te escucho…',
+  'smart.ariaCampo': 'Describí el movimiento en lenguaje natural',
+  'smart.ejemplo1': 'Gasté 1500 en la carnicería hoy',
+  'smart.ejemplo2': 'Cargué 25 lucas de nafta',
+  'smart.ejemplo3': 'Cobré el sueldo',
+  'smart.detenerDictado': 'Detener dictado sin analizar',
+  'smart.dictar': 'Dictar por voz: al hacer una pausa se analiza solo',
+  'smart.detenerCorto': 'Detener sin analizar',
+  'smart.dictarCorto': 'Dictar por voz — al pausar se analiza automáticamente',
+  'smart.analizar': 'Analizar con IA',
+  'smart.interpretando': 'Interpretando…',
+  'smart.comoPagar': '¿Cómo conviene pagar?',
+  'smart.interpretandoVoz': 'Terminaste de hablar: interpretando lo que dictaste…',
+  'smart.interpretandoTexto': 'La IA está interpretando tu movimiento…',
+  'smart.sinConexion': 'No se pudo conectar con el servidor.',
+  'smart.guardado': 'Movimiento guardado.',
+  'smart.revisa': 'Revisá antes de guardar',
+  'smart.monedaDelMovimiento': 'Moneda del movimiento',
+  'smart.sinCategoria': 'Sin categoría',
+  'smart.pagadoCon': 'Pagado con',
+  'smart.unPago': 'Un pago',
+  'smart.cuotasN': '{cantidad} cuotas',
+  'smart.tieneInteres': '¿Tiene interés?',
+  'smart.comoInformas': 'Cómo informás el financiamiento',
+  'smart.financiadoTotal': 'Monto financiado total',
+  'smart.valorCuota': 'Valor de cada cuota',
+  'smart.totalConRecargo': 'Total a pagar con recargo',
+  'smart.precioContado': 'Precio contado',
+  'smart.tituloFinanciado': 'Financiado total',
+  // El importe va en <strong> en el medio de la frase, así que la oración se
+  // parte en dos claves. Cada mitad se traduce entera: no se arma la frase
+  // concatenando palabras sueltas, que es lo que rompe el orden en inglés.
+  'smart.recargo': 'Recargo:',
+  'smart.sobreElContado': 'sobre el contado',
+  'smart.cuotasDe': '{cuotas} cuotas de',
+  'smart.porMesTotal': '/mes (Total financiado: {total})',
+  'smart.confirmar': 'Confirmar y guardar',
+  'smart.descartar': 'Descartar',
+
+  // --- Escáner de comprobantes ----------------------------------------------
+  'escaner.titulo': 'Comprobante',
+  'escaner.altPrevia': 'Comprobante a analizar',
+  'escaner.leyendo': 'Leyendo el comprobante…',
+  'escaner.demora': 'Suele tardar unos segundos.',
+  'escaner.errorLectura': 'No se pudo leer el comprobante.',
+  'escaner.errorConexion': 'No se pudo contactar al servidor. Revisá tu conexión.',
+  'escaner.errorImporte': 'El importe tiene que ser un número mayor a cero.',
+  'escaner.comercio': 'Comercio',
+  'escaner.importeTotal': 'Importe total',
+  'escaner.monedaDelComprobante': 'Moneda del comprobante',
+  'escaner.sinCuentas': 'Sin cuentas en {moneda}',
+  'escaner.esTarjeta': '(tarjeta)',
+  'escaner.avisoCuotas':
+    'Se van a crear {cuotas} cuotas de {monto}, una por mes. El importe de arriba es el total de la operación.',
+  'escaner.avisoMoneda':
+    'Este movimiento va al libro de {moneda} y estás mirando el de {actual}: no lo vas a ver en la lista hasta que cambies de moneda en el header.',
+  'escaner.guardar': 'Guardar movimiento',
+
+  // --- Importador de resúmenes ----------------------------------------------
+  'importador.nuevos': 'Nuevos',
+  'importador.registrados': 'Registrados',
+  'importador.diferencias': 'Ajustes / Diferencias',
+  'importador.leyendoArchivo': 'Leyendo {archivo}…',
+  'importador.extrayendo': 'La IA está extrayendo los consumos. Puede tardar hasta un minuto.',
+  'importador.arrastra': 'Arrastrá el resumen de tu tarjeta',
+  'importador.formatos': 'PDF o foto, hasta 8 MB',
+  'importador.elegirArchivo': 'Elegir archivo',
+  'importador.sinConsumos': 'No se detectó ningún consumo en el archivo.',
+  'importador.errorArchivo': 'No se pudo procesar el archivo. Probá de nuevo.',
+  'importador.importados': 'Se importaron {cantidad} movimientos.',
+  'importador.detectados': '{cantidad} consumos detectados',
+  'importador.cambiar': 'Cambiar',
+  'importador.resultado': 'Resultado de la conciliación',
+  'importador.sinEnPestana': 'No hay consumos en esta categoría.',
+  'importador.importarFila': 'Importar {descripcion}',
+  'importador.cuotaDe': 'cuota {actual}/{total}',
+  // El motivo lo arma `reconciliation-service` en castellano para el log; en
+  // pantalla se rearma acá, que es donde se sabe el idioma del usuario.
+  'importador.yaRegistrado': 'ya registrado el {fecha}',
+  'importador.otroImporte': 'coincide con un movimiento del {fecha} por otro importe',
+  'importador.tarjetaDelResumen': 'Tarjeta del resumen',
+  'importador.sinTarjetas': 'No tenés tarjetas cargadas',
+  'importador.confirmarUna': 'Confirmar e importar 1 transacción',
+  'importador.confirmarVarias': 'Confirmar e importar {cantidad} transacciones',
+
+  // --- Inversiones ----------------------------------------------------------
+  'inv.nueva': 'Nueva inversión',
+  'inv.editarTitulo': 'Editar inversión',
+  'inv.placeholderNombre': 'FCI Galileo T+0',
+  'inv.tipoDeActivo': 'Tipo de activo',
+  'inv.montoInvertido': 'Monto invertido',
+  'inv.valorActual': 'Valor actual',
+  'inv.igualAlInvertido': 'Igual al invertido',
+  'inv.tna': 'TNA estimada (%)',
+  'inv.tnaSufijo': '{tna}% TNA',
+  'inv.liquidez': 'Liquidez',
+  'inv.ayudaLiquidez':
+    'Solo T+0 y T+1 cuentan para la tasa que usa el asistente de gasto: es la plata que podés rescatar a tiempo para cubrir una compra.',
+  'inv.errorInvertido': 'Poné cuánto invertiste.',
+  'inv.errorTna': 'La TNA no puede ser negativa.',
+  'inv.registrar': 'Registrar inversión',
+  'inv.activosEn': 'Activos en {moneda}',
+  'inv.sinActivos': 'Todavía no cargaste inversiones.',
+  'inv.sinActivosPista':
+    'Cargalas y el asistente de gasto usa tu tasa real en vez de una estimada.',
+
+  // --- Alta de cuentas y tarjetas -------------------------------------------
+  'cuentas.agregar': 'Agregar cuenta o tarjeta',
+  'cuentas.nueva': 'Nueva cuenta',
+  'cuentas.editar': 'Editar cuenta',
+  'cuentas.placeholderTarjeta': 'Visa Galicia',
+  'cuentas.placeholderCuenta': 'Cuenta sueldo',
+  'cuentas.deudaActual': 'Deuda actual',
+  'cuentas.saldoActual': 'Saldo actual',
+  'cuentas.saldoInicial': 'Saldo inicial (opcional)',
+  'cuentas.ayudaDeuda': 'En positivo: lo que debés hoy en esta tarjeta.',
+  'cuentas.ayudaSaldo':
+    'Después lo mantienen los movimientos; editalo solo para corregirlo.',
+  'cuentas.diaCierre': 'Día de cierre',
+  'cuentas.diaVencimiento': 'Día de vencimiento',
+  'cuentas.limite': 'Límite (opcional)',
+  'cuentas.sinLimite': 'Sin límite',
+  'cuentas.ultimosDigitos': 'Últimos 4 dígitos',
+  'cuentas.banco': 'Banco (opcional)',
+  'cuentas.placeholderBanco': 'Galicia',
+  'cuentas.errorSaldo': 'El saldo tiene que ser un número.',
+
+  // --- Deudas y préstamos ---------------------------------------------------
+  'deudas.nueva': 'Nueva deuda',
+  'deudas.registrar': 'Registrar deuda o préstamo',
+  'deudas.tipoDeDeuda': 'Tipo de deuda',
+  'deudas.quienTeDebe': '¿Quién te debe?',
+  'deudas.aQuienLeDebes': '¿A quién le debés?',
+  'deudas.placeholderNombre': 'Nombre',
+  'deudas.vence': 'Vence (opcional)',
+  'deudas.nota': 'Nota (opcional)',
+  'deudas.placeholderNota': 'Cena, préstamo…',
+  'deudas.errorMonto': 'Ingresá un monto válido.',
+  'deudas.meDebe': 'Me debe',
+  'deudas.leDebo': 'Le debo',
+  'deudas.venceEl': 'vence {fecha}',
+  'deudas.deTotal': 'de {monto}',
+  'deudas.saldadoPorcentaje': '{porcentaje}% saldado',
+  'deudas.progresoDe': 'Saldado de {nombre}',
+  'deudas.registrarPago': 'Registrar pago',
+  'deudas.saldada': 'Saldada',
+  'deudas.contadorSaldada': '{cantidad} saldada',
+  'deudas.contadorSaldadas': '{cantidad} saldadas',
+  'deudas.sinDeudas': 'No tenés deudas ni préstamos registrados.',
+  'deudas.borrar': 'Borrar deuda',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -401,6 +613,47 @@ const ES_NEUTRO: Parcial = {
 
   'tier.comoFunciona':
     'Cada objetivo que cumples por primera vez suma XP, y el XP nunca baja. Un mes flojo no te quita un logro que ya conseguiste.',
+
+  // --- Formularios de carga -------------------------------------------------
+  // Sin voseo y sin instrumentos argentinos: un CEDEAR no existe fuera del
+  // país, y un ejemplo con "lucas" o "nafta" no le enseña nada a nadie.
+  'tipoActivo.STOCKS_CEDEARS': 'Acciones y ETFs',
+
+  'smart.placeholder': 'Gasté $1500 en el supermercado hoy',
+  'smart.ariaCampo': 'Describe el movimiento en lenguaje natural',
+  'smart.ejemplo1': 'Gasté 1500 en el supermercado hoy',
+  'smart.ejemplo2': 'Cargué 2000 de combustible',
+  'smart.comoInformas': 'Cómo informas el financiamiento',
+  'smart.revisa': 'Revisa antes de guardar',
+
+  'escaner.errorConexion': 'No se pudo contactar al servidor. Revisa tu conexión.',
+  'escaner.avisoCuotas':
+    'Se crearán {cuotas} cuotas de {monto}, una por mes. El importe de arriba es el total de la operación.',
+  'escaner.avisoMoneda':
+    'Este movimiento va al libro de {moneda} y estás viendo el de {actual}: no lo verás en la lista hasta que cambies de moneda en el encabezado.',
+
+  'importador.arrastra': 'Arrastra el resumen de tu tarjeta',
+  'importador.errorArchivo': 'No se pudo procesar el archivo. Inténtalo de nuevo.',
+  'importador.sinTarjetas': 'No tienes tarjetas registradas',
+
+  'inv.placeholderNombre': 'Fondo money market',
+  'inv.ayudaLiquidez':
+    'Solo T+0 y T+1 cuentan para la tasa que usa el asistente de gasto: es el dinero que puedes rescatar a tiempo para cubrir una compra.',
+  'inv.errorInvertido': 'Indica cuánto invertiste.',
+  'inv.sinActivos': 'Aún no has registrado inversiones.',
+  'inv.sinActivosPista':
+    'Regístralas y el asistente de gasto usa tu tasa real en vez de una estimada.',
+
+  'cuentas.placeholderTarjeta': 'Visa clásica',
+  'cuentas.placeholderCuenta': 'Cuenta de nómina',
+  'cuentas.placeholderBanco': 'Santander',
+  'cuentas.ayudaDeuda': 'En positivo: lo que debes hoy en esta tarjeta.',
+  'cuentas.ayudaSaldo':
+    'Después lo mantienen los movimientos; edítalo solo para corregirlo.',
+
+  'deudas.aQuienLeDebes': '¿A quién le debes?',
+  'deudas.errorMonto': 'Ingresa un monto válido.',
+  'deudas.sinDeudas': 'No tienes deudas ni préstamos registrados.',
 }
 
 const EN: Parcial = {
@@ -649,6 +902,176 @@ const EN: Parcial = {
 
   'tier.comoFunciona':
     'Every goal you hit for the first time earns XP, and XP never goes down. A weak month cannot take away something you already achieved.',
+
+  'tipoMov.INCOME': 'Income',
+  'tipoMov.EXPENSE': 'Expense',
+  'tipoMov.TRANSFER': 'Transfer',
+
+  'tipoCuenta.BANK': 'Bank',
+  'tipoCuenta.WALLET': 'Wallet',
+  'tipoCuenta.CASH': 'Cash',
+  'tipoCuenta.INVESTMENT': 'Investment',
+  'tipoCuenta.CREDIT_CARD': 'Credit card',
+
+  'tipoActivo.MONEY_MARKET': 'Money market',
+  'tipoActivo.FIXED_INCOME': 'Fixed income',
+  'tipoActivo.STOCKS_CEDEARS': 'Stocks and ETFs',
+  'tipoActivo.CRYPTO': 'Crypto',
+  'tipoActivo.REAL_ESTATE': 'Real estate',
+
+  'liquidez.T0': 'Same day (T+0)',
+  'liquidez.T1': '24 h (T+1)',
+  'liquidez.T2': '48 h (T+2)',
+  'liquidez.LOCKED': 'Locked',
+
+  'comun.nombre': 'Name',
+  'comun.monto': 'Amount',
+  'comun.cuentaPorDefecto': 'Default account',
+  'comun.borrarNombre': 'Delete {nombre}',
+  'comun.errorEstado': 'Error {status}',
+
+  'smart.placeholder': 'Spent 1500 on groceries today',
+  'smart.escuchando': 'Listening…',
+  'smart.ariaCampo': 'Describe the transaction in plain language',
+  'smart.ejemplo1': 'Spent 1500 on groceries today',
+  'smart.ejemplo2': 'Paid 2000 for petrol',
+  'smart.ejemplo3': 'Got my salary',
+  'smart.detenerDictado': 'Stop dictating without analysing',
+  'smart.dictar': 'Dictate: it analyses on its own when you pause',
+  'smart.detenerCorto': 'Stop without analysing',
+  'smart.dictarCorto': 'Dictate — it analyses automatically when you pause',
+  'smart.analizar': 'Analyse with AI',
+  'smart.interpretando': 'Reading it…',
+  'smart.comoPagar': 'What is the best way to pay?',
+  'smart.interpretandoVoz': 'You stopped talking: reading what you dictated…',
+  'smart.interpretandoTexto': 'The AI is reading your transaction…',
+  'smart.sinConexion': 'Could not reach the server.',
+  'smart.guardado': 'Transaction saved.',
+  'smart.revisa': 'Check it before saving',
+  'smart.monedaDelMovimiento': 'Transaction currency',
+  'smart.sinCategoria': 'No category',
+  'smart.pagadoCon': 'Paid with',
+  'smart.unPago': 'Single payment',
+  'smart.cuotasN': '{cantidad} instalments',
+  'smart.tieneInteres': 'Does it carry interest?',
+  'smart.comoInformas': 'How you are entering the financing',
+  'smart.financiadoTotal': 'Total financed amount',
+  'smart.valorCuota': 'Amount of each instalment',
+  'smart.totalConRecargo': 'Total payable with the surcharge',
+  'smart.precioContado': 'Cash price',
+  'smart.tituloFinanciado': 'Financed total',
+  'smart.recargo': 'Surcharge:',
+  'smart.sobreElContado': 'over the cash price',
+  'smart.cuotasDe': '{cuotas} instalments of',
+  'smart.porMesTotal': '/month (Total financed: {total})',
+  'smart.confirmar': 'Confirm and save',
+  'smart.descartar': 'Discard',
+
+  'escaner.titulo': 'Receipt',
+  'escaner.altPrevia': 'Receipt to be analysed',
+  'escaner.leyendo': 'Reading the receipt…',
+  'escaner.demora': 'It usually takes a few seconds.',
+  'escaner.errorLectura': 'The receipt could not be read.',
+  'escaner.errorConexion': 'Could not reach the server. Check your connection.',
+  'escaner.errorImporte': 'The amount has to be a number greater than zero.',
+  'escaner.comercio': 'Merchant',
+  'escaner.importeTotal': 'Total amount',
+  'escaner.monedaDelComprobante': 'Receipt currency',
+  'escaner.sinCuentas': 'No accounts in {moneda}',
+  'escaner.esTarjeta': '(card)',
+  'escaner.avisoCuotas':
+    '{cuotas} instalments of {monto} will be created, one per month. The amount above is the total for the purchase.',
+  'escaner.avisoMoneda':
+    'This transaction goes to your {moneda} book and you are looking at {actual}: it will not show up in the list until you switch currency in the header.',
+  'escaner.guardar': 'Save transaction',
+
+  'importador.nuevos': 'New',
+  'importador.registrados': 'Already recorded',
+  'importador.diferencias': 'Adjustments / Differences',
+  'importador.leyendoArchivo': 'Reading {archivo}…',
+  'importador.extrayendo':
+    'The AI is extracting the charges. It can take up to a minute.',
+  'importador.arrastra': 'Drop your card statement here',
+  'importador.formatos': 'PDF or photo, up to 8 MB',
+  'importador.elegirArchivo': 'Choose a file',
+  'importador.sinConsumos': 'No charges were detected in the file.',
+  'importador.errorArchivo': 'The file could not be processed. Try again.',
+  'importador.importados': '{cantidad} transactions imported.',
+  'importador.detectados': '{cantidad} charges detected',
+  'importador.cambiar': 'Change',
+  'importador.resultado': 'Reconciliation result',
+  'importador.sinEnPestana': 'No charges in this category.',
+  'importador.importarFila': 'Import {descripcion}',
+  'importador.cuotaDe': 'instalment {actual}/{total}',
+  'importador.yaRegistrado': 'already recorded on {fecha}',
+  'importador.otroImporte': 'matches a transaction from {fecha} but for a different amount',
+  'importador.tarjetaDelResumen': 'Card this statement belongs to',
+  'importador.sinTarjetas': 'You have no cards set up',
+  'importador.confirmarUna': 'Confirm and import 1 transaction',
+  'importador.confirmarVarias': 'Confirm and import {cantidad} transactions',
+
+  'inv.nueva': 'New investment',
+  'inv.editarTitulo': 'Edit investment',
+  'inv.placeholderNombre': 'Money market fund',
+  'inv.tipoDeActivo': 'Asset type',
+  'inv.montoInvertido': 'Amount invested',
+  'inv.valorActual': 'Current value',
+  'inv.igualAlInvertido': 'Same as invested',
+  'inv.tna': 'Estimated annual rate (%)',
+  'inv.tnaSufijo': '{tna}% p.a.',
+  'inv.liquidez': 'Liquidity',
+  'inv.ayudaLiquidez':
+    'Only T+0 and T+1 count towards the rate the spending assistant uses: that is the money you can cash out in time to cover a purchase.',
+  'inv.errorInvertido': 'Enter how much you invested.',
+  'inv.errorTna': 'The annual rate cannot be negative.',
+  'inv.registrar': 'Add an investment',
+  'inv.activosEn': 'Assets in {moneda}',
+  'inv.sinActivos': 'You have not added any investments yet.',
+  'inv.sinActivosPista':
+    'Add them and the spending assistant uses your real rate instead of an estimate.',
+
+  'cuentas.agregar': 'Add an account or card',
+  'cuentas.nueva': 'New account',
+  'cuentas.editar': 'Edit account',
+  'cuentas.placeholderTarjeta': 'Visa Platinum',
+  'cuentas.placeholderCuenta': 'Current account',
+  'cuentas.deudaActual': 'Current debt',
+  'cuentas.saldoActual': 'Current balance',
+  'cuentas.saldoInicial': 'Opening balance (optional)',
+  'cuentas.ayudaDeuda': 'As a positive number: what you owe on this card today.',
+  'cuentas.ayudaSaldo':
+    'From here on your transactions keep it up to date; edit it only to correct it.',
+  'cuentas.diaCierre': 'Closing day',
+  'cuentas.diaVencimiento': 'Due day',
+  'cuentas.limite': 'Limit (optional)',
+  'cuentas.sinLimite': 'No limit',
+  'cuentas.ultimosDigitos': 'Last 4 digits',
+  'cuentas.banco': 'Bank (optional)',
+  'cuentas.placeholderBanco': 'HSBC',
+  'cuentas.errorSaldo': 'The balance has to be a number.',
+
+  'deudas.nueva': 'New debt',
+  'deudas.registrar': 'Add a debt or a loan',
+  'deudas.tipoDeDeuda': 'Debt type',
+  'deudas.quienTeDebe': 'Who owes you?',
+  'deudas.aQuienLeDebes': 'Who do you owe?',
+  'deudas.placeholderNombre': 'Name',
+  'deudas.vence': 'Due date (optional)',
+  'deudas.nota': 'Note (optional)',
+  'deudas.placeholderNota': 'Dinner, loan…',
+  'deudas.errorMonto': 'Enter a valid amount.',
+  'deudas.meDebe': 'Owes me',
+  'deudas.leDebo': 'I owe them',
+  'deudas.venceEl': 'due {fecha}',
+  'deudas.deTotal': 'of {monto}',
+  'deudas.saldadoPorcentaje': '{porcentaje}% settled',
+  'deudas.progresoDe': 'Settled with {nombre}',
+  'deudas.registrarPago': 'Record a payment',
+  'deudas.saldada': 'Settled',
+  'deudas.contadorSaldada': '{cantidad} settled',
+  'deudas.contadorSaldadas': '{cantidad} settled',
+  'deudas.sinDeudas': 'You have no debts or loans recorded.',
+  'deudas.borrar': 'Delete debt',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {

@@ -9,18 +9,22 @@ import {
   type InversionAGuardar,
 } from '@/app/dashboard/investments/actions'
 import { CurrencyOptions } from '@/components/currency-options'
-import { useModoMoneda, useFormatoRegional } from '@/components/currency-provider'
+import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import {
-  ETIQUETA_LIQUIDEZ,
-  ETIQUETA_TIPO_ACTIVO,
   type Inversion,
   type Moneda,
   type PlazoDeLiquidez,
   type TipoDeActivo,
 } from '@/lib/types'
 
-const TIPOS = Object.keys(ETIQUETA_TIPO_ACTIVO) as TipoDeActivo[]
-const PLAZOS = Object.keys(ETIQUETA_LIQUIDEZ) as PlazoDeLiquidez[]
+const TIPOS: TipoDeActivo[] = [
+  'MONEY_MARKET',
+  'FIXED_INCOME',
+  'STOCKS_CEDEARS',
+  'CRYPTO',
+  'REAL_ESTATE',
+]
+const PLAZOS: PlazoDeLiquidez[] = ['T0', 'T1', 'T2', 'LOCKED']
 
 const CAMPO =
   'rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
@@ -53,6 +57,7 @@ function FormularioDeInversion({
   inversion?: Inversion
   onCerrar: () => void
 }) {
+  const { t } = useTraduccion()
   const router = useRouter()
   const editando = inversion != null
 
@@ -91,13 +96,13 @@ function FormularioDeInversion({
 
     const montoInvertido = aNumero(invertido)
     if (montoInvertido === null || montoInvertido < 0) {
-      setError('Poné cuánto invertiste.')
+      setError(t('inv.errorInvertido'))
       return
     }
 
     const tasa = aNumero(tna) ?? 0
     if (tasa < 0) {
-      setError('La TNA no puede ser negativa.')
+      setError(t('inv.errorTna'))
       return
     }
 
@@ -129,13 +134,13 @@ function FormularioDeInversion({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={editando ? 'Editar inversión' : 'Nueva inversión'}
+      aria-label={editando ? t('inv.editarTitulo') : t('inv.nueva')}
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
     >
       {/* Fondo: cierra al tocar afuera. */}
       <button
         type="button"
-        aria-label="Cerrar"
+        aria-label={t('comun.cerrar')}
         onClick={onCerrar}
         className="absolute inset-0 bg-midnight-navy/70 backdrop-blur-sm"
       />
@@ -146,12 +151,12 @@ function FormularioDeInversion({
       >
         <div className="flex items-center justify-between">
           <h3 className="aurem-caps text-[11px] text-gold-leaf">
-            {editando ? 'Editar inversión' : 'Nueva inversión'}
+            {editando ? t('inv.editarTitulo') : t('inv.nueva')}
           </h3>
           <button
             type="button"
             onClick={onCerrar}
-            aria-label="Cerrar"
+            aria-label={t('comun.cerrar')}
             className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5"
           >
             <X className="size-4" aria-hidden />
@@ -160,35 +165,35 @@ function FormularioDeInversion({
 
         <div className="grid grid-cols-2 gap-3">
           <label className={`col-span-2 ${ETIQUETA}`}>
-            Nombre
+            {t('comun.nombre')}
             <input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               required
               maxLength={80}
               autoFocus
-              placeholder="FCI Galileo T+0"
+              placeholder={t('inv.placeholderNombre')}
               className={CAMPO}
             />
           </label>
 
           <label className={ETIQUETA}>
-            Tipo de activo
+            {t('inv.tipoDeActivo')}
             <select
               value={tipo}
               onChange={(e) => setTipo(e.target.value as TipoDeActivo)}
               className={CAMPO}
             >
-              {TIPOS.map((t) => (
-                <option key={t} value={t}>
-                  {ETIQUETA_TIPO_ACTIVO[t]}
+              {TIPOS.map((activo) => (
+                <option key={activo} value={activo}>
+                  {t(`tipoActivo.${activo}`)}
                 </option>
               ))}
             </select>
           </label>
 
           <label className={ETIQUETA}>
-            Moneda
+            {t('comun.moneda')}
             <select
               value={moneda}
               onChange={(e) => setMoneda(e.target.value as Moneda)}
@@ -199,7 +204,7 @@ function FormularioDeInversion({
           </label>
 
           <label className={ETIQUETA}>
-            Monto invertido
+            {t('inv.montoInvertido')}
             <input
               type="number"
               inputMode="decimal"
@@ -214,7 +219,7 @@ function FormularioDeInversion({
           </label>
 
           <label className={ETIQUETA}>
-            Valor actual
+            {t('inv.valorActual')}
             <input
               type="number"
               inputMode="decimal"
@@ -222,13 +227,13 @@ function FormularioDeInversion({
               step="0.01"
               value={valorActual}
               onChange={(e) => setValorActual(e.target.value)}
-              placeholder="Igual al invertido"
+              placeholder={t('inv.igualAlInvertido')}
               className={`${CAMPO} tabular-nums`}
             />
           </label>
 
           <label className={ETIQUETA}>
-            TNA estimada (%)
+            {t('inv.tna')}
             <input
               type="number"
               inputMode="decimal"
@@ -243,23 +248,22 @@ function FormularioDeInversion({
           </label>
 
           <label className={ETIQUETA}>
-            Liquidez
+            {t('inv.liquidez')}
             <select
               value={liquidez}
               onChange={(e) => setLiquidez(e.target.value as PlazoDeLiquidez)}
               className={CAMPO}
             >
-              {PLAZOS.map((p) => (
-                <option key={p} value={p}>
-                  {ETIQUETA_LIQUIDEZ[p]}
+              {PLAZOS.map((plazo) => (
+                <option key={plazo} value={plazo}>
+                  {t(`liquidez.${plazo}`)}
                 </option>
               ))}
             </select>
           </label>
 
           <p className="col-span-2 text-[10px] leading-snug text-subtle">
-            Solo T+0 y T+1 cuentan para la tasa que usa el asistente de gasto: es la plata que
-            podés rescatar a tiempo para cubrir una compra.
+            {t('inv.ayudaLiquidez')}
           </p>
         </div>
 
@@ -275,7 +279,7 @@ function FormularioDeInversion({
           className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
         >
           {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-          {editando ? 'Guardar cambios' : 'Guardar'}
+          {editando ? t('mov.guardarCambios') : t('comun.guardar')}
         </button>
       </form>
     </div>
@@ -290,6 +294,7 @@ function FilaInversion({
   onEditar: () => void
 }) {
   const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
   const router = useRouter()
   const [enCurso, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -330,8 +335,8 @@ function FilaInversion({
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium tracking-tight">{inversion.name}</span>
           <span className="truncate text-xs text-subtle">
-            {ETIQUETA_TIPO_ACTIVO[inversion.asset_type]} · {ETIQUETA_LIQUIDEZ[inversion.liquidity_term]}
-            {tna > 0 && ` · ${tna}% TNA`}
+            {t(`tipoActivo.${inversion.asset_type}`)} · {t(`liquidez.${inversion.liquidity_term}`)}
+            {tna > 0 && ` · ${t('inv.tnaSufijo', { tna })}`}
           </span>
         </div>
 
@@ -355,7 +360,7 @@ function FilaInversion({
           <button
             type="button"
             onClick={onEditar}
-            aria-label={`Editar ${inversion.name}`}
+            aria-label={t('mov.editarNombre', { nombre: inversion.name })}
             className="grid size-7 place-items-center rounded-md text-subtle transition hover:bg-foreground/5 hover:text-gold-leaf"
           >
             <Pencil className="size-3.5" aria-hidden />
@@ -364,7 +369,7 @@ function FilaInversion({
             type="button"
             onClick={eliminar}
             disabled={enCurso}
-            aria-label={`Borrar ${inversion.name}`}
+            aria-label={t('comun.borrarNombre', { nombre: inversion.name })}
             className="grid size-7 place-items-center rounded-md text-subtle transition hover:bg-expense/10 hover:text-expense disabled:opacity-50"
           >
             {enCurso ? (
@@ -388,6 +393,7 @@ function FilaInversion({
 /** Listado de activos con el alta y la edición. Las métricas van en la página. */
 export function InvestmentManager({ inversiones }: { inversiones: Inversion[] }) {
   const { monedasSeleccionadas } = useModoMoneda()
+  const { t } = useTraduccion()
 
   /** null = cerrado · 'nueva' = alta · Inversion = edición de esa fila. */
   const [formulario, setFormulario] = useState<'nueva' | Inversion | null>(null)
@@ -411,14 +417,14 @@ export function InvestmentManager({ inversiones }: { inversiones: Inversion[] })
         className="flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted transition hover:border-primary/50 hover:text-foreground"
       >
         <Plus className="size-4" aria-hidden />
-        Registrar inversión
+        {t('inv.registrar')}
       </button>
 
       {porMoneda.map(({ moneda, activos }) =>
         activos.length === 0 ? null : (
           <section key={moneda} className="flex flex-col gap-2">
             <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
-              Activos en {moneda}
+              {t('inv.activosEn', { moneda })}
             </h2>
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
               {activos.map((inversion) => (
@@ -435,9 +441,9 @@ export function InvestmentManager({ inversiones }: { inversiones: Inversion[] })
 
       {inversiones.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">
-          Todavía no cargaste inversiones.
+          {t('inv.sinActivos')}
           <br />
-          Cargalas y el asistente de gasto usa tu tasa real en vez de una estimada.
+          {t('inv.sinActivosPista')}
         </p>
       )}
 

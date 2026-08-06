@@ -5,8 +5,8 @@ import { useState, useTransition } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
 import { guardarCuenta, type CuentaAGuardar } from '@/app/dashboard/accounts/actions'
 import { CurrencyOptions } from '@/components/currency-options'
+import { useTraduccion } from '@/components/currency-provider'
 import {
-  ETIQUETA_TIPO_CUENTA,
   type Cuenta,
   type DetalleTarjeta,
   type Moneda,
@@ -38,6 +38,7 @@ function aNumero(valor: string): number | null {
 }
 
 export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
+  const { t } = useTraduccion()
   const router = useRouter()
   const editando = cuenta != null
 
@@ -72,7 +73,7 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
 
     const saldoIngresado = aNumero(saldo)
     if (saldo.trim() !== '' && saldoIngresado === null) {
-      setError('El saldo tiene que ser un número.')
+      setError(t('cuentas.errorSaldo'))
       return
     }
 
@@ -141,7 +142,7 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
         className="flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted transition hover:border-primary/50 hover:text-foreground"
       >
         <Plus className="size-4" aria-hidden />
-        Agregar cuenta o tarjeta
+        {t('cuentas.agregar')}
       </button>
     )
   }
@@ -153,12 +154,12 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
     >
       <div className="flex items-center justify-between">
         <h3 className="aurem-caps text-[11px] text-gold-leaf">
-          {editando ? 'Editar cuenta' : 'Nueva cuenta'}
+          {editando ? t('cuentas.editar') : t('cuentas.nueva')}
         </h3>
         <button
           type="button"
           onClick={cerrar}
-          aria-label="Cerrar"
+          aria-label={t('comun.cerrar')}
           className="grid size-7 place-items-center rounded-md text-subtle hover:bg-foreground/5"
         >
           <X className="size-4" aria-hidden />
@@ -167,34 +168,36 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <label className={`col-span-2 ${ETIQUETA_CAMPO}`}>
-          Nombre
+          {t('comun.nombre')}
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
             maxLength={80}
-            placeholder={esTarjeta ? 'Visa Galicia' : 'Cuenta sueldo'}
+            placeholder={
+              esTarjeta ? t('cuentas.placeholderTarjeta') : t('cuentas.placeholderCuenta')
+            }
             className={CAMPO}
           />
         </label>
 
         <label className={ETIQUETA_CAMPO}>
-          Tipo
+          {t('objetivos.tipoCampo')}
           <select
             value={tipo}
             onChange={(e) => setTipo(e.target.value as TipoDeCuenta)}
             className={CAMPO}
           >
-            {TIPOS.map((t) => (
-              <option key={t} value={t}>
-                {ETIQUETA_TIPO_CUENTA[t]}
+            {TIPOS.map((opcion) => (
+              <option key={opcion} value={opcion}>
+                {t(`tipoCuenta.${opcion}`)}
               </option>
             ))}
           </select>
         </label>
 
         <label className={ETIQUETA_CAMPO}>
-          Moneda
+          {t('comun.moneda')}
           <select
             value={moneda}
             onChange={(e) => setMoneda(e.target.value as Moneda)}
@@ -206,10 +209,10 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
 
         <label className={`col-span-2 ${ETIQUETA_CAMPO}`}>
           {esTarjeta
-            ? 'Deuda actual'
+            ? t('cuentas.deudaActual')
             : editando
-              ? 'Saldo actual'
-              : 'Saldo inicial (opcional)'}
+              ? t('cuentas.saldoActual')
+              : t('cuentas.saldoInicial')}
           <input
             type="number"
             inputMode="decimal"
@@ -221,16 +224,14 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
             className={`${CAMPO} tabular-nums`}
           />
           <span className="text-[10px] font-normal leading-snug text-subtle">
-            {esTarjeta
-              ? 'En positivo: lo que debés hoy en esta tarjeta.'
-              : 'Después lo mantienen los movimientos; editalo solo para corregirlo.'}
+            {esTarjeta ? t('cuentas.ayudaDeuda') : t('cuentas.ayudaSaldo')}
           </span>
         </label>
 
         {esTarjeta && (
           <>
             <label className={ETIQUETA_CAMPO}>
-              Día de cierre
+              {t('cuentas.diaCierre')}
               <select
                 value={cierre}
                 onChange={(e) => setCierre(Number(e.target.value))}
@@ -245,7 +246,7 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
             </label>
 
             <label className={ETIQUETA_CAMPO}>
-              Día de vencimiento
+              {t('cuentas.diaVencimiento')}
               <select
                 value={vencimiento}
                 onChange={(e) => setVencimiento(Number(e.target.value))}
@@ -260,20 +261,20 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
             </label>
 
             <label className={ETIQUETA_CAMPO}>
-              Límite (opcional)
+              {t('cuentas.limite')}
               <input
                 type="number"
                 min="0"
                 step="1000"
                 value={limite}
                 onChange={(e) => setLimite(e.target.value)}
-                placeholder="Sin límite"
+                placeholder={t('cuentas.sinLimite')}
                 className={`${CAMPO} tabular-nums`}
               />
             </label>
 
             <label className={ETIQUETA_CAMPO}>
-              Últimos 4 dígitos
+              {t('cuentas.ultimosDigitos')}
               <input
                 inputMode="numeric"
                 pattern="\d{4}"
@@ -286,12 +287,12 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
             </label>
 
             <label className={`col-span-2 ${ETIQUETA_CAMPO}`}>
-              Banco (opcional)
+              {t('cuentas.banco')}
               <input
                 value={banco}
                 onChange={(e) => setBanco(e.target.value)}
                 maxLength={60}
-                placeholder="Galicia"
+                placeholder={t('cuentas.placeholderBanco')}
                 className={CAMPO}
               />
             </label>
@@ -311,7 +312,7 @@ export function AccountForm({ cuenta, detalle, onCerrar }: Props) {
         className="btn-gold flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider disabled:opacity-50"
       >
         {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-        {editando ? 'Guardar cambios' : 'Guardar'}
+        {editando ? t('mov.guardarCambios') : t('comun.guardar')}
       </button>
     </form>
   )
