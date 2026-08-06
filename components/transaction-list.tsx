@@ -14,6 +14,10 @@ export type FilaMovimiento = Pick<
   | 'description'
   | 'date'
   | 'category_id'
+  // El editor lo necesita para preseleccionar la cuenta real del movimiento.
+  // Faltaba, y por eso el selector de cuenta arrancaba vacío ofreciendo "dejar
+  // como está" en vez de mostrar con qué cuenta se había cargado.
+  | 'account_id'
   // Necesarios para saber si la fila es parte de un plan de cuotas, que es lo
   // que decide qué se puede editar.
   | 'installment_current'

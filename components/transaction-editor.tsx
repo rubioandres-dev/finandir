@@ -25,6 +25,8 @@ export type MovimientoEditable = {
   description: string | null
   date: string
   category_id: string | null
+  /** Cuenta con la que se cargó. `not null` en la base desde schema.sql. */
+  account_id: string
   installment_current: number | null
   installment_total: number | null
   parent_transaction_id: string | null
@@ -78,8 +80,20 @@ export function TransactionEditor({
   const [fecha, setFecha] = useState(movimiento.date)
   const [descripcion, setDescripcion] = useState(movimiento.description ?? '')
   const [categoria, setCategoria] = useState(categoriaActual?.name ?? disponibles[0]?.name ?? '')
-  const [cuentaId, setCuentaId] = useState('')
+  // Arranca en la cuenta REAL del movimiento, no en vacío. Antes el campo
+  // empezaba sin valor y la opción vacía decía "dejar como está": el editor no
+  // recibía `account_id`, así que no tenía forma de saber cuál mostrar. La
+  // consecuencia era que la pregunta "¿de qué cuenta salió esto?" no se podía
+  // responder desde la pantalla que existe justamente para revisarlo.
+  const [cuentaId, setCuentaId] = useState(movimiento.account_id)
   const [cuotas, setCuotas] = useState(cuotasOriginales)
+
+  // La lista llega filtrada por la moneda activa, y el trigger de migrations/002
+  // obliga a que cuenta y movimiento compartan moneda: la cuenta propia tendría
+  // que estar siempre. Si no está —una fila anterior a ese trigger—, se agrega
+  // igual. Dejar el select en blanco haría que guardar moviera el movimiento a
+  // otra cuenta sin que nadie lo pidiera.
+  const cuentaPropiaListada = cuentas.some((c) => c.id === movimiento.account_id)
 
   useEffect(() => {
     function alTeclear(evento: KeyboardEvent) {
@@ -236,7 +250,9 @@ export function TransactionEditor({
               onChange={(e) => setCuentaId(e.target.value)}
               className={CAMPO}
             >
-              <option value="">{t('mov.dejarComoEsta')}</option>
+              {!cuentaPropiaListada && (
+                <option value={movimiento.account_id}>{t('mov.cuentaActual')}</option>
+              )}
               {cuentas.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.type === 'CREDIT_CARD' ? `💳 ${c.name}` : c.name}

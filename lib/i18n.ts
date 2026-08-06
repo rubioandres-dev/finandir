@@ -290,7 +290,12 @@ const ES_AR = {
   'mov.sinAnteriores': 'No hay movimientos en {moneda} de meses anteriores.',
   'mov.categorias': 'Categorías',
   'mov.editar': 'Editar movimiento',
-  'mov.dejarComoEsta': 'Dejar como está',
+  /**
+   * Sólo para el caso raro: el movimiento apunta a una cuenta que no está en la
+   * lista de elegibles, porque es de otra moneda. Sólo puede pasar con filas
+   * anteriores al trigger de migrations/002, que hoy impide esa combinación.
+   */
+  'mov.cuentaActual': 'La cuenta con la que se cargó',
   'mov.guardarCambios': 'Guardar cambios',
   'mov.borrarMovimiento': 'Borrar movimiento',
   'mov.confirmarBorrado': 'Confirmar borrado',
@@ -888,7 +893,7 @@ const EN: Parcial = {
   'mov.sinAnteriores': 'No transactions in {moneda} from earlier months.',
   'mov.categorias': 'Categories',
   'mov.editar': 'Edit transaction',
-  'mov.dejarComoEsta': 'Leave as is',
+  'mov.cuentaActual': 'The account it was recorded with',
   'mov.guardarCambios': 'Save changes',
   'mov.borrarMovimiento': 'Delete transaction',
   'mov.confirmarBorrado': 'Confirm deletion',
