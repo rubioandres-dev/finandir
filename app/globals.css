@@ -402,6 +402,34 @@ body {
 }
 
 /**
+ * Entrada de la barra de cambios sin guardar de Ajustes.
+ *
+ * Sube desde abajo en vez de aparecer: la barra tapa parte de la pantalla y un
+ * elemento que se materializa encima del contenido se lee como un glitch. El
+ * desplazamiento cuenta de dónde salió.
+ */
+@keyframes barra-ajustes-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.barra-ajustes {
+  animation: barra-ajustes-entrada 0.22s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-ajustes {
+    animation-duration: 0.01ms;
+  }
+}
+
+/**
  * Barra central del splash. En modo carga respira entre el 18% y el 82%:
  * comunica actividad sin prometer un avance real que no podemos medir.
  */

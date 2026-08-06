@@ -6,6 +6,7 @@ import { LanguageSettings } from '@/components/language-settings'
 import { ModuleSettings } from '@/components/module-settings'
 import { ProfileForm } from '@/components/profile-form'
 import { RegionSettings } from '@/components/region-settings'
+import { SettingsDraftProvider } from '@/components/settings-draft'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
@@ -75,13 +76,22 @@ export default async function SettingsPage() {
         }
       />
 
+      {/* Las divisas siguen guardando al toque: cambiarlas altera la lista del
+          selector del header, y dejarlas en un borrador sin confirmar mostraría
+          un header ofreciendo divisas que el servidor no conoce. */}
       <CurrencySettings monedasIniciales={monedas} faltaMigracion={faltaPerfil} />
 
-      <RegionSettings localeInicial={locale} faltaMigracion={faltaPerfil} />
-
-      <LanguageSettings idiomaInicial={idioma} faltaMigracion={faltaPerfil} />
-
-      <ModuleSettings inicial={modulos} faltaMigracion={faltaPerfil} />
+      {/* Región, idioma y módulos comparten un solo borrador y una sola
+          escritura: los tres reconstruyen el layout entero, y hacerlo una vez
+          por toque era el origen del parpadeo. */}
+      <SettingsDraftProvider
+        inicial={{ locale, idioma, modulos }}
+        faltaMigracion={faltaPerfil}
+      >
+        <RegionSettings />
+        <LanguageSettings />
+        <ModuleSettings />
+      </SettingsDraftProvider>
 
       <Card>
         <CardContent className="flex flex-col gap-3">

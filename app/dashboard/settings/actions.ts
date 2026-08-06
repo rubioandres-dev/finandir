@@ -129,8 +129,10 @@ const localeSchema = z
 /**
  * Guarda la región que define el formato de números y fechas.
  *
- * Como las divisas, guarda al toque y sin botón: el usuario prueba una opción
- * y ve el efecto en la app al instante.
+ * REEMPLAZADA POR `guardarAjustes` — Ajustes ya no la llama: región, idioma y
+ * módulos van juntos en un lote confirmado por el usuario. Se conserva porque
+ * sigue siendo una acción válida y autónoma, y borrar un endpoint público para
+ * ahorrar veinte líneas rompe a cualquiera que la esté usando.
  */
 export async function guardarLocale(locale: string): Promise<EstadoDePerfil> {
   const datos = localeSchema.safeParse(locale)
@@ -164,10 +166,11 @@ const idiomaSchema = z
 /**
  * Guarda el idioma de la interfaz.
  *
- * A diferencia de las divisas y la región, este SÍ pasa por una confirmación
- * en la UI antes de llegar acá: cambiar el idioma reescribe toda la pantalla,
- * y un toque accidental que deje la app en un idioma que no leés es difícil de
- * deshacer justamente porque no sabés dónde tocar para volver.
+ * REEMPLAZADA POR `guardarAjustes`, igual que `guardarLocale`. La confirmación
+ * que antes daba el modal ahora la da la barra de cambios sin guardar, que
+ * cubre el mismo riesgo: cambiar el idioma reescribe el botón que hace falta
+ * para volver atrás, así que nada tiene que cambiar hasta que el usuario
+ * confirme.
  */
 export async function guardarIdioma(idioma: string): Promise<EstadoDePerfil> {
   const datos = idiomaSchema.safeParse(idioma)
@@ -193,6 +196,10 @@ export async function guardarIdioma(idioma: string): Promise<EstadoDePerfil> {
 /**
  * Guarda qué módulos quedan activos.
  *
+ * REEMPLAZADA POR `guardarAjustes`. Era la peor de las tres para disparar por
+ * toque: cada switch revalidaba el layout entero, y apagar tres módulos
+ * reconstruía la navegación tres veces seguidas.
+ *
  * `normalizarModulos` descarta las claves que no son módulos y las de los
  * fijos: el cliente manda un objeto y no hay razón para confiar en su forma.
  */
@@ -213,6 +220,77 @@ export async function guardarModulos(estado: EstadoDeModulos): Promise<EstadoDeP
   revalidatePath('/dashboard', 'layout')
 
   return { mensaje: 'Módulos actualizados.' }
+}
+
+// --- Guardado en lote (confirmación diferida) --------------------------------
+
+const modulosSchema = z.record(z.string(), z.boolean())
+
+/**
+ * Los tres ajustes que Ajustes edita en borrador, en una sola escritura.
+ *
+ * `partial()` no es laxitud: la barra de guardado manda SOLO lo que cambió. Si
+ * el usuario tocó módulos y no el idioma, mandar el idioma actual sería
+ * escribir un valor que nadie pidió cambiar, y pisaría el que haya guardado
+ * otra pestaña en el medio.
+ */
+const ajustesSchema = z
+  .object({
+    locale: localeSchema,
+    idioma: idiomaSchema,
+    modulos: modulosSchema,
+  })
+  .partial()
+
+export type AjustesAGuardar = z.infer<typeof ajustesSchema>
+
+/**
+ * Guarda módulos, región e idioma juntos.
+ *
+ * POR QUÉ EN LOTE Y NO TRES ACTIONS
+ *
+ * Antes cada switch disparaba su propia action, y cada action hacía su upsert,
+ * su `revalidatePath('/dashboard', 'layout')` y su `router.refresh()`. Apagar
+ * tres módulos eran tres viajes al servidor y tres reconstrucciones del layout
+ * entero —barra inferior, bandeja "Más", providers— con el parpadeo
+ * correspondiente en cada una.
+ *
+ * Acá es UN upsert y UNA revalidación, dispare lo que dispare el usuario. El
+ * costo de la latencia se paga una vez, cuando se confirma, y no en cada toque.
+ */
+export async function guardarAjustes(entrada: AjustesAGuardar): Promise<EstadoDePerfil> {
+  const datos = ajustesSchema.safeParse(entrada)
+  if (!datos.success) return { error: datos.error.issues[0].message }
+
+  const { locale, idioma, modulos } = datos.data
+
+  // Nada que hacer: la barra no debería llegar acá con el borrador limpio, pero
+  // un upsert vacío igual tocaría `updated_at` y revalidaría el layout de gusto.
+  if (locale === undefined && idioma === undefined && modulos === undefined) {
+    return { mensaje: 'No había cambios para guardar.' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
+
+  const resultado = await guardarPerfil(supabase, user.id, {
+    ...(locale !== undefined ? { locale: normalizarLocale(locale) } : {}),
+    ...(idioma !== undefined ? { language: normalizarIdioma(idioma) } : {}),
+    // `normalizarModulos` descarta claves que no son módulos y las de los
+    // fijos: el cliente manda un objeto y no hay razón para confiar en su forma.
+    ...(modulos !== undefined ? { active_modules: normalizarModulos(modulos) } : {}),
+  })
+
+  if (!resultado.ok) return { error: resultado.error }
+
+  // Idioma, formato y navegación los baja el layout a través del provider: hay
+  // que revalidarlo entero o la app sigue mostrando lo anterior.
+  revalidatePath('/dashboard', 'layout')
+
+  return { mensaje: 'Ajustes guardados.' }
 }
 
 const onboardingSchema = z.object({

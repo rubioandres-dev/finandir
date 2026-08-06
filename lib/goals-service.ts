@@ -182,8 +182,29 @@ function redondear(valor: number): number {
 export const FALTA_MIGRACION_OBJETIVOS =
   'Falta el esquema de objetivos. Ejecutá migrations/010_goals_and_aurem_tier.sql.'
 
-function faltaLaTabla(codigo?: string): boolean {
+export const FALTA_RESTRICCION_UNICA =
+  'Falta la restricción única de objetivos. Ejecutá migrations/012_financial_goals_unique.sql en el SQL Editor de Supabase.'
+
+/**
+ * Las columnas que nombra el `onConflict` del upsert.
+ *
+ * Vive acá y no suelta en la action porque tiene que coincidir EXACTAMENTE con
+ * la restricción `financial_goals_unico` de la 012. Si un día cambia la clave,
+ * este nombre es lo que hay que buscar para encontrar los dos lados.
+ */
+export const CLAVE_UNICA_DE_OBJETIVO = 'user_id,type,category_id'
+
+export function faltaLaTabla(codigo?: string): boolean {
   return codigo === 'PGRST205' || codigo === 'PGRST204' || codigo === '42P01'
+}
+
+/**
+ * 42P10 = `invalid_column_reference`. Es el código con el que Postgres rechaza
+ * un `ON CONFLICT` cuyas columnas no corresponden a ningún índice único total,
+ * que es exactamente lo que pasaba antes de la 012.
+ */
+export function faltaLaRestriccionUnica(codigo?: string): boolean {
+  return codigo === '42P10'
 }
 
 export async function cargarObjetivos(supabase: SupabaseClient): Promise<{

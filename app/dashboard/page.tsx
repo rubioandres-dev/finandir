@@ -1,24 +1,27 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Wallet } from 'lucide-react'
 import { AnalyticsChart } from '@/components/analytics-chart'
+import { BalanceOverviewCard } from '@/components/balance-overview-card'
 import { BudgetGoals, type PresupuestoDeObjetivo } from '@/components/budget-goals'
 import { FlowCards } from '@/components/flow-cards'
-import { MontoPorMoneda } from '@/components/monto'
 import { SmartCardSuggester } from '@/components/smart-card-suggester'
 import { SmartInput } from '@/components/smart-input'
 import { TransactionList } from '@/components/transaction-list'
-import { Card, CardLabel } from '@/components/ui/card'
 import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { resumirBalance } from '@/lib/balance-overview'
 import { getBestCardToPay } from '@/lib/card-optimizer'
+import { cargarCompromisos } from '@/lib/commitments-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
+import { obtenerMapaDeCambio } from '@/lib/exchange'
 import { cargarObjetivos } from '@/lib/goals-service'
 import { crearTraductor } from '@/lib/i18n'
+import { cargarInversiones } from '@/lib/investments-service'
+import { moduloActivo } from '@/lib/modules'
 import { equivalenteAproximado } from '@/lib/monedas'
 import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
@@ -34,7 +37,7 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Moneda activa del header: recorta todo lo que se muestra abajo.
-  const { modo, monedas, idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma, locale, modulos } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
 
   const {
@@ -43,18 +46,45 @@ export default async function DashboardPage() {
     movimientos,
     ventana,
     delMes,
-    saldos,
     ingresosDelMes,
     gastosDelMes,
     errorCarga,
   } = await cargarDatosDelDashboard(modo, monedas)
 
+  const hoy = hoyEnArgentina()
+
   // Recomendación de tarjeta: se calcula en el servidor y el widget solo muestra.
-  const [{ tarjetas, cuentas }, cotizacionesDeMercado, { objetivos }] = await Promise.all([
+  const [
+    { tarjetas, cuentas, patrimonio },
+    cotizacionesDeMercado,
+    { objetivos },
+    { resumen: carteraDeInversiones },
+    { curva },
+  ] = await Promise.all([
     cargarCuentasYDeudas(supabase, monedas),
     obtenerCotizacionesDelMercado(),
     cargarObjetivos(supabase),
+    cargarInversiones(supabase, monedas),
+    cargarCompromisos(supabase, hoy),
   ])
+
+  // El mapa va después: reusa el MEP que `cargarDatosDelDashboard` ya resolvió
+  // en vez de volver a pedirlo.
+  const { mapa } = await obtenerMapaDeCambio(supabase, monedas, cotizacion?.venta ?? null)
+
+  // Las tres capas del balance, unificadas a la divisa ACTIVA del header —no a
+  // la principal del perfil, como hace el consolidado—: esta card acompaña al
+  // selector de arriba y tiene que responder en la misma moneda que él.
+  const balance = resumirBalance({
+    patrimonio,
+    inversiones: carteraDeInversiones,
+    monedas,
+    destino: modo,
+    mapa,
+    cotizacion,
+    // Primer punto de la curva: lo que vence de hoy a fin de mes.
+    cuotasDelMes: curva[0]?.porMoneda ?? [],
+  })
 
   const tarjetasDeLaMoneda = tarjetas.filter((t) => esDeLaMoneda(t, modo))
   const cuentasDeLaMoneda = cuentas.filter((c) => esDeLaMoneda(c, modo))
@@ -119,7 +149,6 @@ export default async function DashboardPage() {
   // fecha del mes en que se pagan, así que el orden por fecha descendente
   // ponía arriba vencimientos que todavía no ocurrieron. Las futuras tienen su
   // propia pestaña en /dashboard/transactions.
-  const hoy = hoyEnArgentina()
   const recientes = movimientos.filter((movimiento) => movimiento.date <= hoy).slice(0, 8)
 
   return (
@@ -133,24 +162,20 @@ export default async function DashboardPage() {
         </p>
       )}
 
-      {/* --- Resumen: una línea por moneda, nunca sumadas ------------------ */}
-      <section className="grid grid-cols-2 gap-3">
-        <Card glass className="glow-gold col-span-2 p-5">
-          <CardLabel>
-            <Wallet className="size-3.5 text-gold-leaf" aria-hidden />
-            {tr('dashboard.balance')}
-          </CardLabel>
-          <div className="mt-2.5">
-            <MontoPorMoneda
-              totales={saldos}
-              className="font-display text-[2rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf"
-              vacio={tr('dashboard.sinMovimientos')}
-            />
-          </div>
-          {/* Filamento dorado al pie: cierra la card sin agregar otro borde. */}
-          <div className="fire-gradient mt-4 h-px w-full opacity-40" aria-hidden />
-        </Card>
+      {/* --- Balance en tres capas ---------------------------------------- */}
+      {/* Reemplaza al "Balance total" viejo, que mostraba los saldos crudos de
+          las cuentas: ese número mezclaba plata disponible con deuda de tarjeta
+          y, con varias divisas, era una lista que el ojo terminaba sumando
+          aunque no fuera sumable. */}
+      <BalanceOverviewCard
+        resumen={balance}
+        locale={locale}
+        idioma={idioma}
+        mostrarInversiones={moduloActivo(modulos, 'investments')}
+        mostrarDeudas={moduloActivo(modulos, 'debts')}
+      />
 
+      <section className="grid grid-cols-2 gap-3">
         {/* Ingresos y gastos en la moneda ACTIVA, no en las dos a la vez.
             Mostrar ARS y USD apilados en la misma card obligaba a leer cuatro
             números para responder "cuánto gasté", y ninguno de los dos totales

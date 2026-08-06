@@ -1,18 +1,10 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
-import { Check, Loader2, Lock, LayoutGrid } from 'lucide-react'
-import { guardarModulos } from '@/app/dashboard/settings/actions'
+import { Lock, LayoutGrid } from 'lucide-react'
+import { useAjustesEnBorrador } from '@/components/settings-draft'
 import { useTraduccion } from '@/components/currency-provider'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
-import {
-  esModuloFijo,
-  MODULOS,
-  moduloActivo,
-  type EstadoDeModulos,
-  type Modulo,
-} from '@/lib/modules'
+import { esModuloFijo, MODULOS, moduloActivo, type Modulo } from '@/lib/modules'
 import type { Clave } from '@/lib/i18n'
 
 /** Cada módulo con su etiqueta y su explicación, tomadas del diccionario. */
@@ -37,71 +29,31 @@ const ETIQUETAS: Record<Modulo, { nombre: Clave; detalle: Clave }> = {
  * respondiendo. Es una decisión de interfaz, no de retención: alguien que
  * apaga Inversiones porque no invierte no debería perder lo que cargó si mañana
  * lo vuelve a prender.
+ *
+ * NO GUARDA: escribe en el borrador de `<SettingsDraftProvider>` y la barra
+ * inferior confirma. Antes cada switch era su propia Server Action, y apagar
+ * tres módulos reconstruía el layout tres veces.
  */
-export function ModuleSettings({
-  inicial,
-  faltaMigracion,
-}: {
-  inicial: EstadoDeModulos
-  faltaMigracion: boolean
-}) {
-  const router = useRouter()
+export function ModuleSettings() {
   const { t } = useTraduccion()
-
-  const [estado, setEstado] = useState<EstadoDeModulos>(inicial)
-  const [error, setError] = useState<string | null>(null)
-  const [guardado, setGuardado] = useState(false)
-  const [guardando, iniciar] = useTransition()
+  const { valores, editar, guardando, faltaMigracion } = useAjustesEnBorrador()
 
   function alternar(modulo: Modulo) {
     if (esModuloFijo(modulo)) return
 
-    const previo = estado
-    const siguiente = { ...estado, [modulo]: !moduloActivo(estado, modulo) }
-
-    setEstado(siguiente)
-    setError(null)
-    setGuardado(false)
-
-    iniciar(async () => {
-      const resultado = await guardarModulos(siguiente)
-
-      if (resultado.error) {
-        setEstado(previo)
-        setError(resultado.error)
-        return
-      }
-
-      setGuardado(true)
-      // La navegación se arma en el layout: sin refrescar, la barra inferior
-      // sigue mostrando lo que se acaba de apagar.
-      router.refresh()
+    editar('modulos', {
+      ...valores.modulos,
+      [modulo]: !moduloActivo(valores.modulos, modulo),
     })
   }
 
   return (
     <Card id="modulos" className="scroll-mt-24">
       <CardContent className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <CardLabel>
-            <LayoutGrid className="size-3.5 text-gold-leaf" aria-hidden />
-            {t('modulos.titulo')}
-          </CardLabel>
-
-          <span aria-live="polite" className="text-[11px] text-subtle">
-            {guardando ? (
-              <span className="flex items-center gap-1.5">
-                <Loader2 className="size-3 animate-spin" aria-hidden />
-                {t('ajustes.guardando')}
-              </span>
-            ) : guardado ? (
-              <span className="flex items-center gap-1.5 text-income">
-                <Check className="size-3" aria-hidden />
-                {t('ajustes.guardado')}
-              </span>
-            ) : null}
-          </span>
-        </div>
+        <CardLabel>
+          <LayoutGrid className="size-3.5 text-gold-leaf" aria-hidden />
+          {t('modulos.titulo')}
+        </CardLabel>
 
         {faltaMigracion && (
           <p className="rounded-xl border border-budget-warn/30 bg-budget-warn/10 px-3 py-2 text-xs leading-snug text-budget-warn">
@@ -112,7 +64,7 @@ export function ModuleSettings({
         <ul className="flex flex-col divide-y divide-glass-stroke/25">
           {MODULOS.map((modulo) => {
             const fijo = esModuloFijo(modulo)
-            const activo = moduloActivo(estado, modulo)
+            const activo = moduloActivo(valores.modulos, modulo)
             const { nombre, detalle } = ETIQUETAS[modulo]
 
             return (
@@ -152,16 +104,9 @@ export function ModuleSettings({
           })}
         </ul>
 
-        {error && (
-          <p
-            role="alert"
-            className="rounded-lg border border-expense/30 bg-expense/10 px-3.5 py-2.5 text-sm text-expense"
-          >
-            {error}
-          </p>
-        )}
-
-        <p className="text-[11px] leading-snug text-subtle">{t('modulos.ayuda')}</p>
+        <p className="text-[11px] leading-snug text-subtle">
+          {t('modulos.ayuda')} {t('ajustes.avisoDiferido')}
+        </p>
       </CardContent>
     </Card>
   )

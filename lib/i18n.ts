@@ -549,6 +549,34 @@ const ES_AR = {
   'deudas.contadorSaldadas': '{cantidad} saldadas',
   'deudas.sinDeudas': 'No tenés deudas ni préstamos registrados.',
   'deudas.borrar': 'Borrar deuda',
+
+  // --- Barra de confirmación diferida en Ajustes ----------------------------
+  'ajustes.sinGuardar': 'Tenés cambios sin guardar',
+  'ajustes.descartar': 'Descartar',
+  'ajustes.barraAria': 'Cambios pendientes de guardar',
+  'ajustes.guardadoOk': 'Ajustes guardados',
+  'ajustes.cambioModulos': 'Módulos',
+  'ajustes.cambioRegion': 'Región',
+  'ajustes.cambioIdioma': 'Idioma',
+  'ajustes.avisoDiferido':
+    'Los cambios de esta sección se aplican cuando confirmás abajo.',
+
+  // --- Card de balance del dashboard ----------------------------------------
+  'balance.liquidezHoy': 'Liquidez hoy',
+  'balance.liquidezDetalle': 'Disponible ya: cuentas, efectivo, billeteras y rescates T+0.',
+  'balance.tarjetas': 'Tarjetas y comprometido',
+  'balance.tarjetasDetalle': 'Saldo de tarjetas más las cuotas que vencen este mes.',
+  'balance.inversiones': 'Inversiones y activos',
+  'balance.inversionesDetalle': 'Lo que no se rescata hoy: T+1, T+2, CEDEARs, cripto y plazos fijos.',
+  'balance.cuotasDelMes': 'Cuotas de este mes',
+  'balance.alertaLiquidez': 'Tu liquidez de hoy no alcanza para cubrir lo que vence en tarjetas.',
+  'balance.sinCotizacion': 'Sin cotización',
+  'balance.sinCotizacionDetalle':
+    'No se pudo cotizar {monedas}, así que no se unifican los libros. Preferimos no mostrar un total antes que mostrarlo con un tipo de cambio inventado.',
+  'balance.expresadoEn':
+    'Expresado en {moneda}, la divisa del header. Es una foto a los tipos de cambio de hoy: si se mueven, el número se mueve sin que hayas hecho nada.',
+  'balance.noSeRestan':
+    'La liquidez NO tiene descontadas las tarjetas: son dos capas distintas a propósito.',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -654,6 +682,14 @@ const ES_NEUTRO: Parcial = {
   'deudas.aQuienLeDebes': '¿A quién le debes?',
   'deudas.errorMonto': 'Ingresa un monto válido.',
   'deudas.sinDeudas': 'No tienes deudas ni préstamos registrados.',
+
+  'ajustes.sinGuardar': 'Tienes cambios sin guardar',
+  'ajustes.avisoDiferido': 'Los cambios de esta sección se aplican cuando confirmas abajo.',
+
+  'balance.inversionesDetalle': 'Lo que no se rescata hoy: T+1, T+2, ETFs, cripto y plazos fijos.',
+  'balance.alertaLiquidez': 'Tu liquidez de hoy no alcanza para cubrir lo que vence en tarjetas.',
+  'balance.expresadoEn':
+    'Expresado en {moneda}, la divisa del encabezado. Es una foto a los tipos de cambio de hoy: si se mueven, el número se mueve sin que hayas hecho nada.',
 }
 
 const EN: Parcial = {
@@ -1072,6 +1108,32 @@ const EN: Parcial = {
   'deudas.contadorSaldadas': '{cantidad} settled',
   'deudas.sinDeudas': 'You have no debts or loans recorded.',
   'deudas.borrar': 'Delete debt',
+
+  'ajustes.sinGuardar': 'You have unsaved changes',
+  'ajustes.descartar': 'Discard',
+  'ajustes.barraAria': 'Unsaved changes',
+  'ajustes.guardadoOk': 'Settings saved',
+  'ajustes.cambioModulos': 'Modules',
+  'ajustes.cambioRegion': 'Region',
+  'ajustes.cambioIdioma': 'Language',
+  'ajustes.avisoDiferido': 'Changes in this section apply once you confirm below.',
+
+  'balance.liquidezHoy': 'Liquid today',
+  'balance.liquidezDetalle': 'Available right now: accounts, cash, wallets and T+0 redemptions.',
+  'balance.tarjetas': 'Cards and committed',
+  'balance.tarjetasDetalle': 'Card balance plus the instalments due this month.',
+  'balance.inversiones': 'Investments and assets',
+  'balance.inversionesDetalle':
+    'What you cannot cash out today: T+1, T+2, ETFs, crypto and fixed-term deposits.',
+  'balance.cuotasDelMes': 'Instalments due this month',
+  'balance.alertaLiquidez': 'Your liquid money today does not cover what is due on your cards.',
+  'balance.sinCotizacion': 'No exchange rate',
+  'balance.sinCotizacionDetalle':
+    '{monedas} could not be priced, so the books are not combined. We would rather show no total than one built on a made-up exchange rate.',
+  'balance.expresadoEn':
+    'Expressed in {moneda}, the currency picked in the header. It is a snapshot at today rates: if they move, this number moves without you doing anything.',
+  'balance.noSeRestan':
+    'Liquidity does NOT have card debt deducted: they are two separate layers on purpose.',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {
