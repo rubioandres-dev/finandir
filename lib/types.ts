@@ -66,6 +66,8 @@ export type TipoDeActivo =
   | 'FIXED_INCOME'
   | 'STOCKS_CEDEARS'
   | 'CRYPTO'
+  /** Desde la 016. Antes se cargaba como FIXED_INCOME + LOCKED. */
+  | 'TIME_DEPOSIT'
   | 'REAL_ESTATE'
 
 export const ETIQUETA_TIPO_ACTIVO: Record<TipoDeActivo, string> = {
@@ -73,6 +75,7 @@ export const ETIQUETA_TIPO_ACTIVO: Record<TipoDeActivo, string> = {
   FIXED_INCOME: 'Renta fija',
   STOCKS_CEDEARS: 'Acciones y CEDEARs',
   CRYPTO: 'Cripto',
+  TIME_DEPOSIT: 'Plazo fijo',
   REAL_ESTATE: 'Inmuebles',
 }
 
@@ -105,6 +108,8 @@ export type Inversion = {
   /** Tasa nominal anual estimada, en porcentaje (40 = 40 % TNA). */
   expected_tna: number
   liquidity_term: PlazoDeLiquidez
+  /** Dónde está el activo: Mercado Pago, Balanz, Binance. Desde la 016. */
+  broker_entity: string | null
   created_at: string
 }
 

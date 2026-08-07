@@ -329,7 +329,7 @@ function BotonDeAyuda() {
   return (
     <button
       type="button"
-      onClick={abrirTour}
+      onClick={() => abrirTour('inicio')}
       aria-label={t('tour.ayuda')}
       title={t('tour.ayuda')}
       className={`${HERRAMIENTA} hidden border-gold-leaf/60 text-gold-leaf hover:bg-gold-leaf/10 sm:grid`}

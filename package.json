@@ -1,6 +1,6 @@
 {
   "name": "finandir-pwa",
-  "version": "0.9.0-dev.6",
+  "version": "0.9.0-dev.7",
   "private": true,
   "scripts": {
     "dev": "next dev",

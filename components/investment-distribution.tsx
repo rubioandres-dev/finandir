@@ -13,6 +13,9 @@ const COLOR: Record<TipoDeActivo, string> = {
   FIXED_INCOME: 'var(--primary-container)',
   STOCKS_CEDEARS: 'var(--success-emerald)',
   CRYPTO: 'var(--budget-warn)',
+  // Comparte familia con FIXED_INCOME a propósito: un plazo fijo ES renta fija,
+  // sólo que inmovilizada, y en la barra conviene que se lean como vecinos.
+  TIME_DEPOSIT: 'var(--surface-container)',
   REAL_ESTATE: 'var(--on-surface-variant)',
 }
 

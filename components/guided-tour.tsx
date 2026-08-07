@@ -50,15 +50,40 @@ type Paso = {
   cuerpo: Clave
 }
 
-const PASOS: Paso[] = [
-  { ancla: 'balance', titulo: 'tour.balanceTitulo', cuerpo: 'tour.balanceCuerpo' },
-  { ancla: 'smart-input', titulo: 'tour.entradaTitulo', cuerpo: 'tour.entradaCuerpo' },
-  { ancla: 'smart-spend', titulo: 'tour.gastoTitulo', cuerpo: 'tour.gastoCuerpo' },
-  { ancla: 'inversiones', titulo: 'tour.inversionesTitulo', cuerpo: 'tour.inversionesCuerpo' },
-]
+/**
+ * Los recorridos disponibles.
+ *
+ * Es un mapa y no una lista suelta porque cada módulo explica lo suyo sobre sus
+ * propios elementos. El de inicio es el que arranca solo en la primera visita;
+ * el de inversiones lo dispara el "?" de esa página. Comparten toda la
+ * mecánica —recorte, tarjeta, teclado— y sólo cambian los pasos: una segunda
+ * implementación de spotlight sería el mismo código dos veces, con las dos
+ * divergiendo al primer retoque.
+ */
+export type Recorrido = 'inicio' | 'inversiones'
+
+const RECORRIDOS: Record<Recorrido, { titulo: Clave; pasos: Paso[] }> = {
+  inicio: {
+    titulo: 'tour.titulo',
+    pasos: [
+      { ancla: 'balance', titulo: 'tour.balanceTitulo', cuerpo: 'tour.balanceCuerpo' },
+      { ancla: 'smart-input', titulo: 'tour.entradaTitulo', cuerpo: 'tour.entradaCuerpo' },
+      { ancla: 'smart-spend', titulo: 'tour.gastoTitulo', cuerpo: 'tour.gastoCuerpo' },
+      { ancla: 'inversiones', titulo: 'tour.inversionesTitulo', cuerpo: 'tour.inversionesCuerpo' },
+    ],
+  },
+  inversiones: {
+    titulo: 'tour.invTitulo',
+    pasos: [
+      { ancla: 'inv-total', titulo: 'tour.invLiquidezTitulo', cuerpo: 'tour.invLiquidezCuerpo' },
+      { ancla: 'inv-tna', titulo: 'tour.invTnaTitulo', cuerpo: 'tour.invTnaCuerpo' },
+      { ancla: 'inv-pasiva', titulo: 'tour.invPasivaTitulo', cuerpo: 'tour.invPasivaCuerpo' },
+    ],
+  },
+}
 
 type Contexto = {
-  abrirTour: () => void
+  abrirTour: (recorrido?: Recorrido) => void
   /** true una vez que el navegador confirmó que el tour ya se vio. */
   yaVisto: boolean
 }
@@ -108,13 +133,17 @@ export function GuidedTourProvider({
 }) {
   const yaVisto = useYaVisto()
   const [activo, setActivo] = useState(false)
+  const [recorrido, setRecorrido] = useState<Recorrido>('inicio')
   const [paso, setPaso] = useState(0)
   const [recorte, setRecorte] = useState<Recorte>(null)
 
-  const abrirTour = useCallback(() => {
+  const abrirTour = useCallback((cual: Recorrido = 'inicio') => {
+    setRecorrido(cual)
     setPaso(0)
     setActivo(true)
   }, [])
+
+  const pasos = RECORRIDOS[recorrido].pasos
 
   const cerrar = useCallback(() => {
     setActivo(false)
@@ -141,7 +170,7 @@ export function GuidedTourProvider({
 
     function medir() {
       const objetivo = document.querySelector<HTMLElement>(
-        `[data-tour="${PASOS[paso].ancla}"]`
+        `[data-tour="${RECORRIDOS[recorrido].pasos[paso].ancla}"]`
       )
 
       if (!objetivo) {
@@ -166,7 +195,7 @@ export function GuidedTourProvider({
     medir()
     window.addEventListener('resize', medir)
     return () => window.removeEventListener('resize', medir)
-  }, [activo, paso])
+  }, [activo, paso, recorrido])
 
   // Escape cierra, y el fondo no scrollea mientras el tour está abierto.
   useEffect(() => {
@@ -187,11 +216,12 @@ export function GuidedTourProvider({
       {children}
       {activo && (
         <CapaDelTour
+          recorrido={recorrido}
           paso={paso}
           recorte={recorte}
           onAnterior={() => setPaso((p) => Math.max(0, p - 1))}
           onSiguiente={() => {
-            if (paso >= PASOS.length - 1) cerrar()
+            if (paso >= pasos.length - 1) cerrar()
             else setPaso((p) => p + 1)
           }}
           onCerrar={cerrar}
@@ -202,12 +232,14 @@ export function GuidedTourProvider({
 }
 
 function CapaDelTour({
+  recorrido,
   paso,
   recorte,
   onAnterior,
   onSiguiente,
   onCerrar,
 }: {
+  recorrido: Recorrido
   paso: number
   recorte: Recorte
   onAnterior: () => void
@@ -215,8 +247,9 @@ function CapaDelTour({
   onCerrar: () => void
 }) {
   const { t } = useTraduccion()
-  const actual = PASOS[paso]
-  const ultimo = paso === PASOS.length - 1
+  const { titulo, pasos } = RECORRIDOS[recorrido]
+  const actual = pasos[paso]
+  const ultimo = paso === pasos.length - 1
 
   if (typeof document === 'undefined') return null
 
@@ -238,7 +271,7 @@ function CapaDelTour({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={t('tour.titulo')}
+      aria-label={t(titulo)}
       className="fixed inset-0 z-[90]"
     >
       {/* El recorte. `box-shadow` gigante pinta todo menos este rectángulo. */}
@@ -274,7 +307,7 @@ function CapaDelTour({
         <div className="flex items-start justify-between gap-3">
           <p className="aurem-caps flex items-center gap-1.5 text-[10px] text-gold-leaf">
             <Sparkles className="size-3.5" aria-hidden />
-            {t('tour.titulo')}
+            {t(titulo)}
           </p>
           <button
             type="button"
@@ -296,7 +329,7 @@ function CapaDelTour({
         <div className="flex items-center justify-between gap-3 pt-1">
           {/* Puntos de avance: dicen cuánto falta sin ocupar una línea de texto. */}
           <ul className="flex items-center gap-1.5" aria-hidden>
-            {PASOS.map((p, indice) => (
+            {pasos.map((p, indice) => (
               <li
                 key={p.ancla}
                 className={`h-1.5 rounded-full transition-all ${
@@ -339,7 +372,7 @@ function CapaDelTour({
         </div>
 
         <p className="text-[10px] text-subtle">
-          {t('tour.contador', { actual: paso + 1, total: PASOS.length })}
+          {t('tour.contador', { actual: paso + 1, total: pasos.length })}
         </p>
       </div>
     </div>,

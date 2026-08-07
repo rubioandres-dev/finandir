@@ -1,13 +1,19 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Lightbulb, Percent, TrendingUp, Zap } from 'lucide-react'
+import { Coins, Lightbulb, Percent, TrendingUp } from 'lucide-react'
 import { InvestmentDistribution } from '@/components/investment-distribution'
 import { InvestmentManager } from '@/components/investment-manager'
+import { InvestmentsTourButton } from '@/components/investments-tour'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
-import { cargarInversiones, distribucionPorTipo } from '@/lib/investments-service'
+import {
+  cargarInversiones,
+  distribucionPorTipo,
+  gananciaMensualEstimada,
+} from '@/lib/investments-service'
 import { crearTraductor } from '@/lib/i18n'
+import { normalizarMoneda } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
 
@@ -20,22 +26,39 @@ export default async function InvestmentsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { monedas, locale , idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale, idioma } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale)
   const { inversiones, resumen, error } = await cargarInversiones(supabase, monedas)
 
-  // Un reparto por moneda: los libros no se mezclan, igual que en cuentas.
-  const repartos = monedas.map((moneda) => ({
-    moneda,
-    tramos: distribucionPorTipo(inversiones, moneda),
-  })).filter((r) => r.tramos.length > 0)
+  /**
+   * Esta vista pasa a respetar el selector del header, como Cuentas y
+   * Movimientos.
+   *
+   * Antes apilaba un renglón por divisa en cada métrica. Se veía la cartera
+   * completa sin tocar nada, pero los tres números crecían hacia abajo y
+   * ninguno era comparable con el otro: dos TNA de monedas distintas no se
+   * promedian ni se ordenan. Con un solo libro a la vez, cada KPI vuelve a ser
+   * un número.
+   */
+  const deLaMoneda = inversiones.filter((i) => normalizarMoneda(i.currency) === modo)
+
+  const valorTotal = resumen.valorActual.find((v) => v.moneda === modo)?.valor ?? 0
+  const resultado = resumen.resultado.find((r) => r.moneda === modo)?.valor ?? 0
+  const tnaPonderada = resumen.tnaLiquida[modo] ?? null
+  const gananciaMensual = gananciaMensualEstimada(inversiones, modo)
+
+  const tramos = distribucionPorTipo(inversiones, modo)
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
-        {tr('nav.inversiones')}
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
+          {tr('nav.inversiones')}{' '}
+          <span className="text-sm font-medium text-subtle">{tr('comun.enMoneda', { moneda: modo })}</span>
+        </h1>
+        <InvestmentsTourButton />
+      </div>
 
       {error && (
         <p
@@ -46,105 +69,69 @@ export default async function InvestmentsPage() {
         </p>
       )}
 
-      {/* --- Hero: las tres métricas que definen la cartera ----------------- */}
-      <section className="grid grid-cols-2 gap-3">
-        <Card glass className="glow-gold col-span-2 p-5">
+      {/* --- Los tres KPI que definen la cartera --------------------------- */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card glass data-tour="inv-total" className="glow-gold flex flex-col gap-1 p-4">
           <CardLabel className="text-gold-leaf">
             <TrendingUp className="size-3.5" aria-hidden />
-            Patrimonio invertido total
+            {tr('inv.totalInvertido')}
           </CardLabel>
-          <div className="mt-2.5 flex flex-col gap-0.5">
-            {resumen.valorActual.map((total) => (
-              <span
-                key={total.moneda}
-                className="font-display text-[1.75rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf"
-              >
-                {formatearMonto(total.valor, total.moneda)}
-              </span>
-            ))}
-          </div>
+
+          <p className="font-display text-[1.6rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf">
+            {formatearMonto(valorTotal, modo)}
+          </p>
 
           {/* Resultado contra el costo: es lo único que dice si va bien. */}
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
-            {resumen.resultado.map((total) =>
-              total.valor === 0 ? null : (
-                <span
-                  key={total.moneda}
-                  className={`text-[11px] font-medium tabular-nums ${
-                    total.valor > 0 ? 'text-income' : 'text-expense'
-                  }`}
-                >
-                  {total.valor > 0 ? '+' : '−'}
-                  {formatearMonto(Math.abs(total.valor), total.moneda)} sobre lo invertido
-                </span>
-              )
-            )}
-          </div>
-
-          <div className="fire-gradient mt-4 h-px w-full opacity-40" aria-hidden />
+          {resultado !== 0 && (
+            <p
+              className={`text-[11px] font-medium tabular-nums ${
+                resultado > 0 ? 'text-income' : 'text-expense'
+              }`}
+            >
+              {resultado > 0 ? '+' : '−'}
+              {formatearMonto(Math.abs(resultado), modo)} {tr('inv.sobreLoInvertido')}
+            </p>
+          )}
         </Card>
 
-        <Card glass className="p-4">
+        <Card glass data-tour="inv-tna" className="flex flex-col gap-1 p-4">
           <CardLabel>
             <Percent className="size-3.5 text-gold-leaf" aria-hidden />
-            Rendimiento promedio
+            {tr('inv.tnaPonderada')}
           </CardLabel>
-          <div className="mt-2 flex flex-col gap-0.5">
-            {monedas.map((moneda) => {
-              const tna = resumen.tnaLiquida[moneda]
-              if (tna === null || tna === undefined) return null
-              return (
-                <span
-                  key={moneda}
-                  className="font-display text-lg font-bold tracking-tight tabular-nums text-gold-leaf"
-                >
-                  {tna}% <span className="text-[11px] font-medium text-subtle">TNA {moneda}</span>
-                </span>
-              )
-            })}
-            {monedas.every((m) => !resumen.tnaLiquida[m]) && (
-              <span className="font-display text-lg font-bold tracking-tight text-subtle">—</span>
-            )}
-          </div>
-          <p className="mt-1.5 text-[11px] text-subtle">{tr('inv.ponderado')}</p>
+
+          <p className="font-display text-[1.6rem] font-bold leading-tight tracking-tighter tabular-nums text-gold-leaf">
+            {tnaPonderada === null ? '—' : `${tnaPonderada}%`}
+          </p>
+
+          <p className="text-[10px] leading-snug text-subtle">{tr('inv.tnaAlimenta')}</p>
         </Card>
 
-        <Card glass className="p-4">
+        <Card glass data-tour="inv-pasiva" className="flex flex-col gap-1 p-4">
           <CardLabel>
-            <Zap className="size-3.5 text-success-emerald" aria-hidden />
-            Liquidez inmediata
+            <Coins className="size-3.5 text-success-emerald" aria-hidden />
+            {tr('inv.gananciaPasiva')}
           </CardLabel>
-          <div className="mt-2 flex flex-col gap-0.5">
-            {resumen.liquidezInmediata.map((total) => (
-              <span
-                key={total.moneda}
-                className="font-display text-lg font-bold tracking-tight tabular-nums text-success-emerald"
-              >
-                {formatearMonto(total.valor, total.moneda)}
-              </span>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[11px] text-subtle">{tr('inv.rescatableHoy')}</p>
+
+          <p className="font-display text-[1.6rem] font-bold leading-tight tracking-tighter tabular-nums text-success-emerald">
+            {formatearMonto(gananciaMensual, modo)}
+          </p>
+
+          <p className="text-[10px] leading-snug text-subtle">{tr('inv.gananciaPasivaDetalle')}</p>
         </Card>
       </section>
 
-      {repartos.length > 0 && (
-        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+      {tramos.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
           <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
-            Distribución por tipo
+            {tr('inv.distribucion')}
           </h2>
-          {repartos.map(({ moneda, tramos }) => (
-            <div key={moneda} className="flex flex-col gap-2">
-              {repartos.length > 1 && (
-                <span className="text-[10px] font-semibold tabular-nums text-subtle">{moneda}</span>
-              )}
-              <InvestmentDistribution tramos={tramos} moneda={moneda} locale={locale} />
-            </div>
-          ))}
+          <InvestmentDistribution tramos={tramos} moneda={modo} locale={locale} />
         </section>
       )}
 
-      <InvestmentManager inversiones={inversiones} />
+      {/* El listado también respeta el libro activo. */}
+      <InvestmentManager inversiones={deLaMoneda} />
 
       {/* El puente con la otra mitad del módulo: la cartera define la tasa con
           la que el asistente decide cómo pagar. */}

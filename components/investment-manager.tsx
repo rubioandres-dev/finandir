@@ -10,6 +10,7 @@ import {
 } from '@/app/dashboard/investments/actions'
 import { CurrencyOptions } from '@/components/currency-options'
 import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/currency-provider'
+import { rendimientoMensualDe } from '@/lib/investments-service'
 import {
   type Inversion,
   type Moneda,
@@ -17,13 +18,29 @@ import {
   type TipoDeActivo,
 } from '@/lib/types'
 
-const TIPOS: TipoDeActivo[] = [
-  'MONEY_MARKET',
-  'FIXED_INCOME',
-  'STOCKS_CEDEARS',
-  'CRYPTO',
-  'REAL_ESTATE',
+/**
+ * Cada tipo de activo con el plazo que le corresponde casi siempre.
+ *
+ * EL BADGE PRESELECCIONA, NO DECIDE
+ *
+ * Elegir "Money market" pone T+0 solo, pero el campo de liquidez sigue visible y
+ * se puede cambiar. Fijarlo habría sido más simple de usar y habría dejado de
+ * poder representar casos reales: un CEDEAR liquida T+1 o T+2 según el broker,
+ * y cripto en una cold wallet no se rescata el mismo día aunque el mercado esté
+ * abierto 24/7.
+ *
+ * El orden es el de uso, no el alfabético: money market primero porque es lo
+ * que más se carga y lo único que suma a la liquidez del inicio.
+ */
+const TIPOS: { tipo: TipoDeActivo; plazo: PlazoDeLiquidez }[] = [
+  { tipo: 'MONEY_MARKET', plazo: 'T0' },
+  { tipo: 'FIXED_INCOME', plazo: 'T1' },
+  { tipo: 'TIME_DEPOSIT', plazo: 'LOCKED' },
+  { tipo: 'STOCKS_CEDEARS', plazo: 'T2' },
+  { tipo: 'CRYPTO', plazo: 'T0' },
+  { tipo: 'REAL_ESTATE', plazo: 'LOCKED' },
 ]
+
 const PLAZOS: PlazoDeLiquidez[] = ['T0', 'T1', 'T2', 'LOCKED']
 
 const CAMPO =
@@ -58,6 +75,7 @@ function FormularioDeInversion({
   onCerrar: () => void
 }) {
   const { t } = useTraduccion()
+  const { formatearMonto } = useFormatoRegional()
   const router = useRouter()
   const editando = inversion != null
 
@@ -75,6 +93,26 @@ function FormularioDeInversion({
   )
   const [tna, setTna] = useState(inversion ? String(Number(inversion.expected_tna)) : '')
   const [liquidez, setLiquidez] = useState<PlazoDeLiquidez>(inversion?.liquidity_term ?? 'T0')
+  const [entidad, setEntidad] = useState(inversion?.broker_entity ?? '')
+
+  /**
+   * Elegir un tipo arrastra su plazo habitual, salvo que estemos EDITANDO.
+   *
+   * En una edición el usuario ya definió el plazo alguna vez; pisarlo porque
+   * tocó el tipo sería descartar una decisión suya sin avisar.
+   */
+  function elegirTipo(nuevo: TipoDeActivo) {
+    setTipo(nuevo)
+    if (!editando) {
+      const sugerido = TIPOS.find((t) => t.tipo === nuevo)?.plazo
+      if (sugerido) setLiquidez(sugerido)
+    }
+  }
+
+  // La proyección se recalcula en vivo sobre el VALOR ACTUAL si está cargado, y
+  // sobre lo invertido si no: es la plata que efectivamente está rindiendo.
+  const baseDeRendimiento = aNumero(valorActual) ?? aNumero(invertido) ?? 0
+  const rendimientoMensual = rendimientoMensualDe(baseDeRendimiento, aNumero(tna) ?? 0)
 
   // Escape cierra: es lo que espera cualquiera frente a un diálogo.
   useEffect(() => {
@@ -116,6 +154,7 @@ function FormularioDeInversion({
       current_value: aNumero(valorActual),
       expected_tna: tasa,
       liquidity_term: liquidez,
+      broker_entity: entidad.trim() || null,
     }
 
     iniciar(async () => {
@@ -177,20 +216,41 @@ function FormularioDeInversion({
             />
           </label>
 
-          <label className={ETIQUETA}>
-            {t('inv.tipoDeActivo')}
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as TipoDeActivo)}
-              className={CAMPO}
-            >
-              {TIPOS.map((activo) => (
-                <option key={activo} value={activo}>
-                  {t(`tipoActivo.${activo}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* --- Tipo de activo, con lo que significa cada uno ------------- */}
+          <fieldset className="col-span-2 flex flex-col gap-1.5">
+            <legend className="pb-1 text-xs font-medium text-muted">{t('inv.elegiTipo')}</legend>
+
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {TIPOS.map(({ tipo: activo }) => {
+                const elegido = tipo === activo
+
+                return (
+                  <button
+                    key={activo}
+                    type="button"
+                    onClick={() => elegirTipo(activo)}
+                    aria-pressed={elegido}
+                    className={`flex cursor-pointer flex-col gap-0.5 rounded-xl border px-3 py-2 text-left transition active:scale-[0.98] ${
+                      elegido
+                        ? 'border-gold-leaf bg-gold-leaf/10'
+                        : 'border-glass-stroke/50 hover:border-gold-leaf/60'
+                    }`}
+                  >
+                    <span
+                      className={`text-xs font-semibold ${
+                        elegido ? 'text-gold-leaf' : 'text-on-background'
+                      }`}
+                    >
+                      {t(`inv.badge.${activo}`)}
+                    </span>
+                    <span className="text-[10px] leading-snug text-subtle">
+                      {t(`inv.badgeDetalle.${activo}`)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
 
           <label className={ETIQUETA}>
             {t('comun.moneda')}
@@ -260,7 +320,41 @@ function FormularioDeInversion({
                 </option>
               ))}
             </select>
+            {!editando && (
+              <span className="text-[10px] font-normal leading-snug text-subtle">
+                {t('inv.plazoSugerido')}
+              </span>
+            )}
           </label>
+
+          <label className={`col-span-2 ${ETIQUETA}`}>
+            {t('inv.entidad')}
+            <input
+              value={entidad}
+              onChange={(e) => setEntidad(e.target.value)}
+              maxLength={100}
+              placeholder={t('inv.placeholderEntidad')}
+              className={CAMPO}
+            />
+          </label>
+
+          {/* --- Calculadora en vivo --------------------------------------
+              Aparece recién cuando hay con qué calcular. Un box que dice $0
+              antes de que el usuario escriba nada es ruido, y peor: parece un
+              resultado. */}
+          {rendimientoMensual > 0 && (
+            <div className="col-span-2 flex items-baseline justify-between gap-3 rounded-xl border border-gold-leaf/30 bg-gold-leaf/[0.07] px-3 py-2.5">
+              <div className="flex min-w-0 flex-col">
+                <span className="aurem-caps text-[9px] text-gold-leaf/80">
+                  {t('inv.rendimientoProyectado')}
+                </span>
+                <span className="text-[10px] text-subtle">{t('inv.rendimientoFormula')}</span>
+              </div>
+              <span className="shrink-0 font-display text-lg font-bold tabular-nums tracking-tight text-gold-leaf">
+                {formatearMonto(rendimientoMensual, moneda)}
+              </span>
+            </div>
+          )}
 
           <p className="col-span-2 text-[10px] leading-snug text-subtle">
             {t('inv.ayudaLiquidez')}
@@ -335,6 +429,9 @@ function FilaInversion({
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium tracking-tight">{inversion.name}</span>
           <span className="truncate text-xs text-subtle">
+            {/* La entidad va PRIMERA cuando está: dos money market con la misma
+                TNA sólo se distinguen por dónde están. */}
+            {inversion.broker_entity ? `${inversion.broker_entity} · ` : ''}
             {t(`tipoActivo.${inversion.asset_type}`)} · {t(`liquidez.${inversion.liquidity_term}`)}
             {tna > 0 && ` · ${t('inv.tnaSufijo', { tna })}`}
           </span>

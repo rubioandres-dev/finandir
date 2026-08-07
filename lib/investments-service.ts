@@ -102,6 +102,54 @@ export function tnaLiquidaOPorDefecto(inversiones: Inversion[], moneda: Moneda):
   return calcularTnaLiquidaPonderada(inversiones, moneda) ?? TNA_POR_DEFECTO
 }
 
+/**
+ * Días con los que se prorratea una TNA a un mes.
+ *
+ * 30/365 y no 1/12: la TNA es una tasa ANUAL sobre 365 días, así que el mes
+ * equivalente son 30 de esos días. Dividir por 12 daría 30,42 días y un 1,4 %
+ * de más — poco por mes, pero es un número que el usuario va a comparar contra
+ * su resumen real y tiene que cerrar.
+ */
+const DIAS_DEL_MES = 30
+const DIAS_DEL_ANIO = 365
+
+/**
+ * Lo que rinde la cartera en un mes, a la tasa declarada.
+ *
+ * ES UNA PROYECCIÓN, NO UN RENDIMIENTO MEDIDO
+ *
+ * Sale de multiplicar el valor de hoy por la TNA que el usuario cargó. Si esa
+ * TNA está desactualizada, esto también. No se contrasta contra el resultado
+ * real (`current_value − amount_invested`) a propósito: son dos preguntas
+ * distintas —cuánto ganó hasta ahora contra cuánto genera por mes— y mezclarlas
+ * en un solo número no responde ninguna.
+ *
+ * Se pondera por `current_value` y no por `amount_invested`: lo que rinde de acá
+ * en adelante es la plata que hay hoy, no la que se puso en su momento.
+ */
+export function gananciaMensualEstimada(inversiones: Inversion[], moneda: Moneda): number {
+  let total = 0
+
+  for (const inversion of inversiones) {
+    if (monedaDe(inversion) !== moneda) continue
+
+    const valor = Number(inversion.current_value ?? 0)
+    const tna = Number(inversion.expected_tna ?? 0)
+    if (!Number.isFinite(valor) || !Number.isFinite(tna)) continue
+    if (valor <= 0 || tna <= 0) continue
+
+    total += valor * (tna / 100) * (DIAS_DEL_MES / DIAS_DEL_ANIO)
+  }
+
+  return Math.round(total * 100) / 100
+}
+
+/** La misma cuenta para un solo activo. La usa la calculadora del formulario. */
+export function rendimientoMensualDe(monto: number, tna: number): number {
+  if (!Number.isFinite(monto) || !Number.isFinite(tna) || monto <= 0 || tna <= 0) return 0
+  return Math.round(monto * (tna / 100) * (DIAS_DEL_MES / DIAS_DEL_ANIO) * 100) / 100
+}
+
 /** Reparto por tipo de activo dentro de UNA moneda, ordenado de mayor a menor. */
 export function distribucionPorTipo(
   inversiones: Inversion[],

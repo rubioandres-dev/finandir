@@ -7,11 +7,14 @@ import type { ResultadoGuardado } from '@/app/dashboard/actions'
 import { FALTA_MIGRACION_INVERSIONES } from '@/lib/investments-service'
 import { createClient } from '@/lib/supabase/server'
 
+// Tiene que coincidir con el enum `public.asset_type`: TIME_DEPOSIT lo agrega
+// la 016. Un valor de más acá rebota en la base con 22P02.
 const TIPOS_DE_ACTIVO = [
   'MONEY_MARKET',
   'FIXED_INCOME',
   'STOCKS_CEDEARS',
   'CRYPTO',
+  'TIME_DEPOSIT',
   'REAL_ESTATE',
 ] as const
 
@@ -33,13 +36,16 @@ const inversionSchema = z.object({
     .min(0, 'El valor actual no puede ser negativo.')
     .nullable()
     .optional(),
-  // numeric(5,2) tope en 999.99; el mensaje evita el error críptico de Postgres.
+  // La 016 amplió la columna a numeric(6,2); el mensaje evita el error críptico
+  // de Postgres cuando se pasa del techo.
   expected_tna: z
     .number()
     .refine(Number.isFinite, 'Poné una TNA válida.')
     .min(0, 'La TNA no puede ser negativa.')
-    .max(999.99, 'La TNA no puede superar 999,99 %.'),
+    .max(9999.99, 'La TNA no puede superar 9999,99 %.'),
   liquidity_term: z.enum(PLAZOS),
+  /** Dónde está el activo. Opcional: la 016 la agrega como nullable. */
+  broker_entity: z.string().trim().max(100).nullable().optional(),
 })
 
 export type InversionAGuardar = z.input<typeof inversionSchema>
@@ -93,6 +99,7 @@ export async function guardarInversion(entrada: InversionAGuardar): Promise<Resu
     current_value: datos.data.current_value ?? datos.data.amount_invested,
     expected_tna: datos.data.expected_tna,
     liquidity_term: datos.data.liquidity_term,
+    broker_entity: datos.data.broker_entity || null,
   }
 
   const { error } = datos.data.id

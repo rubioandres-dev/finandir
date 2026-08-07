@@ -389,6 +389,7 @@ const ES_AR = {
   'tipoActivo.FIXED_INCOME': 'Renta fija',
   'tipoActivo.STOCKS_CEDEARS': 'Acciones y CEDEARs',
   'tipoActivo.CRYPTO': 'Cripto',
+  'tipoActivo.TIME_DEPOSIT': 'Plazo fijo',
   'tipoActivo.REAL_ESTATE': 'Inmuebles',
 
   'liquidez.T0': 'Inmediata (T+0)',
@@ -634,6 +635,48 @@ const ES_AR = {
   'grupoObjetivos.aporteMensual': 'Aporte mensual',
   'grupoObjetivos.presupuestoNoDisponible':
     'El presupuesto por categoría todavía no se puede cargar desde acá: falta el selector de categoría.',
+
+  // --- Inversiones: KPI, formulario y recorrido -----------------------------
+  'inv.totalInvertido': 'Total invertido',
+  'inv.sobreLoInvertido': 'sobre lo invertido',
+  'inv.tnaPonderada': 'TNA promedio líquida',
+  'inv.tnaAlimenta':
+    'Esta tasa alimenta el comparador de Gasto Inteligente para evaluar compras en cuotas.',
+  'inv.gananciaPasiva': 'Ganancia mensual estimada',
+  'inv.gananciaPasivaDetalle': 'Lo que rinde tu cartera por mes a la tasa que cargaste.',
+  'inv.distribucion': 'Distribución por tipo',
+  'inv.entidad': 'Dónde está',
+  'inv.placeholderEntidad': 'Mercado Pago, Balanz, Binance…',
+  'inv.rendimientoProyectado': 'Retorno mensual estimado',
+  'inv.rendimientoFormula': 'Monto × TNA ÷ 12 (base 30/365)',
+  'inv.elegiTipo': 'Qué tipo de activo es',
+  'inv.plazoSugerido': 'Se preseleccionó el plazo habitual. Podés cambiarlo.',
+
+  'inv.badge.MONEY_MARKET': 'Money market',
+  'inv.badgeDetalle.MONEY_MARKET':
+    'Rescate inmediato, 24/7. Suma directo a tu Liquidez Hoy en el inicio.',
+  'inv.badge.FIXED_INCOME': 'Renta fija y cauciones',
+  'inv.badgeDetalle.FIXED_INCOME':
+    'Liquida en 24 o 48 h: bonos, Lecaps, cauciones. Cuenta como inversión, no como liquidez.',
+  'inv.badge.TIME_DEPOSIT': 'Plazo fijo',
+  'inv.badgeDetalle.TIME_DEPOSIT': 'Capital bloqueado hasta el vencimiento.',
+  'inv.badge.STOCKS_CEDEARS': 'Acciones y CEDEARs',
+  'inv.badgeDetalle.STOCKS_CEDEARS': 'Renta variable en bolsa.',
+  'inv.badge.CRYPTO': 'Cripto y stablecoins',
+  'inv.badgeDetalle.CRYPTO': 'USDT, USDC, BTC, ETH.',
+  'inv.badge.REAL_ESTATE': 'Inmuebles',
+  'inv.badgeDetalle.REAL_ESTATE': 'Ladrillos: no se rescatan para cubrir una compra.',
+
+  'tour.invTitulo': 'Cómo leer tus inversiones',
+  'tour.invLiquidezTitulo': 'T+0 no es lo mismo que T+1',
+  'tour.invLiquidezCuerpo':
+    'Lo que se rescata el mismo día (money market) suma a tu Liquidez Hoy en el inicio: es plata que podés gastar. Lo que liquida en 24 o 48 h queda en Inversiones. La diferencia no es contable, es práctica: una define qué podés pagar hoy.',
+  'tour.invTnaTitulo': 'Para qué sirve la TNA ponderada',
+  'tour.invTnaCuerpo':
+    'AUREM promedia la tasa de tus activos líquidos pesándolos por monto. Si tenés $800.000 al 70% y $200.000 al 30%, tu tasa real es 62%: ese es el número contra el que el asistente compara el costo de pagar en cuotas. Si las cuotas salen más que eso, conviene pagar de contado.',
+  'tour.invPasivaTitulo': 'Tu sueldo pasivo',
+  'tour.invPasivaCuerpo':
+    'La ganancia mensual estimada es lo que genera tu cartera sin que hagas nada. Es una proyección a la tasa que vos cargaste, no un rendimiento medido: si la TNA quedó vieja, este número también.',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -1007,6 +1050,7 @@ const EN: Parcial = {
   'tipoActivo.FIXED_INCOME': 'Fixed income',
   'tipoActivo.STOCKS_CEDEARS': 'Stocks and ETFs',
   'tipoActivo.CRYPTO': 'Crypto',
+  'tipoActivo.TIME_DEPOSIT': 'Fixed-term deposit',
   'tipoActivo.REAL_ESTATE': 'Real estate',
 
   'liquidez.T0': 'Same day (T+0)',
@@ -1231,6 +1275,47 @@ const EN: Parcial = {
   'grupoObjetivos.aporteMensual': 'Monthly contribution',
   'grupoObjetivos.presupuestoNoDisponible':
     'Category budgets cannot be added here yet: the category picker is missing.',
+
+  'inv.totalInvertido': 'Total invested',
+  'inv.sobreLoInvertido': 'against cost',
+  'inv.tnaPonderada': 'Weighted liquid rate',
+  'inv.tnaAlimenta':
+    'This rate feeds the Smart Spending comparison when weighing instalment purchases.',
+  'inv.gananciaPasiva': 'Estimated monthly income',
+  'inv.gananciaPasivaDetalle': 'What your portfolio earns per month at the rate you entered.',
+  'inv.distribucion': 'Breakdown by type',
+  'inv.entidad': 'Held at',
+  'inv.placeholderEntidad': 'Interactive Brokers, Binance…',
+  'inv.rendimientoProyectado': 'Estimated monthly return',
+  'inv.rendimientoFormula': 'Amount × rate ÷ 12 (30/365 basis)',
+  'inv.elegiTipo': 'What kind of asset is it',
+  'inv.plazoSugerido': 'The usual settlement term was pre-filled. You can change it.',
+
+  'inv.badge.MONEY_MARKET': 'Money market',
+  'inv.badgeDetalle.MONEY_MARKET':
+    'Same-day redemption, 24/7. Counts straight towards your Liquid Today on the home screen.',
+  'inv.badge.FIXED_INCOME': 'Fixed income and repos',
+  'inv.badgeDetalle.FIXED_INCOME':
+    'Settles in 24 or 48 h: bonds, bills, repos. Counts as investment, not as liquidity.',
+  'inv.badge.TIME_DEPOSIT': 'Fixed-term deposit',
+  'inv.badgeDetalle.TIME_DEPOSIT': 'Capital locked until maturity.',
+  'inv.badge.STOCKS_CEDEARS': 'Stocks and ETFs',
+  'inv.badgeDetalle.STOCKS_CEDEARS': 'Listed equity.',
+  'inv.badge.CRYPTO': 'Crypto and stablecoins',
+  'inv.badgeDetalle.CRYPTO': 'USDT, USDC, BTC, ETH.',
+  'inv.badge.REAL_ESTATE': 'Real estate',
+  'inv.badgeDetalle.REAL_ESTATE': 'Property: not something you cash out to cover a purchase.',
+
+  'tour.invTitulo': 'How to read your investments',
+  'tour.invLiquidezTitulo': 'T+0 is not the same as T+1',
+  'tour.invLiquidezCuerpo':
+    'Whatever settles same-day (money market) counts towards Liquid Today on the home screen: that is money you can spend. Anything settling in 24 or 48 h stays under Investments. The difference is not accounting, it is practical: one of them decides what you can pay for today.',
+  'tour.invTnaTitulo': 'What the weighted rate is for',
+  'tour.invTnaCuerpo':
+    'AUREM averages the rate of your liquid assets weighted by amount. With 800,000 at 70% and 200,000 at 30%, your real rate is 62%: that is the number the assistant compares against the cost of paying in instalments. If instalments cost more than that, paying cash wins.',
+  'tour.invPasivaTitulo': 'Your passive income',
+  'tour.invPasivaCuerpo':
+    'The estimated monthly income is what your portfolio generates without you doing anything. It is a projection at the rate you entered, not a measured return: if that rate is stale, so is this number.',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {
