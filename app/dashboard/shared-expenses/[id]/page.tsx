@@ -25,7 +25,10 @@ export default async function SharedSpacePage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { espacio, miembros, gastos, error } = await cargarEspacio(supabase, id)
+  const { espacio, miembros, gastos, liquidaciones, objetivos, error } = await cargarEspacio(
+    supabase,
+    id
+  )
 
   if (error) {
     return (
@@ -46,27 +49,31 @@ export default async function SharedSpacePage({
     redirect(`/dashboard/shared-expenses/join/${id}`)
   }
 
-  const ids = miembros.map((m) => m.user_id)
-  const balances = calcularBalances(gastos, ids)
+  // Los saldos se calculan por MIEMBRO y ya netos de las liquidaciones: un pago
+  // registrado entra al balance como un movimiento más.
+  const balances = calcularBalances(
+    gastos,
+    miembros.map((m) => m.id),
+    liquidaciones
+  )
   const liquidacion = calcularLiquidacion(balances)
 
   /**
-   * Nombres para mostrar.
+   * Nombres para mostrar, resueltos por fin sin rodeos.
    *
-   * `auth.users` no es consultable desde el cliente y `user_profiles` sólo deja
-   * leer la fila propia: por RLS, acá sólo puede resolverse el nombre del
-   * usuario actual. Para el resto se usa el alias que hayan puesto al entrar al
-   * grupo, y si no hay, un genérico. Resolver los nombres reales pediría una
-   * vista `security definer` que exponga display_name a los miembros del mismo
-   * espacio — es la mejora natural, y no está.
+   * Acá había una nota diciendo que sólo se podía resolver el nombre del usuario
+   * actual: `auth.users` no es consultable desde el cliente y `user_profiles`
+   * sólo deja leer la fila propia, así que el resto caía a "Integrante 2". La
+   * 015 lo resuelve copiando `display_name` a la fila del miembro, que sí es
+   * legible por todo el grupo. La vista `security definer` que aquella nota
+   * proponía dejó de hacer falta.
    */
   const nombres: Record<string, string> = {}
-  for (const [indice, miembro] of miembros.entries()) {
-    nombres[miembro.user_id] =
-      miembro.user_id === user.id
-        ? 'Vos'
-        : (miembro.alias ?? `Integrante ${indice + 1}`)
+  for (const miembro of miembros) {
+    nombres[miembro.id] = miembro.user_id === user.id ? 'Vos' : miembro.display_name
   }
+
+  const miMiembroId = miembros.find((m) => m.user_id === user.id)?.id ?? null
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,10 +94,12 @@ export default async function SharedSpacePage({
         espacio={espacio}
         miembros={miembros}
         gastos={gastos}
+        liquidaciones={liquidaciones}
+        objetivos={objetivos}
         balances={balances}
         liquidacion={liquidacion}
         nombres={nombres}
-        usuarioId={user.id}
+        miMiembroId={miMiembroId}
       />
     </div>
   )

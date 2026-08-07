@@ -611,6 +611,29 @@ const ES_AR = {
   'excel.descargar': 'Descargar Excel',
   'excel.generando': 'Armando el archivo…',
   'excel.error': 'No se pudo generar. Reintentá',
+
+  // --- Gastos compartidos: invitados, pagos y objetivos del grupo -----------
+  'compartidos.agregarInvitado': 'Agregar invitado',
+  'compartidos.invitado': '(invitado)',
+  'compartidos.invitadoAyuda':
+    'Para repartir con alguien que no usa AUREM. Participa de los gastos y de los saldos, pero no ve el grupo.',
+  'compartidos.nombreInvitadoVacio': 'Poné un nombre.',
+  'compartidos.registrarPago': 'Registrar un pago',
+  'compartidos.paga': 'Paga',
+  'compartidos.cobra': 'Cobra',
+  'compartidos.pagoMismaPersona': 'El que paga y el que cobra tienen que ser distintos.',
+  'compartidos.pagosRegistrados': 'Pagos registrados',
+
+  'grupoObjetivos.titulo': 'Objetivos del grupo',
+  'grupoObjetivos.nuevo': 'Nuevo objetivo',
+  'grupoObjetivos.sinObjetivos': 'Todavía no hay objetivos en este grupo.',
+  'grupoObjetivos.sinTitulo': 'Poné un título.',
+  'grupoObjetivos.placeholderTitulo': 'Alquiler de la casa de verano',
+  'grupoObjetivos.tipoAhorro': 'Ahorro conjunto',
+  'grupoObjetivos.tipoPresupuesto': 'Presupuesto por categoría',
+  'grupoObjetivos.aporteMensual': 'Aporte mensual',
+  'grupoObjetivos.presupuestoNoDisponible':
+    'El presupuesto por categoría todavía no se puede cargar desde acá: falta el selector de categoría.',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -1186,6 +1209,28 @@ const EN: Parcial = {
   'excel.descargar': 'Download Excel',
   'excel.generando': 'Building the file…',
   'excel.error': 'Could not generate it. Try again',
+
+  'compartidos.agregarInvitado': 'Add a guest',
+  'compartidos.invitado': '(guest)',
+  'compartidos.invitadoAyuda':
+    'For splitting with someone who does not use AUREM. They take part in expenses and balances, but they cannot see the group.',
+  'compartidos.nombreInvitadoVacio': 'Enter a name.',
+  'compartidos.registrarPago': 'Record a payment',
+  'compartidos.paga': 'Pays',
+  'compartidos.cobra': 'Receives',
+  'compartidos.pagoMismaPersona': 'Payer and receiver have to be different.',
+  'compartidos.pagosRegistrados': 'Payments recorded',
+
+  'grupoObjetivos.titulo': 'Group goals',
+  'grupoObjetivos.nuevo': 'New goal',
+  'grupoObjetivos.sinObjetivos': 'No goals in this group yet.',
+  'grupoObjetivos.sinTitulo': 'Enter a title.',
+  'grupoObjetivos.placeholderTitulo': 'Summer house rental',
+  'grupoObjetivos.tipoAhorro': 'Joint savings',
+  'grupoObjetivos.tipoPresupuesto': 'Category budget',
+  'grupoObjetivos.aporteMensual': 'Monthly contribution',
+  'grupoObjetivos.presupuestoNoDisponible':
+    'Category budgets cannot be added here yet: the category picker is missing.',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {
