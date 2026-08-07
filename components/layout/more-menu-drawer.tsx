@@ -14,10 +14,12 @@ import {
   Settings,
   Target,
   Users,
+  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { useModuloActivo, useTraduccion } from '@/components/currency-provider'
+import { avanceDentroDelTier, siguienteTier, tierPara } from '@/lib/goals-service'
 import type { Clave } from '@/lib/i18n'
 import type { Modulo } from '@/lib/modules'
 
@@ -83,6 +85,15 @@ const SECCIONES: {
     detalle: 'nav.consolidadoDetalle',
     Icono: PieChart,
   },
+  // Los presupuestos no tienen ruta propia: desde la 013 se administran dentro
+  // de Ajustes. El ancla lleva directo a esa card en vez de inventar una
+  // pantalla que sería la misma sección sola.
+  {
+    href: '/dashboard/settings#presupuestos',
+    etiqueta: 'presupuestos.titulo',
+    detalle: 'presupuestos.detalle',
+    Icono: Wallet,
+  },
   { href: '/dashboard/guide', etiqueta: 'nav.guia', detalle: 'nav.guiaDetalle', Icono: BookOpen },
   {
     href: '/dashboard/settings',
@@ -107,10 +118,21 @@ const SECCIONES: {
  * WebKit recorta a sus descendientes `fixed`. Es el mismo motivo documentado
  * en `components/layout/floating-panel.tsx`.
  */
-export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
+export function MoreMenuDrawer({
+  onCerrar,
+  xp = 0,
+}: {
+  onCerrar: () => void
+  /** Puntos AUREM. La barra de tier vive acá desde que salió del header. */
+  xp?: number
+}) {
   const ruta = usePathname()
   const { t } = useTraduccion()
   const activo = useModuloActivo()
+
+  const tier = tierPara(xp)
+  const proximo = siguienteTier(xp)
+  const avance = avanceDentroDelTier(xp)
 
   // Un módulo apagado no aparece en la bandeja. Guía y Ajustes no tienen
   // módulo: son la salida de emergencia para volver a prender lo que se apagó.
@@ -156,9 +178,42 @@ export function MoreMenuDrawer({ onCerrar }: { onCerrar: () => void }) {
           </button>
         </div>
 
+        {/* --- Tier ------------------------------------------------------
+            Salió del header, donde ocupaba una sub-barra propia en todas las
+            pantallas. Acá está a un toque y sólo cuando se lo busca. En
+            escritorio vive al pie de la barra lateral. */}
+        {xp > 0 && (
+          <Link
+            href="/dashboard/goals"
+            onClick={onCerrar}
+            className="flex items-center gap-3 rounded-xl border border-glass-stroke/40 px-3 py-2.5 transition hover:border-gold-leaf/50"
+          >
+            <span
+              className="aurem-caps shrink-0 rounded-full px-2.5 py-1 text-[9px] text-midnight-navy"
+              style={{ backgroundColor: tier.color }}
+            >
+              {tier.nombre}
+            </span>
+
+            <div
+              className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-gold-leaf/10"
+              role="progressbar"
+              aria-valuenow={Math.round(avance * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={proximo ? `Avance hacia ${proximo.nombre}` : 'Tier máximo alcanzado'}
+            >
+              <div
+                className="fire-gradient h-full rounded-full transition-all duration-700"
+                style={{ width: `${Math.max(3, avance * 100)}%` }}
+              />
+            </div>
+          </Link>
+        )}
+
         <ul className="flex flex-col">
           {visibles.map(({ href, etiqueta, detalle, Icono }) => {
-            const activa = ruta.startsWith(href)
+            const activa = ruta.startsWith(href.split('#')[0])
 
             return (
               <li key={href}>

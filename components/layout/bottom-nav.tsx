@@ -2,10 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import { ArrowLeftRight, LayoutDashboard, Menu, TrendingUp, Wallet } from 'lucide-react'
 import { useModuloActivo, useTraduccion } from '@/components/currency-provider'
-import { MoreMenuDrawer } from '@/components/layout/more-menu-drawer'
 import type { Clave } from '@/lib/i18n'
 import type { Modulo } from '@/lib/modules'
 
@@ -52,7 +50,14 @@ const RUTAS_DEL_MENU = [
 const PESTANA =
   'relative flex w-full flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-wide transition active:scale-90'
 
-export function BottomNav() {
+export function BottomNav({
+  menuAbierto,
+  onAbrirMenu,
+}: {
+  /** La bandeja "Más" la comparte con la hamburguesa del header. */
+  menuAbierto: boolean
+  onAbrirMenu: () => void
+}) {
   const ruta = usePathname()
   const { t } = useTraduccion()
   const moduloActivo = useModuloActivo()
@@ -60,8 +65,6 @@ export function BottomNav() {
   // Con Inversiones apagado quedan tres pestañas más "Más": la barra se
   // reacomoda sola porque cada `<li>` es `flex-1`.
   const visibles = PESTANAS.filter((p) => !p.modulo || moduloActivo(p.modulo))
-  const [menuAbierto, setMenuAbierto] = useState(false)
-  const cerrarMenu = () => setMenuAbierto(false)
 
   // "Más" se marca activo cuando estás parado en alguna de sus secciones: si
   // no, la barra no muestra dónde estás en la mitad de la app.
@@ -104,7 +107,7 @@ export function BottomNav() {
           <li className="flex-1">
             <button
               type="button"
-              onClick={() => setMenuAbierto(true)}
+              onClick={onAbrirMenu}
               aria-haspopup="dialog"
               aria-expanded={menuAbierto}
               className={`${PESTANA} cursor-pointer ${
@@ -125,8 +128,6 @@ export function BottomNav() {
           </li>
         </ul>
       </nav>
-
-      {menuAbierto && <MoreMenuDrawer onCerrar={cerrarMenu} />}
     </>
   )
 }

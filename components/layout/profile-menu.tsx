@@ -18,7 +18,6 @@ import {
   Share,
   Smartphone,
   Sun,
-  Target,
   UserCog,
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
@@ -322,14 +321,10 @@ export function ProfileMenu({ email, nombre }: { email: string; nombre: string |
             Ajustes y perfil
           </Link>
 
-          <Link
-            href="/dashboard/goals"
-            onClick={cerrar}
-            className={`${FILA} text-on-surface-variant`}
-          >
-            <Target className="size-4 shrink-0" aria-hidden />
-            Objetivos y Tier AUREM
-          </Link>
+          {/* Objetivos y Tier salieron de acá: este menú es de CUENTA —quién
+              sos, cómo se ve la app, cómo salir— y el XP es una sección de la
+              app como cualquier otra. Vive en la barra lateral (escritorio) y
+              en la bandeja "Más" (mobile), donde está el resto de los módulos. */}
 
           <Link
             href="/dashboard/settings#divisas"

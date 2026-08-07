@@ -11,7 +11,6 @@ import { TransactionList } from '@/components/transaction-list'
 import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { MonthlyFlowChart } from '@/components/monthly-flow-chart'
-import { QuickAccess } from '@/components/quick-access'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { resumirBalance } from '@/lib/balance-overview'
 import { getBestCardToPay } from '@/lib/card-optimizer'
@@ -251,8 +250,6 @@ export default async function DashboardPage() {
             cotizaciones={cotizacionesDeMercado}
             fechaMep={cotizacion?.fecha ?? null}
           />
-
-          <QuickAccess />
 
           <GuideCarousel />
         </aside>

@@ -2,8 +2,7 @@ import { redirect } from 'next/navigation'
 import { CurrencyProvider } from '@/components/currency-provider'
 import { FloatingActionButton } from '@/components/floating-action-button'
 import { GuidedTourProvider } from '@/components/guided-tour'
-import { BottomNav } from '@/components/layout/bottom-nav'
-import { Header } from '@/components/layout/header'
+import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
@@ -64,27 +63,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
           dos capas modales encimadas dejan al usuario sin saber cuál cerrar.
           Que ya se haya visto lo decide `localStorage`, del lado del cliente. */}
       <GuidedTourProvider arrancarSolo={!mostrarOnboarding}>
-      <div className="flex flex-1 flex-col">
-        <Header
+        <AppShell
           email={user.email ?? ''}
           // El nombre sale del perfil y cae a `user_metadata`, que es donde
           // vivía antes de la 007 y donde lo siguen escribiendo las actions.
           nombre={contexto.perfil?.display_name ?? nombreDeMetadata}
           cotizacion={cotizacion?.venta ?? null}
-          nivel={nivel}
           avisos={avisos}
           xp={contexto.xp}
-        />
-
-        {/* pb-28 en mobile deja lugar para la barra inferior flotante.
-            La canaleta horizontal la pone `safe-x`, que ya combina la base con
-            el inset del notch: un `px-4` acá volvería a pisarla. */}
-        <main className="safe-x mx-auto w-full max-w-2xl flex-1 pb-28 pt-5 lg:pb-12">
+          tasaDeAhorro={nivel.tasaDeAhorro}
+        >
           {children}
-        </main>
-
-        <BottomNav />
-      </div>
+        </AppShell>
 
       {/* Fuera del <div> del layout y no adentro del <main>: es `fixed` y no
           tiene que competir con el scroll ni con el ancho máximo del contenido.

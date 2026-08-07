@@ -677,6 +677,12 @@ const ES_AR = {
   'tour.invPasivaTitulo': 'Tu sueldo pasivo',
   'tour.invPasivaCuerpo':
     'La ganancia mensual estimada es lo que genera tu cartera sin que hagas nada. Es una proyección a la tasa que vos cargaste, no un rendimiento medido: si la TNA quedó vieja, este número también.',
+
+  // --- Barra lateral --------------------------------------------------------
+  'sidebar.plegar': 'Plegar el menú',
+  'sidebar.desplegar': 'Desplegar el menú',
+  'sidebar.abrirMenu': 'Abrir el menú',
+  'presupuestos.detalle': 'Techos de gasto por categoría',
 } as const
 
 export type Clave = keyof typeof ES_AR
@@ -1316,6 +1322,11 @@ const EN: Parcial = {
   'tour.invPasivaTitulo': 'Your passive income',
   'tour.invPasivaCuerpo':
     'The estimated monthly income is what your portfolio generates without you doing anything. It is a projection at the rate you entered, not a measured return: if that rate is stale, so is this number.',
+
+  'sidebar.plegar': 'Collapse the menu',
+  'sidebar.desplegar': 'Expand the menu',
+  'sidebar.abrirMenu': 'Open the menu',
+  'presupuestos.detalle': 'Spending caps by category',
 }
 
 const DICCIONARIOS: Record<Idioma, Parcial> = {
