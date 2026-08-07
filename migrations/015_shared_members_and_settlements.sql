@@ -35,6 +35,20 @@
 -- nota de la 011). Eso no cambia: `split_type` registra CÓMO lo eligió el
 -- usuario, para poder volver a abrir el formulario en el modo en que lo cargó.
 -- Sin esa columna, un reparto exacto se reabría como porcentajes con decimales.
+--
+-- SOBRE LA IDEMPOTENCIA
+--
+-- Esta migración se puede correr dos veces. Eso no es gratis acá, porque la
+-- primera pasada BORRA cosas de las que la segunda dependería si estuviera
+-- escrita en forma directa:
+--
+--   · `alias` se copia a `display_name` y después se dropea. Un segundo
+--     `update ... set display_name = ... m.alias` no compila: la columna ya no
+--     existe. Por eso el backfill va por SQL dinámico, que se parsea recién al
+--     ejecutarse y sólo si la columna sigue ahí.
+--   · Las PK se cambian de compuesta a simple. Volver a dropearlas fallaría,
+--     porque para entonces ya hay FKs colgando de ellas. Por eso cada bloque
+--     mira las columnas que la PK tiene HOY y no si la PK existe.
 -- =============================================================================
 
 
@@ -45,37 +59,85 @@ alter table public.shared_space_members
   add column if not exists id           uuid default gen_random_uuid(),
   add column if not exists display_name text;
 
+-- Postgres 11+ evalúa el default por fila al agregar la columna, así que las
+-- filas viejas ya salen con su uuid. El update es red por si la columna llegó
+-- de una corrida anterior a medio hacer.
+update public.shared_space_members set id = gen_random_uuid() where id is null;
+
 -- El backfill va ANTES de poner el NOT NULL. Prioridad: el alias que el usuario
 -- eligió para ese grupo, después su nombre de perfil, y recién ahí un genérico.
+--
+-- Dinámico y no directo: en la segunda corrida `alias` ya no existe y un UPDATE
+-- literal ni siquiera parsearía. Adentro de EXECUTE, el texto se parsea cuando
+-- se ejecuta, y sólo entramos si la columna está.
+do $mig$
+begin
+  if exists (
+    select 1 from pg_attribute
+    where attrelid = 'public.shared_space_members'::regclass
+      and attname  = 'alias'
+      and not attisdropped
+  ) then
+    execute $sql$
+      update public.shared_space_members m
+         set display_name = coalesce(
+               nullif(trim(m.alias), ''),
+               nullif(trim(p.display_name), ''),
+               'Miembro'
+             )
+        from public.user_profiles p
+       where p.user_id = m.user_id
+         and m.display_name is null
+    $sql$;
+
+    execute $sql$
+      update public.shared_space_members
+         set display_name = coalesce(nullif(trim(alias), ''), 'Miembro')
+       where display_name is null
+    $sql$;
+  end if;
+end
+$mig$;
+
+-- Sin `alias` (segunda corrida, o instalaciones que nunca lo tuvieron) el
+-- nombre sale del perfil.
 update public.shared_space_members m
-   set display_name = coalesce(
-         nullif(trim(m.alias), ''),
-         nullif(trim(p.display_name), ''),
-         'Miembro'
-       )
+   set display_name = nullif(trim(p.display_name), '')
   from public.user_profiles p
  where p.user_id = m.user_id
-   and m.display_name is null;
+   and m.display_name is null
+   and nullif(trim(p.display_name), '') is not null;
 
--- Los que no tienen fila de perfil quedaron fuera del UPDATE de arriba.
+-- Los que no tienen fila de perfil quedaron fuera de los UPDATE de arriba.
 update public.shared_space_members
-   set display_name = coalesce(nullif(trim(alias), ''), 'Miembro')
+   set display_name = 'Miembro'
  where display_name is null;
 
-do $$
+do $mig$
 begin
-  -- La PK compuesta se cambia por la simple. `if exists` porque correr esto dos
-  -- veces tiene que ser un no-op.
-  if exists (
-    select 1 from pg_constraint
-    where conname = 'shared_space_members_pkey'
-      and conrelid = 'public.shared_space_members'::regclass
+  -- La condición mira QUÉ COLUMNAS tiene la PK, no si la PK existe. Si ya es
+  -- (id) —segunda corrida— no se toca: dropearla fallaría porque
+  -- `shared_transactions.paid_by_member_id` y `shared_splits.member_id` la
+  -- referencian.
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.conrelid = 'public.shared_space_members'::regclass
+      and c.contype = 'p'
+      and (
+        -- `attname` es `name`, no `text`: sin el cast no hay operador `=`
+        -- contra el array literal.
+        select array_agg(a.attname::text order by a.attname)
+        from pg_attribute a
+        where a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+      ) = array['id']
   ) then
-    alter table public.shared_space_members drop constraint shared_space_members_pkey;
+    alter table public.shared_space_members drop constraint if exists shared_space_members_pkey;
     alter table public.shared_space_members alter column id set not null;
     alter table public.shared_space_members add primary key (id);
   end if;
-end $$;
+end
+$mig$;
 
 alter table public.shared_space_members
   alter column display_name set not null,
@@ -106,16 +168,14 @@ alter table public.shared_transactions
   add column if not exists category_id       uuid references public.categories(id) on delete set null,
   add column if not exists split_type        text not null default 'EQUAL';
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'shared_transactions_split_type_check'
-  ) then
-    alter table public.shared_transactions
-      add constraint shared_transactions_split_type_check
-      check (split_type in ('EQUAL', 'PERCENTAGE', 'EXACT'));
-  end if;
-end $$;
+-- drop + add en vez de un `if not exists`: es la única forma idempotente de
+-- agregar un CHECK, y de paso deja la definición actualizada si algún día
+-- cambian los valores permitidos.
+alter table public.shared_transactions
+  drop constraint if exists shared_transactions_split_type_check;
+alter table public.shared_transactions
+  add constraint shared_transactions_split_type_check
+  check (split_type in ('EQUAL', 'PERCENTAGE', 'EXACT'));
 
 -- Backfill: cada gasto apuntaba a un `auth.users` que ya es miembro del espacio.
 update public.shared_transactions t
@@ -129,7 +189,7 @@ update public.shared_transactions t
 -- miembro que puso plata dejaría gastos sin pagador y los saldos del grupo
 -- dejarían de cerrar. La app tiene que impedirlo antes, con un mensaje.
 
-do $$
+do $mig$
 begin
   -- Sólo se exige NOT NULL si el backfill cubrió todo. Si quedó alguna fila
   -- huérfana —un gasto de alguien que después se fue del grupo— se avisa en vez
@@ -139,7 +199,8 @@ begin
   else
     alter table public.shared_transactions alter column paid_by_member_id set not null;
   end if;
-end $$;
+end
+$mig$;
 
 
 -- -----------------------------------------------------------------------------
@@ -148,6 +209,8 @@ end $$;
 alter table public.shared_splits
   add column if not exists member_id uuid references public.shared_space_members(id) on delete cascade;
 
+-- El backfill se saltea solo en la segunda corrida: `s.user_id` ya está en NULL
+-- para las filas migradas, así que el join no matchea nada.
 update public.shared_splits s
    set member_id = m.id
   from public.shared_transactions t
@@ -156,23 +219,32 @@ update public.shared_splits s
    and m.user_id = s.user_id
    and s.member_id is null;
 
-do $$
+do $mig$
 begin
   if exists (select 1 from public.shared_splits where member_id is null) then
     raise warning 'Hay repartos sin `member_id`: la persona ya no es miembro del espacio.';
   else
     alter table public.shared_splits alter column member_id set not null;
 
-    if exists (
-      select 1 from pg_constraint
-      where conname = 'shared_splits_pkey'
-        and conrelid = 'public.shared_splits'::regclass
+    -- Igual que con los miembros: se compara contra las columnas de la PK, no
+    -- contra su existencia.
+    if not exists (
+      select 1
+      from pg_constraint c
+      where c.conrelid = 'public.shared_splits'::regclass
+        and c.contype = 'p'
+        and (
+          select array_agg(a.attname::text order by a.attname)
+          from pg_attribute a
+          where a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+        ) = array['member_id', 'transaction_id']
     ) then
-      alter table public.shared_splits drop constraint shared_splits_pkey;
+      alter table public.shared_splits drop constraint if exists shared_splits_pkey;
       alter table public.shared_splits add primary key (transaction_id, member_id);
     end if;
   end if;
-end $$;
+end
+$mig$;
 
 create index if not exists shared_splits_member_idx on public.shared_splits (member_id);
 
