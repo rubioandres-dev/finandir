@@ -26,16 +26,25 @@
 -- Hoy se carga como FIXED_INCOME + LOCKED. Funciona —los cálculos ya lo tratan
 -- bien— pero en pantalla dice "Renta fija · Inmovilizada", que es una
 -- descripción y no un nombre. `TIME_DEPOSIT` es cómo lo llama el usuario.
+--
+-- NOTA DE FORMATO
+--
+-- Ningún comentario de este archivo escribe el par de signos peso que abre un
+-- bloque plpgsql. Un par suelto adentro de un comentario deja desbalanceado el
+-- conteo de comillas-dólar para cualquier herramienta que parta el archivo en
+-- statements sin entender comentarios, y a partir de ahí lo que se le manda al
+-- motor no es lo que dice el archivo. Los bloques usan la etiqueta `$mig$` por
+-- la misma razón: es visible y no se confunde con nada.
 -- =============================================================================
 
 
 -- -----------------------------------------------------------------------------
 -- 1. Plazo fijo en el enum de tipos de activo
 -- -----------------------------------------------------------------------------
--- `add value` va suelto y NO adentro de un `do $$`: en un bloque plpgsql el
--- valor nuevo no queda visible para el resto de la transacción, y Postgres
--- rechaza usarlo. Acá sólo se agrega —ninguna fila lo estrena en esta
--- migración— así que alcanza con la forma simple.
+-- `add value` va suelto y NO adentro de un bloque plpgsql: ahí el valor nuevo no
+-- queda visible para el resto de la transacción y Postgres rechaza usarlo. Acá
+-- sólo se agrega —ninguna fila lo estrena en esta migración— así que alcanza con
+-- la forma simple.
 alter type public.asset_type add value if not exists 'TIME_DEPOSIT';
 
 
@@ -53,36 +62,49 @@ comment on column public.investments.broker_entity is
 -- -----------------------------------------------------------------------------
 -- 3. Divisas: alinear con el resto del esquema
 -- -----------------------------------------------------------------------------
--- El CHECK viejo se busca por su definición y no por su nombre: la 006 lo creó
--- inline, así que Postgres le puso un nombre generado que puede variar.
-do $$
-declare
-  nombre_check text;
-begin
-  select con.conname into nombre_check
-  from pg_constraint con
-  where con.conrelid = 'public.investments'::regclass
-    and con.contype = 'c'
-    and pg_get_constraintdef(con.oid) ilike '%currency%'
-    and pg_get_constraintdef(con.oid) ilike '%ARS%'
-    and pg_get_constraintdef(con.oid) ilike '%USD%'
-  limit 1;
+-- La 006 declaró el CHECK inline en el CREATE TABLE, así que Postgres le puso el
+-- nombre que genera por defecto. Ese es el caso normal y se resuelve con un
+-- drop directo, sin bloque ni búsqueda.
+alter table public.investments
+  drop constraint if exists investments_currency_check;
 
-  if nombre_check is not null then
-    execute format('alter table public.investments drop constraint %I', nombre_check);
-    raise notice 'CHECK de moneda ARS/USD eliminado: %', nombre_check;
-  end if;
-end $$;
-
-do $$
+-- Red por si el nombre no es el generado —una restauración que lo renombró, o
+-- alguien que lo recreó a mano—. El bloque no declara NINGUNA variable: el
+-- nombre se arma en la subconsulta y se ejecuta ahí mismo. Un `declare` con
+-- `select ... into` haría lo mismo y se lee mejor, pero es exactamente la forma
+-- que rompe cuando el archivo pasa por una herramienta que lo parte en
+-- statements sin entender plpgsql: el nombre de la variable termina
+-- interpretándose como una tabla y el error que sale es "relation ... does not
+-- exist", que no dice nada de lo que realmente pasó.
+--
+-- `coalesce` con 'select 1' porque EXECUTE de NULL levanta excepción, y el caso
+-- normal —ya corrida la migración, no queda ningún CHECK viejo— es NULL.
+do $mig$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'investments_currency_iso'
-  ) then
-    alter table public.investments
-      add constraint investments_currency_iso check (currency ~ '^[A-Z]{3}$');
-  end if;
-end $$;
+  execute coalesce(
+    (
+      select string_agg(
+               format('alter table public.investments drop constraint %I', con.conname),
+               '; '
+             )
+      from pg_constraint con
+      where con.conrelid = 'public.investments'::regclass
+        and con.contype = 'c'
+        and pg_get_constraintdef(con.oid) ilike '%currency%'
+        and pg_get_constraintdef(con.oid) ilike '%ARS%'
+        and pg_get_constraintdef(con.oid) ilike '%USD%'
+    ),
+    'select 1'
+  );
+end
+$mig$;
+
+-- drop + add en vez de preguntar si existe: es la forma idempotente de agregar
+-- un CHECK y deja la definición actualizada si algún día cambia.
+alter table public.investments
+  drop constraint if exists investments_currency_iso;
+alter table public.investments
+  add constraint investments_currency_iso check (currency ~ '^[A-Z]{3}$');
 
 
 -- -----------------------------------------------------------------------------
