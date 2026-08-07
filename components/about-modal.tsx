@@ -145,8 +145,8 @@ export function AboutModal({ onCerrar }: { onCerrar: () => void }) {
           </button>
         </form>
 
-        {/* Contacto directo: el reporte de arriba va a los logs del servidor, y
-            para algo urgente conviene un canal que no dependa de eso. */}
+        {/* Contacto directo: el reporte de arriba queda en la base y se revisa
+            cuando se revisa. Para algo urgente conviene un canal que avise. */}
         <a
           href={`mailto:${CONTACTO_SOPORTE}?subject=${encodeURIComponent(`AUREM v${VERSION} · reporte`)}`}
           className="flex items-center gap-1.5 text-[11px] text-gold-leaf hover:underline"
