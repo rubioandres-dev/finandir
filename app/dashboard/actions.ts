@@ -14,7 +14,16 @@ import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
 import { resolverPlan, sumarMeses } from '@/lib/cuotas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
 
-export type ResultadoGuardado = { ok: true } | { ok: false; error: string }
+/**
+ * `id` es el de la transacción madre (la primera cuota, si hay plan).
+ *
+ * Es opcional porque lo devuelven sólo las acciones que crean UN movimiento y
+ * pueden decir cuál: `guardarCuenta` o `borrarDeuda` comparten este tipo y no
+ * tienen ningún id de transacción que informar. Quien lo necesite —hoy la
+ * Calculadora de Salidas, para atar las cuentas por cobrar a su gasto— tiene que
+ * tolerar que venga `undefined`.
+ */
+export type ResultadoGuardado = { ok: true; id?: string } | { ok: false; error: string }
 
 const movimientoSchema = z.object({
   amount: z.number().positive('El importe tiene que ser mayor a cero.'),
@@ -204,7 +213,7 @@ export async function guardarTransaccion(
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/transactions')
-  return { ok: true }
+  return { ok: true, id: primera.id as string }
 }
 
 const presupuestoSchema = z.object({

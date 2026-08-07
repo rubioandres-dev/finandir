@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { NightOutCalculator } from '@/components/night-out-calculator'
+import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
@@ -16,8 +18,25 @@ export default async function CalculatorPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma } = await cargarContextoDeMonedas()
   const t = crearTraductor(idioma)
+
+  // La imputación del gasto necesita una categoría y una cuenta REALES: sin
+  // esto la calculadora sólo podría mandar todo a la categoría por defecto y a
+  // la cuenta de la moneda, que es justo lo que el usuario viene a elegir.
+  const [resCategorias, { cuentas }] = await Promise.all([
+    supabase.from('categories').select('name').eq('type', 'EXPENSE').order('name'),
+    cargarCuentasYDeudas(supabase, monedas),
+  ])
+
+  // Solo las de la moneda activa: `guardarTransaccion` rechaza una cuenta cuya
+  // divisa no coincide con la del movimiento, así que ofrecer las demás sería
+  // ofrecer un error.
+  const cuentasDeLaMoneda = cuentas
+    .filter((c) => esDeLaMoneda(c, modo))
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))
+
+  const categorias = (resCategorias.data ?? []).map((c) => ({ nombre: c.name as string }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +56,7 @@ export default async function CalculatorPage() {
         </div>
       </div>
 
-      <NightOutCalculator />
+      <NightOutCalculator categorias={categorias} cuentas={cuentasDeLaMoneda} />
     </div>
   )
 }

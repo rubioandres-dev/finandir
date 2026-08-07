@@ -1,4 +1,7 @@
-// Solo para el servidor: se usa desde Server Components y Server Actions.
+// Las funciones que reciben un `SupabaseClient` son solo para el servidor: se
+// usan desde Server Components y Server Actions. Las de cálculo (`repartir`,
+// `dividirEnPartesIguales`, `calcularBalances`) son puras y también se importan
+// desde el cliente, que necesita previsualizar el mismo número que va a guardar.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Moneda } from './types'
 
@@ -160,6 +163,36 @@ export function porcentajesIguales(memberIds: string[]): {
   if (memberIds.length === 0) return []
   const parte = Math.round((100 / memberIds.length) * 1000) / 1000
   return memberIds.map((member_id) => ({ member_id, percentage: parte }))
+}
+
+/**
+ * Un importe partido en N partes iguales que SUMAN EXACTAMENTE el importe.
+ *
+ * POR QUÉ NO ES `total / n`
+ *
+ * Porque 100 entre 3 no da tres cuotas de 33,33: da 99,99 y falta un centavo. En
+ * la Calculadora de Salidas ese centavo no es cosmético — la salida bancaria es
+ * el total de la factura y las cuentas por cobrar tienen que cerrar contra ella.
+ * Si no cierran, al usuario le queda un centavo eterno en "te deben" que nadie le
+ * va a transferir nunca, o al revés, un centavo que cobró de más.
+ *
+ * Se reparte en centavos con el método del resto mayor, igual que `repartir`: los
+ * primeros índices se quedan con el sobrante. Que el centavo de más caiga en la
+ * parte del usuario (índice 0) es deliberado: es preferible poner un centavo de
+ * más que reclamárselo a un amigo.
+ */
+export function dividirEnPartesIguales(total: number, n: number): number[] {
+  if (n < 1) return []
+
+  const centavosTotales = Math.round(total * 100)
+  const base = Math.floor(centavosTotales / n)
+  let sobrantes = centavosTotales - base * n
+
+  return Array.from({ length: n }, () => {
+    const extra = sobrantes > 0 ? 1 : 0
+    sobrantes -= extra
+    return (base + extra) / 100
+  })
 }
 
 // --- Saldos ------------------------------------------------------------------

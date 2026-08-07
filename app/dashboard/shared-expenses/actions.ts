@@ -8,6 +8,7 @@ import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import {
   FALTA_MIGRACION_COMPARTIDOS,
   FALTA_MIGRACION_MIEMBROS,
+  dividirEnPartesIguales,
   faltaLaColumna,
   faltaLaTabla,
   repartir,
@@ -475,29 +476,79 @@ export async function borrarObjetivoDeGrupo(
 
 // --- Calculadora de salidas --------------------------------------------------
 
-const salidaSchema = z.object({
-  total: z.number().positive(),
-  miParte: z.number().positive(),
-  descripcion: z.string().trim().min(1).max(120),
-  moneda: z.enum(CODIGOS_DE_MONEDA),
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  modo: z.enum(['TOTAL', 'SOLO_MI_PARTE']),
-})
+/** 42703 = la columna no existe; PGRST204 = no está en el schema cache. */
+function faltaElVinculoAlGasto(codigo?: string): boolean {
+  return codigo === '42703' || codigo === 'PGRST204'
+}
+
+/** Corta un texto para que entre en su columna sin que Postgres lo rechace. */
+function recortar(texto: string, maximo: number): string {
+  return texto.length <= maximo ? texto : `${texto.slice(0, maximo - 1).trimEnd()}…`
+}
+
+/** "3 personas", "1 persona". El plural mal puesto se nota. */
+function contarPersonas(cantidad: number): string {
+  return cantidad === 1 ? '1 persona' : `${cantidad} personas`
+}
+
+const salidaSchema = z
+  .object({
+    /** Total de la factura, propina ya incluida. */
+    total: z.number().positive('El total tiene que ser mayor a cero.'),
+    personas: z
+      .number()
+      .int()
+      .min(2, 'Una salida compartida es de dos personas para arriba.')
+      .max(100, 'Son demasiadas personas.'),
+    descripcion: z.string().trim().min(1, 'Escribí una descripción.').max(120),
+    categoria: z.string().trim().min(1, 'Elegí la categoría del gasto.').max(60),
+    moneda: z.enum(CODIGOS_DE_MONEDA),
+    fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.'),
+    /** Cuenta o tarjeta de la que sale la plata. Null = la de la moneda. */
+    cuentaId: z.uuid().nullable().optional(),
+    /**
+     * Los OTROS participantes, sin el usuario. Los nombres son OPCIONALES: la
+     * lista vacía es un caso válido y genera una sola cuenta por cobrar
+     * acumulada. Si viene con datos tiene que estar completa — media lista
+     * dejaría plata sin asignar a nadie.
+     */
+    nombres: z.array(z.string().trim().min(1).max(80)).default([]),
+    modo: z.enum(['TOTAL', 'SOLO_MI_PARTE']),
+  })
+  .refine((d) => d.nombres.length === 0 || d.nombres.length === d.personas - 1, {
+    message: 'Completá los nombres de todos los demás participantes, o dejá la lista vacía.',
+    path: ['nombres'],
+  })
 
 /**
  * Registra una salida pagada en grupo.
  *
  * LAS DOS OPCIONES NO SON LA MISMA CUENTA
  *
- * A) Pagué el total. Sale del banco el importe completo, pero tu gasto real es
- *    solo tu parte. La diferencia NO es un gasto tuyo: es plata que te deben.
- *    Se registra como gasto por el total y se crea una deuda a tu favor por el
- *    resto. Cuando te transfieran, cancelás esa deuda — y no entra como
- *    "ingreso", porque no ganaste nada: recuperaste lo tuyo. Contarlo como
- *    ingreso inflaría tu tasa de ahorro con plata que nunca fue tuya.
+ * A) Pagué el total. Son TRES asientos y no uno, porque son tres hechos
+ *    distintos y colapsarlos miente en algún lado:
  *
- * B) Solo mi parte. Se registra el gasto por tu cuota y listo. Sirve cuando
- *    cada uno paga lo suyo en el momento.
+ *      1. SALIDA BANCARIA por el total. De la cuenta o tarjeta salió la factura
+ *         completa. Si registrás solo tu parte, el saldo del banco no cuadra con
+ *         el resumen.
+ *      2. GASTO REAL por tu cuota parte, imputado a la categoría elegida. Si
+ *         imputás el total, tu mes se ve peor de lo que fue y el presupuesto de
+ *         "Comida" se come plata que era de otros.
+ *      3. CUENTAS POR COBRAR por el resto. Esa plata no es un gasto tuyo: es un
+ *         activo. Cuando te transfieran, cancelás la deuda — y no entra como
+ *         "ingreso", porque no ganaste nada, recuperaste lo tuyo. Contarlo como
+ *         ingreso inflaría tu tasa de ahorro con plata que nunca fue tuya.
+ *
+ *    El 1 y el 2 se resuelven con dos filas sobre la MISMA cuenta: un EXPENSE
+ *    por tu parte (que va a la categoría) y un TRANSFER por lo que adelantaste.
+ *    El TRANSFER es la pieza clave: resta del saldo igual que un gasto —así el
+ *    banco cierra por el total— pero queda AFUERA de ingresos y gastos en todos
+ *    los reportes (`construirFlujoMensual` lo saltea, el Home filtra por
+ *    `type === 'EXPENSE'`). Es exactamente lo que se necesita: plata que se fue
+ *    de la cuenta sin ser un gasto propio.
+ *
+ * B) Solo mi parte. Se registra el gasto por tu cuota y listo, sin adelanto ni
+ *    deuda. Sirve cuando cada uno paga lo suyo en el momento.
  */
 export async function registrarSalida(
   entrada: z.infer<typeof salidaSchema>
@@ -511,40 +562,136 @@ export async function registrarSalida(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
+  const { total, personas, descripcion, categoria, moneda, fecha, cuentaId, nombres } = datos.data
   const esSoloMiParte = datos.data.modo === 'SOLO_MI_PARTE'
-  const importe = esSoloMiParte ? datos.data.miParte : datos.data.total
 
-  const guardado = await guardarTransaccion({
-    amount: importe,
+  // Las N partes suman EXACTAMENTE el total: el centavo que sobra al dividir no
+  // se pierde ni se reclama dos veces. La primera es la del usuario.
+  const partes = dividirEnPartesIguales(total, personas)
+  const miParte = partes[0]
+  const partesDeLosDemas = partes.slice(1)
+  const porCobrar = Math.round(partesDeLosDemas.reduce((s, p) => s + p, 0) * 100) / 100
+  const otros = personas - 1
+
+  // --- 2. El gasto real: solo tu cuota parte, en la categoría elegida --------
+  // Es la transacción MADRE: las cuentas por cobrar apuntan acá.
+  const gasto = await guardarTransaccion({
+    amount: miParte,
     type: 'EXPENSE',
-    currency: datos.data.moneda,
-    category_suggested: 'Ocio',
-    description: datos.data.descripcion,
-    date: datos.data.fecha,
+    currency: moneda,
+    category_suggested: categoria,
+    description: descripcion,
+    date: fecha,
+    account_id: cuentaId ?? null,
   })
 
-  if (!guardado.ok) return { ok: false, error: guardado.error }
+  if (!gasto.ok) return { ok: false, error: gasto.error }
 
-  // En la opción A, lo que pusiste de más queda como algo que te deben.
-  const porCobrar = Math.round((datos.data.total - datos.data.miParte) * 100) / 100
+  if (esSoloMiParte) {
+    revalidatePath('/dashboard', 'layout')
+    return { ok: true }
+  }
 
-  if (!esSoloMiParte && porCobrar > 0) {
-    const { error } = await supabase.from('debts').insert({
-      user_id: user.id,
-      counterparty_name: datos.data.descripcion,
-      total_amount: porCobrar,
-      remaining_amount: porCobrar,
-      currency: datos.data.moneda,
-      type: 'OWED_TO_ME',
-      description: 'Cuenta por cobrar de una salida compartida',
+  // --- 1. Completar la salida bancaria: lo que adelantaste por los demás -----
+  if (porCobrar > 0) {
+    const adelanto = await guardarTransaccion({
+      amount: porCobrar,
+      type: 'TRANSFER',
+      currency: moneda,
+      // Las transferencias van sin categoría por CHECK del esquema, y está
+      // bien: adelantar plata ajena no es gastar en ningún rubro propio.
+      category_suggested: '',
+      description: recortar(`Adelanto por ${descripcion} (${contarPersonas(otros)})`, 120),
+      date: fecha,
+      account_id: cuentaId ?? null,
     })
 
-    if (error) {
-      // El gasto ya quedó registrado: avisar es más honesto que fingir que
-      // salió todo bien, y que borrarlo dejando al usuario sin nada.
-      return {
-        ok: false,
-        error: `El gasto se registró, pero no se pudo crear la cuenta por cobrar: ${error.message}`,
+    if (!adelanto.ok) {
+      // Sin el adelanto el saldo de la cuenta quedaría corto por el total de la
+      // factura. Se deshace el gasto: es preferible no registrar nada a dejar
+      // una mitad que el usuario no tiene forma de detectar.
+      if (gasto.id) await supabase.from('transactions').delete().eq('id', gasto.id)
+      return { ok: false, error: adelanto.error }
+    }
+  }
+
+  // --- 3. Las cuentas por cobrar --------------------------------------------
+  // El `porCobrar > 0` cubre el caso degenerado de una cuenta tan chica que la
+  // parte de los demás redondea a cero: no hay nada que cobrar ni que adelantar.
+  if (porCobrar > 0) {
+    const conNombres = nombres.length > 0
+
+    const filas = conNombres
+      ? // Una por persona, por su cuota parte. Así se cobra de a uno: que Sofía
+        // te pague no borra lo que te debe Gastón.
+        //
+        // El filtro de los ceros no es decorativo: `debts` exige
+        // `total_amount > 0`, y una cuenta de dos centavos entre tres personas
+        // deja a la última con 0,00. Sin esto el insert entero rebota con 23514
+        // DESPUÉS de haber guardado los movimientos. Descartar esas filas no
+        // pierde plata —suman cero— y `porCobrar` sigue cerrando contra el
+        // adelanto.
+        nombres
+          .map((nombre, indice) => ({
+            counterparty_name: recortar(nombre, 80),
+            monto: partesDeLosDemas[indice] ?? 0,
+            description: recortar(`Por cobrar - ${descripcion}`, 200),
+          }))
+          .filter((f) => f.monto > 0)
+      : // Sin nombres no hay a quién imputarle qué: un solo registro por el
+        // acumulado. El usuario sabe con quién salió; la app no necesita saberlo
+        // para que el número cierre.
+        [
+          {
+            counterparty_name: recortar(`Salida grupal (${contarPersonas(otros)})`, 80),
+            monto: porCobrar,
+            description: recortar(
+              `Por cobrar - Salida grupal (${contarPersonas(otros)}) · ${descripcion}`,
+              200
+            ),
+          },
+        ]
+
+    const comun = {
+      user_id: user.id,
+      currency: moneda,
+      type: 'OWED_TO_ME' as const,
+    }
+
+    const sinVinculo = filas.map((f) => ({
+      ...comun,
+      counterparty_name: f.counterparty_name,
+      total_amount: f.monto,
+      remaining_amount: f.monto,
+      description: f.description,
+    }))
+
+    // Un insert vacío no tiene sentido y PostgREST lo trata como un error: sólo
+    // puede pasar si el filtro de ceros se llevó todas las filas.
+    if (sinVinculo.length > 0) {
+      let { error } = await supabase
+        .from('debts')
+        .insert(sinVinculo.map((f) => ({ ...f, source_transaction_id: gasto.id ?? null })))
+
+      // Sin migrations/017 la columna del vínculo no existe. Se reintenta sin
+      // ella: perder la agrupación es aceptable, perder la deuda no.
+      if (error && faltaElVinculoAlGasto(error.code)) {
+        console.warn(
+          '[registrarSalida] Falta debts.source_transaction_id; se guarda sin el',
+          'vínculo al gasto. Ejecutá migrations/017_debts_source_transaction.sql.'
+        )
+        ;({ error } = await supabase.from('debts').insert(sinVinculo))
+      }
+
+      if (error) {
+        // Los movimientos ya quedaron registrados y el saldo de la cuenta
+        // cierra. Avisar es más honesto que fingir que salió todo bien, y que
+        // borrar el gasto dejando al usuario sin nada: la deuda se puede cargar
+        // a mano desde Deudas.
+        return {
+          ok: false,
+          error: `El gasto se registró, pero no se pudo crear la cuenta por cobrar: ${error.message}`,
+        }
       }
     }
   }
