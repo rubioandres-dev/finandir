@@ -212,15 +212,48 @@ export function Header({
           y el avatar despegado del borde derecho. Es el patrón de cualquier
           app-shell: el header cruza todo y la barra cuelga debajo. */}
       <div className="safe-x mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 lg:mx-0 lg:max-w-none">
-        {/* --- Izquierda: identidad + menú de mobile --------------------- */}
-        <div className="flex shrink-0 items-center gap-2.5">
+        {/* --- Izquierda: identidad + menú de mobile ---------------------
+
+            SIN `shrink-0`: ES EL ARREGLO DEL SCROLL LATERAL
+
+            Los dos bloques de esta fila eran `shrink-0`. Con flexbox eso
+            significa que ninguno puede ceder ancho, así que cuando la suma no
+            entra el contenido se sale de la caja y arrastra a la página entera:
+            aparece el scroll horizontal en toda la app, no sólo en el header.
+
+            Medido en Chromium con el header real: el contenido pedía 393 px
+            fijos, o sea que desbordaba 73 px a 320, 33 px a 360 y 3 px a 390.
+            Es decir, en casi todos los teléfonos.
+
+            De los dos bloques, el que cede es éste. El de la derecha son
+            objetivos táctiles de 36 px: encogerlos los deja por debajo del
+            mínimo y no se pueden tocar.
+
+            `min-w-0` EN LOS TRES NIVELES, Y NO ES DE MÁS
+
+            Un item de flex sin `min-width` explícito no baja de su contenido
+            mínimo, y ese piso se propaga hacia arriba: el bloque hereda como
+            mínimo el ancho de la palabra completa. `truncate` en el logotipo NO
+            alcanza para romperlo —probado: con `overflow: hidden` solo, el
+            bloque seguía midiendo sus 143 px y el avatar quedaba 33 px fuera de
+            la pantalla a 360—. Hace falta el `min-w-0` explícito en el bloque,
+            en el enlace y en la palabra para que la cadena ceda de verdad.
+
+            Con los tres puestos, a 360 el bloque baja a 95 px y todo entra.
+
+            El isotipo y la hamburguesa llevan `shrink-0` propio, así que lo
+            único que se recorta es la palabra. Y por debajo de 414 se esconde
+            entera en vez de mostrarse cortada: "Au…" no es un logotipo, es un
+            logotipo roto. A partir de 414 la fila completa entra —pide 408 px—
+            y la palabra vuelve. */}
+        <div className="flex min-w-0 items-center gap-2.5">
           <BotonDeMenu onAbrir={onAbrirMenu} />
 
-          <Link href="/dashboard" className="flex h-8 shrink-0 items-center gap-2.5">
-            <span className="fire-gradient glow-gold grid size-8 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
+          <Link href="/dashboard" className="flex h-8 min-w-0 items-center gap-2.5">
+            <span className="fire-gradient glow-gold grid size-8 shrink-0 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
               A
             </span>
-            <span className="font-display text-base font-extrabold uppercase tracking-tighter text-gold-leaf">
+            <span className="min-w-0 truncate font-display text-base font-extrabold uppercase tracking-tighter text-gold-leaf max-[413px]:hidden">
               Aurem
             </span>
           </Link>
@@ -232,12 +265,19 @@ export function Header({
 
           {/* Pegado al selector a propósito: el consolidado es la salida
               cuando el modo de una sola moneda no alcanza. En escritorio ya
-              está en la barra lateral, así que acá queda sólo para mobile. */}
+              está en la barra lateral, así que acá queda sólo para mobile.
+
+              `max-[359px]:hidden` es el único control que se sacrifica en
+              pantallas ultra angostas. Recortar el logotipo alcanza hasta 360;
+              por debajo faltan ~33 px y hay que soltar algo. Se suelta éste
+              porque es el único de la fila que tiene otra puerta: el
+              consolidado también está en la bandeja "Más". El selector de
+              moneda, los avisos y la cuenta no están en ningún otro lado. */}
           <Link
             href="/dashboard/consolidated"
             aria-label={t('nav.consolidado')}
             title={t('nav.consolidadoDetalle')}
-            className={`btn-gold-subtle inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-medium lg:hidden ${
+            className={`btn-gold-subtle inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-medium max-[359px]:hidden lg:hidden ${
               ruta.startsWith('/dashboard/consolidated') ? 'border-gold-leaf' : ''
             }`}
           >

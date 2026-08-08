@@ -234,6 +234,41 @@
 /* -----------------------------------------------------------------------------
  * Base
  * -------------------------------------------------------------------------- */
+/**
+ * Red de contención del scroll lateral.
+ *
+ * POR QUÉ `clip` Y NO `hidden`
+ *
+ * Es la diferencia que importa de este bloque, y está medida, no supuesta.
+ * `overflow-x: hidden` en html Y body a la vez ROMPE el header sticky. El
+ * motivo es la regla de propagación al viewport: el overflow del elemento raíz
+ * se propaga al viewport y el propio html pasa a valer `visible`, pero esa
+ * propagación ya se gastó, así que el `hidden` del body queda como valor real.
+ * Un `overflow-x` distinto de visible obliga a `overflow-y` a computar `auto`,
+ * y ahí el body se vuelve un contenedor de scroll propio: el `position: sticky`
+ * del header pasa a anclarse a ese contenedor, que nunca scrollea, y el header
+ * se va con la página.
+ *
+ * Medido en Chromium a 360 px con el header real: con `hidden` en los dos, el
+ * header terminaba en top -900 tras scrollear 900 px. Con `clip`, en 0.
+ *
+ * `clip` no crea contenedor de scroll —esa es toda su gracia— así que
+ * `overflow-y` se queda en `visible` y el sticky sigue funcionando.
+ *
+ * ESTO ES UNA RED, NO EL ARREGLO
+ *
+ * Lo que desbordaba era el header, y eso se arregló en su propio componente
+ * dejando que el bloque de identidad se encoja. Esta regla existe para que
+ * cualquier desborde FUTURO —una tabla ancha, un `min-width` olvidado— no se
+ * lleve puesta la página entera. Como el desborde real ya no está, que Safari
+ * 15 y anteriores ignoren `clip` y caigan a `visible` no rompe nada.
+ */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 html {
   /* Sin esto, el rebote de scroll en iOS deja ver el fondo del navegador.
    * Por token y no hardcodeado, para que siga al tema. */
@@ -367,24 +402,44 @@ body {
  * casi transparente. Para acciones secundarias que van al lado de un control
  * ya cargado de color —el toggle ARS/USD del header— donde un segundo relleno
  * sólido de oro competiría con el primero.
+ *
+ * VA EN `@layer components`, Y ESO ARREGLA UN BUG
+ *
+ * Es el mismo problema de cascada ya documentado en `.glass-card` y en
+ * `.safe-x`: lo que está FUERA de toda capa le gana a cualquier capa, y
+ * Tailwind emite sus utilidades en `@layer utilities`. Mientras esta regla no
+ * tuvo capa, su `display: inline-flex` le ganaba en silencio a cualquier
+ * utilidad de display puesta en el mismo elemento.
+ *
+ * La víctima concreta era el acceso al consolidado del header, que declara
+ * `lg:hidden` porque en escritorio esa sección ya está en la barra lateral: el
+ * `hidden` nunca se aplicaba y el botón se veía DUPLICADO en escritorio.
+ * Verificado en Chromium a 1280 px contra el CSS compilado: la caja seguía
+ * midiendo 38 px con `display: flex`. Con la regla adentro de la capa, mide 0.
+ *
+ * Ninguno de los 12 usos de la clase pasa una utilidad que entre en conflicto
+ * con lo que declara acá —el único que toca `gap` pide el mismo 0.375rem—, así
+ * que para el resto la apariencia no cambia.
  */
-.btn-gold-subtle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  border: 1px solid var(--glass-stroke);
-  background: color-mix(in srgb, var(--gold-leaf) 8%, transparent);
-  color: var(--gold-leaf);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
+@layer components {
+  .btn-gold-subtle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid var(--glass-stroke);
+    background: color-mix(in srgb, var(--gold-leaf) 8%, transparent);
+    color: var(--gold-leaf);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
 
-.btn-gold-subtle:hover {
-  background: color-mix(in srgb, var(--gold-leaf) 16%, transparent);
-  border-color: var(--gold-leaf);
-}
+  .btn-gold-subtle:hover {
+    background: color-mix(in srgb, var(--gold-leaf) 16%, transparent);
+    border-color: var(--gold-leaf);
+  }
 
-.btn-gold-subtle:active {
-  transform: scale(0.96);
+  .btn-gold-subtle:active {
+    transform: scale(0.96);
+  }
 }
 
 /**
