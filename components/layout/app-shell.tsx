@@ -18,12 +18,11 @@ import type { Aviso } from '@/lib/header-data'
  * barato que subir todo el layout al cliente y perder el render en servidor de
  * lo que sí puede quedarse ahí.
  *
- * LA BANDEJA "MÁS" TIENE UN SOLO DUEÑO
+ * LA BANDEJA "MÁS" VIVE ACÁ, NO EN LA BARRA INFERIOR
  *
- * La abren dos controles distintos: la hamburguesa del header y la pestaña
- * "Más" de la barra inferior. Si cada uno guardara su propio booleano habría dos
- * instancias del mismo diálogo montadas a la vez, cada una con su portal, y
- * cerrar una dejaría la otra abierta.
+ * La abre un solo control —la pestaña "Más"—, pero el estado se queda en el
+ * shell: el diálogo se monta como hermano de la barra, no adentro, así que el
+ * portal no hereda el `backdrop-blur` ni el z-index de la barra inferior.
  */
 export function AppShell({
   email,
@@ -50,13 +49,7 @@ export function AppShell({
 
   return (
     <SidebarProvider>
-      <Header
-        email={email}
-        nombre={nombre}
-        cotizacion={cotizacion}
-        avisos={avisos}
-        onAbrirMenu={abrirMenu}
-      />
+      <Header email={email} nombre={nombre} cotizacion={cotizacion} avisos={avisos} />
 
       {/* La barra lateral es `fixed`, así que no ocupa lugar en el flujo: el
           desplazamiento del contenido lo pone `SidebarInset`. */}

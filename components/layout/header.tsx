@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useRef, useState } from 'react'
-import { Bell, HelpCircle, Menu, Scale, X } from 'lucide-react'
+import { Bell, HelpCircle, Scale, X } from 'lucide-react'
 import { useTraduccion } from '@/components/currency-provider'
 import { CurrencySelector } from '@/components/currency-selector'
 import { useTour } from '@/components/guided-tour'
@@ -140,32 +140,6 @@ function BotonDeAyuda() {
 }
 
 /**
- * Hamburguesa de mobile.
- *
- * En escritorio el toggle vive al pie de la barra lateral, que es donde el
- * usuario ya está mirando cuando quiere plegarla. Repetirlo acá habría sido dos
- * controles para el mismo booleano, a dos metros de distancia.
- *
- * En mobile no hay barra lateral: este botón abre la misma bandeja "Más" que la
- * barra inferior, así que no agrega una tercera forma de navegar sino una
- * segunda puerta a la que ya existe.
- */
-function BotonDeMenu({ onAbrir }: { onAbrir: () => void }) {
-  const { t } = useTraduccion()
-
-  return (
-    <button
-      type="button"
-      onClick={onAbrir}
-      aria-label={t('sidebar.abrirMenu')}
-      className={`${HERRAMIENTA} border-glass-stroke/60 text-on-surface-variant hover:border-gold-leaf/60 hover:text-gold-leaf lg:hidden`}
-    >
-      <Menu className="size-[18px]" aria-hidden />
-    </button>
-  )
-}
-
-/**
  * Encabezado del dashboard.
  *
  * DOS BLOQUES, NO TRES
@@ -181,6 +155,14 @@ function BotonDeMenu({ onAbrir }: { onAbrir: () => void }) {
  * "Más". Sacarla sin reubicarla habría dejado al XP sin puerta desde ninguna
  * pantalla, que es peor que el renglón de más que ocupaba.
  *
+ * TAMPOCO HAY HAMBURGUESA
+ *
+ * Hubo una, `lg:hidden`, que abría la bandeja "Más". La barra inferior es
+ * `lg:hidden` también y su pestaña "Más" abre exactamente esa misma bandeja: no
+ * existía un ancho donde la hamburguesa fuera la única puerta. Eran dos botones
+ * para el mismo diálogo en la misma pantalla, uno arriba y otro abajo, y el de
+ * abajo es el que está rotulado y a mano. Se fue el de arriba.
+ *
  * `safe-x` y no `px-6`: da el mismo valor a través de `--gutter`, pero además
  * protege del notch en apaisado. Está documentado en globals.css.
  */
@@ -189,14 +171,11 @@ export function Header({
   nombre,
   cotizacion,
   avisos,
-  onAbrirMenu,
 }: {
   email: string
   nombre: string | null
   cotizacion: number | null
   avisos: Aviso[]
-  /** Abre la bandeja "Más" en mobile. La barra inferior usa la misma. */
-  onAbrirMenu: () => void
 }) {
   const ruta = usePathname()
   const { t } = useTraduccion()
@@ -212,7 +191,7 @@ export function Header({
           y el avatar despegado del borde derecho. Es el patrón de cualquier
           app-shell: el header cruza todo y la barra cuelga debajo. */}
       <div className="safe-x mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 lg:mx-0 lg:max-w-none">
-        {/* --- Izquierda: identidad + menú de mobile ---------------------
+        {/* --- Izquierda: identidad -------------------------------------
 
             SIN `shrink-0`: ES EL ARREGLO DEL SCROLL LATERAL
 
@@ -221,9 +200,13 @@ export function Header({
             entra el contenido se sale de la caja y arrastra a la página entera:
             aparece el scroll horizontal en toda la app, no sólo en el header.
 
-            Medido en Chromium con el header real: el contenido pedía 393 px
-            fijos, o sea que desbordaba 73 px a 320, 33 px a 360 y 3 px a 390.
-            Es decir, en casi todos los teléfonos.
+            Medido en Chromium con el header real —cuando este bloque todavía
+            incluía la hamburguesa—: el contenido pedía 393 px fijos, o sea que
+            desbordaba 73 px a 320, 33 px a 360 y 3 px a 390. Es decir, en casi
+            todos los teléfonos. Sin la hamburguesa sobran ~46 px, pero el
+            desborde no desaparece por sí solo: el margen depende del largo del
+            correo en el avatar y del selector de moneda, así que la cadena de
+            `min-w-0` se queda.
 
             De los dos bloques, el que cede es éste. El de la derecha son
             objetivos táctiles de 36 px: encogerlos los deja por debajo del
@@ -241,14 +224,10 @@ export function Header({
 
             Con los tres puestos, a 360 el bloque baja a 95 px y todo entra.
 
-            El isotipo y la hamburguesa llevan `shrink-0` propio, así que lo
-            único que se recorta es la palabra. Y por debajo de 414 se esconde
-            entera en vez de mostrarse cortada: "Au…" no es un logotipo, es un
-            logotipo roto. A partir de 414 la fila completa entra —pide 408 px—
-            y la palabra vuelve. */}
+            El isotipo lleva `shrink-0` propio, así que lo único que se recorta
+            es la palabra. Y por debajo de 414 se esconde entera en vez de
+            mostrarse cortada: "Au…" no es un logotipo, es un logotipo roto. */}
         <div className="flex min-w-0 items-center gap-2.5">
-          <BotonDeMenu onAbrir={onAbrirMenu} />
-
           <Link href="/dashboard" className="flex h-8 min-w-0 items-center gap-2.5">
             <span className="fire-gradient glow-gold grid size-8 shrink-0 place-items-center rounded-xl font-display text-sm font-extrabold text-midnight-navy">
               A

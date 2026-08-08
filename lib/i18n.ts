@@ -699,7 +699,6 @@ const ES_AR = {
   // --- Barra lateral --------------------------------------------------------
   'sidebar.plegar': 'Plegar el menú',
   'sidebar.desplegar': 'Desplegar el menú',
-  'sidebar.abrirMenu': 'Abrir el menú',
   'presupuestos.detalle': 'Techos de gasto por categoría',
 } as const
 
@@ -1361,7 +1360,6 @@ const EN: Parcial = {
 
   'sidebar.plegar': 'Collapse the menu',
   'sidebar.desplegar': 'Expand the menu',
-  'sidebar.abrirMenu': 'Open the menu',
   'presupuestos.detalle': 'Spending caps by category',
 }
 

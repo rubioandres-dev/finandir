@@ -54,7 +54,7 @@ export function BottomNav({
   menuAbierto,
   onAbrirMenu,
 }: {
-  /** La bandeja "Más" la comparte con la hamburguesa del header. */
+  /** El estado de la bandeja "Más" lo tiene el shell, no esta barra. */
   menuAbierto: boolean
   onAbrirMenu: () => void
 }) {
