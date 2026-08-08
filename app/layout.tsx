@@ -51,9 +51,14 @@ export default function RootLayout({
     <html
       lang="es-AR"
       suppressHydrationWarning
-      className={`${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full max-w-full overflow-x-clip antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      {/* `max-w-full overflow-x-clip`: la contención del scroll lateral. El
+          valor autoritativo está en globals.css, junto con la explicación de por
+          qué es `clip` y no `hidden` —con `hidden` en html y body a la vez el
+          header sticky se va con el scroll—. Acá se repite para que se vea en el
+          marcado que estos dos elementos clipean el eje X a propósito. */}
+      <body className="flex min-h-full max-w-full flex-col overflow-x-clip bg-background text-foreground">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
