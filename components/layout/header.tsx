@@ -10,35 +10,70 @@ import { useTour } from '@/components/guided-tour'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { ProfileMenu } from '@/components/layout/profile-menu'
 import type { Aviso } from '@/lib/header-data'
+import { claveDeAviso, marcarLeidos, useAvisosLeidos } from '@/lib/use-avisos-leidos'
 
 /** Un botón de la fila de herramientas. Mismo alto que el avatar (36 px). */
 const HERRAMIENTA =
   'grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border transition active:scale-90'
 
+/**
+ * La campana.
+ *
+ * EL PUNTO SE APAGA AL ABRIR, Y ESA ES LA ÚNICA REGLA
+ *
+ * Antes el punto colgaba de `avisos.length > 0`, que es un dato del servidor y
+ * no cambia porque el usuario mire: quedaba prendido para siempre. Ahora
+ * depende de cuáles todavía no se vieron, que vive en el navegador
+ * (`use-avisos-leidos`).
+ *
+ * Se marcan al ABRIR y no al cerrar: cerrar tiene tres caminos —la X, el telón
+ * y Escape— y el que se va tocando afuera no dispararía ninguno de ellos si el
+ * panel se desmontara por una navegación. Abrir es un solo camino y es el
+ * momento en el que el usuario efectivamente los vio.
+ *
+ * Los que estaban sin leer al abrir se guardan aparte para poder marcarlos
+ * dentro del panel: la campana se apaga al toque, pero adentro el usuario
+ * todavía tiene que poder distinguir cuál era la novedad.
+ */
 function Notificaciones({ avisos }: { avisos: Aviso[] }) {
   const [abierto, setAbierto] = useState(false)
+  const [nuevos, setNuevos] = useState<ReadonlySet<string>>(() => new Set())
   const boton = useRef<HTMLButtonElement>(null)
   const cerrar = useCallback(() => setAbierto(false), [])
 
-  const hayUrgentes = avisos.some((a) => a.urgente)
+  const leidos = useAvisosLeidos()
+  // `leidos` es null mientras el render sigue siendo el del servidor: ahí la
+  // campana se muestra apagada en vez de arriesgar un punto que parpadee.
+  const sinLeer = leidos === null ? [] : avisos.filter((a) => !leidos.has(claveDeAviso(a)))
+  const hayUrgentes = sinLeer.some((a) => a.urgente)
+
+  function alternar() {
+    if (!abierto) {
+      setNuevos(new Set(sinLeer.map(claveDeAviso)))
+      marcarLeidos(avisos.map(claveDeAviso))
+    }
+    setAbierto((previo) => !previo)
+  }
 
   return (
     <>
       <button
         ref={boton}
         type="button"
-        onClick={() => setAbierto((previo) => !previo)}
+        onClick={alternar}
         aria-expanded={abierto}
         aria-haspopup="dialog"
         aria-label={
           avisos.length === 0
             ? 'Notificaciones: sin avisos'
-            : `Notificaciones: ${avisos.length} aviso${avisos.length === 1 ? '' : 's'}`
+            : sinLeer.length > 0
+              ? `Notificaciones: ${sinLeer.length} sin leer de ${avisos.length}`
+              : `Notificaciones: ${avisos.length} aviso${avisos.length === 1 ? '' : 's'}, ninguno sin leer`
         }
         className={`${HERRAMIENTA} relative border-glass-stroke/60 text-on-surface-variant hover:border-gold-leaf/60 hover:text-gold-leaf`}
       >
         <Bell className="size-[18px]" aria-hidden />
-        {avisos.length > 0 && (
+        {sinLeer.length > 0 && (
           <span
             className={`absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-background ${
               hayUrgentes ? 'bg-error-rose' : 'bg-gold-leaf'
@@ -86,7 +121,14 @@ function Notificaciones({ avisos }: { avisos: Aviso[] }) {
                     aria-hidden
                   />
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-xs font-medium">{aviso.titulo}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-xs font-medium">{aviso.titulo}</span>
+                      {nuevos.has(claveDeAviso(aviso)) && (
+                        <span className="aurem-caps shrink-0 rounded-md bg-gold-leaf/15 px-1 py-px text-[9px] text-gold-leaf">
+                          Nuevo
+                        </span>
+                      )}
+                    </span>
                     <span
                       className={`text-[11px] ${aviso.urgente ? 'text-error-rose' : 'text-subtle'}`}
                     >

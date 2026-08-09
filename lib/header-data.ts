@@ -22,6 +22,16 @@ export type Aviso = {
   id: string
   titulo: string
   detalle: string
+  /**
+   * Fecha de ESTA ocurrencia, en YYYY-MM-DD.
+   *
+   * `id` solo identifica el par tarjeta+evento, y ese par vuelve todos los
+   * meses. La fecha es lo que distingue el vencimiento de agosto del de
+   * septiembre, y por eso es la que hace única la clave con la que se marca un
+   * aviso como leído: sin ella, marcar leído una vez apagaría el aviso de esa
+   * tarjeta para siempre.
+   */
+  fecha: string
   /** Días que faltan; 0 = hoy. */
   enDias: number
   urgente: boolean
@@ -64,6 +74,14 @@ function diasHasta(hoy: string, dia: number): number {
   return ultimoDeEste - diaDeHoy + Math.min(dia, ultimoDelProximo)
 }
 
+/** La fecha `dias` días después de `hoy`, en YYYY-MM-DD. */
+function fechaEn(hoy: string, dias: number): string {
+  const [anio, mes, dia] = hoy.split('-').map(Number)
+  // `Date.UTC` normaliza solo el desborde de mes y de año: el día 45 de agosto
+  // es el 14 de septiembre. UTC y no local para que no lo corra un huso horario.
+  return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10)
+}
+
 /** Avisos de cierre y vencimiento dentro de la ventana indicada. */
 export function construirAvisos(tarjetas: Tarjeta[], hoy: string, ventanaEnDias = 7): Aviso[] {
   const avisos: Aviso[] = []
@@ -78,6 +96,7 @@ export function construirAvisos(tarjetas: Tarjeta[], hoy: string, ventanaEnDias 
           id: `${tarjeta.id}:cierre`,
           titulo: `Cierra ${tarjeta.name}`,
           detalle: dias === 0 ? 'Cierra hoy' : `En ${dias} día${dias === 1 ? '' : 's'}`,
+          fecha: fechaEn(hoy, dias),
           enDias: dias,
           urgente: false,
         })
@@ -91,6 +110,7 @@ export function construirAvisos(tarjetas: Tarjeta[], hoy: string, ventanaEnDias 
           id: `${tarjeta.id}:vencimiento`,
           titulo: `Vence ${tarjeta.name}`,
           detalle: dias === 0 ? 'Vence hoy' : `En ${dias} día${dias === 1 ? '' : 's'}`,
+          fecha: fechaEn(hoy, dias),
           enDias: dias,
           // Un pago vencido cuesta plata: ese sí se marca en rojo.
           urgente: dias <= 2,
