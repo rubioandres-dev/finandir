@@ -41,5 +41,33 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'maskable',
       },
     ],
+    // Atajos del launcher: al mantener presionado el ícono de AUREM, Android
+    // ofrece estas tres acciones. Los dos primeros entran por /dashboard con
+    // un ?action= que el dashboard consume para abrir la hoja correspondiente.
+    // Android muestra como máximo 4 (en la práctica 3 en la mayoría de los
+    // launchers), así que el orden acá es el orden de prioridad.
+    shortcuts: [
+      {
+        name: 'Registrar Gasto',
+        short_name: 'Nuevo Gasto',
+        description: 'Registrar gasto por voz o texto',
+        url: '/dashboard?action=new-expense',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Escanear Comprobante',
+        short_name: 'Escanear',
+        description: 'Fotografiar ticket o factura con IA',
+        url: '/dashboard?action=scan-receipt',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Ver Consolidado',
+        short_name: 'Balance',
+        description: 'Consultar balance y patrimonio',
+        url: '/dashboard/consolidated',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+    ],
   }
 }

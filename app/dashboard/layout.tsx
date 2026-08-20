@@ -4,6 +4,7 @@ import { FloatingActionButton } from '@/components/floating-action-button'
 import { GuidedTourProvider } from '@/components/guided-tour'
 import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
+import { UrlActionHandler } from '@/components/url-action-handler'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera } from '@/lib/header-data'
@@ -75,6 +76,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         >
           {children}
         </AppShell>
+
+      {/* Atajos de la PWA: traduce ?action= en una acción del botón flotante.
+          Va afuera del `!mostrarOnboarding` porque no pinta nada: si el modal
+          de onboarding está arriba, la acción queda pendiente y el FAB la
+          levanta cuando monta. */}
+      <UrlActionHandler />
 
       {/* Fuera del <div> del layout y no adentro del <main>: es `fixed` y no
           tiene que competir con el scroll ni con el ancho máximo del contenido.

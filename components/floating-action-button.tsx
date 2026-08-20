@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, FileUp, PenLine, Plus } from 'lucide-react'
 import { DocumentScannerModal } from '@/components/document-scanner-modal'
 import { QuickEntryModal } from '@/components/quick-entry-modal'
+import { consumirAccionRapida, useAccionRapidaPendiente } from '@/components/url-action-handler'
 import type { CuentaElegible } from '@/lib/types'
 
 /** Mismo tope que la API: rechazarlo acá ahorra subir 20 MB para nada. */
@@ -14,11 +15,14 @@ function AccionDial({
   etiqueta,
   Icono,
   retraso,
+  resaltado = false,
   alTocar,
 }: {
   etiqueta: string
   Icono: typeof Camera
   retraso: number
+  /** Marca la opción que el atajo de la PWA vino a buscar. */
+  resaltado?: boolean
   alTocar: () => void
 }) {
   return (
@@ -26,7 +30,9 @@ function AccionDial({
       type="button"
       onClick={alTocar}
       style={{ animationDelay: `${retraso}ms` }}
-      className="fab-accion flex cursor-pointer items-center gap-2.5 rounded-full border border-glass-stroke bg-menu py-2 pl-3.5 pr-2 text-xs font-medium text-on-background shadow-2xl transition active:scale-95 hover:border-gold-leaf"
+      className={`fab-accion flex cursor-pointer items-center gap-2.5 rounded-full border bg-menu py-2 pl-3.5 pr-2 text-xs font-medium text-on-background shadow-2xl transition active:scale-95 hover:border-gold-leaf ${
+        resaltado ? 'border-gold-leaf ring-2 ring-gold-leaf/40' : 'border-glass-stroke'
+      }`}
     >
       {etiqueta}
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gold-leaf/10 text-gold-leaf">
@@ -49,6 +55,15 @@ function AccionDial({
  *
  * En escritorio `capture` se ignora y los dos abren el explorador; la opción
  * de cámara igual sirve si hay webcam.
+ *
+ * ATAJOS DE LA PWA
+ *
+ * Este componente es también el destino de los atajos del launcher, que
+ * `<UrlActionHandler>` deja como solicitud pendiente. Lo que la solicitud pide
+ * se DERIVA del store en el render —no se copia a estado local— por dos
+ * motivos: copiarlo exige un `setState` dentro de un efecto, que el compilador
+ * de React marca, y mete un render intermedio en el que se ve el dashboard
+ * pelado antes del modal. Derivado, el modal entra en el mismo commit.
  */
 export function FloatingActionButton({
   categorias,
@@ -64,6 +79,43 @@ export function FloatingActionButton({
 
   const inputCamara = useRef<HTMLInputElement>(null)
   const inputArchivo = useRef<HTMLInputElement>(null)
+
+  const solicitud = useAccionRapidaPendiente()
+
+  /** El atajo "Nuevo Gasto" abre la hoja de carga rápida, ya con foco en el campo. */
+  const mostrarCargaRapida = cargaRapida || solicitud?.accion === 'new-expense'
+
+  /**
+   * El atajo "Escanear" llegó pero la cámara no se puede abrir sola: falta el
+   * toque del usuario. Se abre el dial con "Tomar foto" resaltado —un toque, y
+   * la cámara sale—, que es preferible a un atajo que aparenta no hacer nada.
+   */
+  const esperandoFoto = solicitud?.accion === 'scan-receipt' && !solicitud.puedeAbrirCamara
+
+  const dialAbierto = abierto || esperandoFoto
+
+  /**
+   * Único caso que necesita un efecto: disparar la cámara.
+   *
+   * Es un side effect sobre el DOM (click en un input oculto), no estado, y los
+   * refs solo son seguros de leer fuera del render.
+   */
+  useEffect(() => {
+    if (solicitud?.accion !== 'scan-receipt' || !solicitud.puedeAbrirCamara) return
+    consumirAccionRapida()
+    inputCamara.current?.click()
+  }, [solicitud])
+
+  function cerrarDial() {
+    setAbierto(false)
+    // Apaga el resaltado si el usuario descartó el atajo sin usarlo.
+    consumirAccionRapida()
+  }
+
+  function cerrarCargaRapida() {
+    setCargaRapida(false)
+    consumirAccionRapida()
+  }
 
   function alElegirArchivo(evento: React.ChangeEvent<HTMLInputElement>) {
     const elegido = evento.target.files?.[0]
@@ -108,11 +160,11 @@ export function FloatingActionButton({
 
       {/* Telón: cierra al tocar afuera. Solo existe con el dial abierto, así
           que no le roba toques a la app el resto del tiempo. */}
-      {abierto && (
+      {dialAbierto && (
         <button
           type="button"
           aria-label="Cerrar acciones rápidas"
-          onClick={() => setAbierto(false)}
+          onClick={cerrarDial}
           className="fixed inset-0 z-40 cursor-default bg-midnight-navy/40 backdrop-blur-[2px]"
         />
       )}
@@ -127,18 +179,29 @@ export function FloatingActionButton({
           </p>
         )}
 
+        {/* Solo con el atajo del launcher: es la única forma de que el usuario
+            entienda por qué quedó mirando el dial en vez de la cámara. */}
+        {esperandoFoto && !error && (
+          <p
+            role="status"
+            className="max-w-[15rem] rounded-xl border border-gold-leaf/30 bg-menu px-3 py-2 text-[11px] leading-snug text-gold-leaf shadow-2xl"
+          >
+            Tocá «Tomar foto» para abrir la cámara.
+          </p>
+        )}
+
         {/* Las tres acciones van escritas una por una y no mapeadas desde un
             array: armar ese array en el cuerpo del render mete los refs de los
             inputs en closures que la regla `react-hooks/refs` marca, y con
             razón — un ref leído durante el render no dispara actualizaciones. */}
-        {abierto && (
+        {dialAbierto && (
           <>
             <AccionDial
               etiqueta="Nuevo movimiento"
               Icono={PenLine}
               retraso={0}
               alTocar={() => {
-                setAbierto(false)
+                cerrarDial()
                 setCargaRapida(true)
               }}
             />
@@ -146,13 +209,20 @@ export function FloatingActionButton({
               etiqueta="Tomar foto"
               Icono={Camera}
               retraso={45}
-              alTocar={() => inputCamara.current?.click()}
+              resaltado={esperandoFoto}
+              alTocar={() => {
+                consumirAccionRapida()
+                inputCamara.current?.click()
+              }}
             />
             <AccionDial
               etiqueta="Subir documento"
               Icono={FileUp}
               retraso={90}
-              alTocar={() => inputArchivo.current?.click()}
+              alTocar={() => {
+                consumirAccionRapida()
+                inputArchivo.current?.click()
+              }}
             />
           </>
         )}
@@ -160,26 +230,23 @@ export function FloatingActionButton({
         <button
           type="button"
           onClick={() => {
-            setAbierto((previo) => !previo)
+            setAbierto(!dialAbierto)
+            consumirAccionRapida()
             setError(null)
           }}
-          aria-expanded={abierto}
-          aria-label={abierto ? 'Cerrar acciones rápidas' : 'Acciones rápidas'}
+          aria-expanded={dialAbierto}
+          aria-label={dialAbierto ? 'Cerrar acciones rápidas' : 'Acciones rápidas'}
           className="fire-gradient glow-gold grid size-14 cursor-pointer place-items-center rounded-full text-midnight-navy shadow-2xl transition active:scale-90"
         >
           <Plus
-            className={`size-7 transition-transform duration-200 ${abierto ? 'rotate-45' : ''}`}
+            className={`size-7 transition-transform duration-200 ${dialAbierto ? 'rotate-45' : ''}`}
             aria-hidden
           />
         </button>
       </div>
 
-      {cargaRapida && (
-        <QuickEntryModal
-          categorias={categorias}
-          cuentas={cuentas}
-          onCerrar={() => setCargaRapida(false)}
-        />
+      {mostrarCargaRapida && (
+        <QuickEntryModal categorias={categorias} cuentas={cuentas} onCerrar={cerrarCargaRapida} />
       )}
 
       {archivo && (
