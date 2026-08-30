@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Moneda activa del header: recorta todo lo que se muestra abajo.
-  const { modo, monedas, idioma, locale, modulos, oculto } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma, modulos } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
 
   const {
@@ -165,11 +165,11 @@ export default async function DashboardPage() {
               de las cuentas: mezclaba plata disponible con deuda de tarjeta y,
               con varias divisas, era una lista que el ojo terminaba sumando
               aunque no fuera sumable. */}
+          {/* Sin `locale`, `oculto` ni `idioma`: la card los toma del contexto
+              de cliente. Eso es lo que hace que el ojito tape el patrimonio en
+              el acto en vez de esperar al `router.refresh()`. */}
           <BalanceOverviewCard
             resumen={balance}
-            locale={locale}
-            oculto={oculto}
-            idioma={idioma}
             mostrarInversiones={moduloActivo(modulos, 'investments')}
             mostrarDeudas={moduloActivo(modulos, 'debts')}
           />

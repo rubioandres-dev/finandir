@@ -17,15 +17,20 @@ import { usePrivacidad, useTraduccion } from '@/components/currency-provider'
  * cercanía. Que además tape el resto de la app se descubre al primer toque, y
  * es una sorpresa buena.
  *
- * Vive en su propio archivo porque `<BalanceOverviewCard>` es un Server
- * Component —formatea los importes en el servidor— y este botón necesita
- * estado de cliente. Un componente de cliente adentro de uno de servidor es
- * exactamente la costura que hace falta.
+ * Vive en su propio archivo para poder ponerlo en cualquier lado sin arrastrar
+ * la card entera: hoy está solo en la de patrimonio, pero el bloque del
+ * consolidado muestra el mismo número y es el próximo candidato.
  *
- * `cambiando` lo deshabilita mientras el servidor vuelve a renderizar: media
- * app formatea del lado del servidor, así que hasta que no vuelve el refresh
- * la pantalla está a medio camino, y aceptar otro toque ahí deja al ojito
- * diciendo una cosa y a los importes mostrando otra.
+ * NO SE DESHABILITA MIENTRAS REFRESCA
+ *
+ * Lo hacía, y era el motivo de que se sintiera pesado: la card de patrimonio
+ * es de cliente y tapa en el acto, así que bloquear el botón hasta que
+ * volviera el `router.refresh()` era pedirle al usuario que esperara por un
+ * trabajo que ya no está mirando —el de las OTRAS pantallas, que se renderizan
+ * en el servidor—. Dos toques seguidos tampoco desincronizan nada: la cookie
+ * se escribe sincrónica y gana la última, así que el refresh que llegue al
+ * final lee el estado definitivo. Queda `aria-busy` para que un lector de
+ * pantalla sepa que algo sigue en curso.
  */
 export function OjoDePrivacidad() {
   const { t } = useTraduccion()
@@ -38,13 +43,13 @@ export function OjoDePrivacidad() {
     <button
       type="button"
       onClick={alternar}
-      disabled={cambiando}
+      aria-busy={cambiando}
       aria-pressed={oculto}
       aria-label={etiqueta}
       title={etiqueta}
       // Mismo alto y mismo borde que el selector de moneda que tiene al lado:
       // los dos son controles de cómo se lee el número de abajo.
-      className={`grid size-[1.875rem] shrink-0 cursor-pointer place-items-center rounded-xl border bg-surface-container/60 transition active:scale-95 disabled:opacity-60 ${
+      className={`grid size-[1.875rem] shrink-0 cursor-pointer place-items-center rounded-xl border bg-surface-container/60 transition active:scale-95 ${
         oculto
           ? 'border-gold-leaf/60 text-gold-leaf'
           : 'border-glass-stroke/60 text-on-surface-variant hover:border-gold-leaf/60 hover:text-gold-leaf'

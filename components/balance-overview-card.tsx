@@ -1,10 +1,12 @@
+'use client'
+
 import { CreditCard, Droplets, TrendingUp, TriangleAlert } from 'lucide-react'
+import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CurrencySelector } from '@/components/currency-selector'
 import { OjoDePrivacidad } from '@/components/privacy-eye'
 import { Card, CardLabel } from '@/components/ui/card'
 import type { CapaDeBalance, ResumenDeBalance } from '@/lib/balance-overview'
-import { crearFormateadores, type Locale } from '@/lib/formatters'
-import { crearTraductor, type Clave, type Idioma } from '@/lib/i18n'
+import type { Clave } from '@/lib/i18n'
 import type { Moneda } from '@/lib/types'
 
 /**
@@ -41,9 +43,6 @@ function Bloque({
   color,
   capa,
   moneda,
-  locale,
-  oculto,
-  idioma,
   children,
 }: {
   etiqueta: Clave
@@ -51,13 +50,10 @@ function Bloque({
   color: string
   capa: CapaDeBalance
   moneda: Moneda
-  locale: Locale
-  oculto: boolean
-  idioma: Idioma
   children?: React.ReactNode
 }) {
-  const { formatearMonto } = crearFormateadores(locale, oculto)
-  const t = crearTraductor(idioma)
+  const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
 
   // Con más de una divisa en juego, el desglose sin convertir es lo único que
   // deja ver de dónde salió el total sin creerle a ciegas al tipo de cambio.
@@ -98,21 +94,15 @@ function Chip({
   etiqueta,
   capa,
   moneda,
-  locale,
-  oculto,
-  idioma,
   resta = false,
 }: {
   etiqueta: Clave
   capa: CapaDeBalance
   moneda: Moneda
-  locale: Locale
-  oculto: boolean
-  idioma: Idioma
   resta?: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale, oculto)
-  const t = crearTraductor(idioma)
+  const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
 
   if (capa.total === null || capa.total === 0) return null
 
@@ -131,23 +121,17 @@ function Chip({
 
 export function BalanceOverviewCard({
   resumen,
-  locale,
-  oculto,
-  idioma,
   mostrarInversiones = true,
   mostrarDeudas = true,
 }: {
   resumen: ResumenDeBalance
-  locale: Locale
-  oculto: boolean
-  idioma: Idioma
   /** Módulo `investments`: apagado, el bloque no se muestra. */
   mostrarInversiones?: boolean
   /** Módulo `debts`: apagado, el chip de deuda personal no se muestra. */
   mostrarDeudas?: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale, oculto)
-  const t = crearTraductor(idioma)
+  const { formatearMonto } = useFormatoRegional()
+  const { t } = useTraduccion()
 
   const { moneda, patrimonioNeto } = resumen
   const bloques = mostrarInversiones ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
@@ -198,18 +182,12 @@ export function BalanceOverviewCard({
           etiqueta="consolidado.meDeben"
           capa={resumen.porCobrar}
           moneda={moneda}
-          locale={locale}
-          oculto={oculto}
-          idioma={idioma}
         />
         {mostrarDeudas && (
           <Chip
             etiqueta="consolidado.deudasPersonales"
             capa={resumen.deudaPersonal}
             moneda={moneda}
-            locale={locale}
-          oculto={oculto}
-            idioma={idioma}
             resta
           />
         )}
@@ -227,9 +205,6 @@ export function BalanceOverviewCard({
           color="text-income"
           capa={resumen.liquidez}
           moneda={moneda}
-          locale={locale}
-          oculto={oculto}
-          idioma={idioma}
         />
 
         <Bloque
@@ -238,9 +213,6 @@ export function BalanceOverviewCard({
           color="text-budget-warn"
           capa={resumen.tarjetas}
           moneda={moneda}
-          locale={locale}
-          oculto={oculto}
-          idioma={idioma}
         >
           {/* Las cuotas del mes son un RECORTE del saldo de arriba, no un
               sumando: el trigger de saldo ya las metió adentro al insertarlas. */}
@@ -272,9 +244,6 @@ export function BalanceOverviewCard({
               color="text-gold-leaf"
               capa={resumen.inversiones}
               moneda={moneda}
-              locale={locale}
-          oculto={oculto}
-              idioma={idioma}
             />
           </div>
         )}
