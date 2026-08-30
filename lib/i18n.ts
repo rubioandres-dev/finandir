@@ -491,6 +491,7 @@ const ES_AR = {
   'escaner.avisoListoCuerpo': 'AUREM terminó de leerlo. Abrí la app para confirmar el movimiento.',
   'escaner.avisoErrorTitulo': 'No se pudo leer el comprobante',
   'escaner.avisoErrorCuerpo': 'Abrí AUREM para ver qué pasó y probar de nuevo.',
+  'escaner.reintentar': 'Reintentar',
 
   // --- Cámara ---------------------------------------------------------------
   'camara.titulo': 'Cámara',
@@ -1198,6 +1199,7 @@ const EN: Parcial = {
   'escaner.avisoListoCuerpo': 'AUREM finished reading it. Open the app to confirm the transaction.',
   'escaner.avisoErrorTitulo': 'The receipt could not be read',
   'escaner.avisoErrorCuerpo': 'Open AUREM to see what happened and try again.',
+  'escaner.reintentar': 'Try again',
 
   'camara.titulo': 'Camera',
   'camara.abriendo': 'Opening the camera…',

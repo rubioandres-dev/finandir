@@ -113,6 +113,31 @@ function svgLogo({ lado, radio, anchoA, barra, borde, orbitas: conOrbitas = true
 </svg>`
 }
 
+/**
+ * El "badge" de las notificaciones: la "A" sola, blanca y sobre transparente.
+ *
+ * Android NO muestra este ícono como está: le extrae el canal alfa y lo pinta
+ * del color de acento del sistema. Cualquier cosa con fondo —el ícono de la
+ * app, por ejemplo— se convierte así en un cuadrado gris opaco en la barra de
+ * estado, que era exactamente lo que se veía usando `icon-192` de badge.
+ *
+ * De ahí las tres reglas: sin fondo, sin gradientes y sin filete. Y la "A"
+ * ocupa el 58% del lienzo, no todo: la barra de estado recorta a un círculo y
+ * un glifo a sangre queda con las patas comidas.
+ */
+function svgBadge(lado) {
+  const anchoA = lado * 0.58
+  const escala = anchoA / A_ANCHO
+  const x = (lado - anchoA) / 2
+  const y = (lado - A_ALTO * escala) / 2
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${lado}" height="${lado}" viewBox="0 0 ${lado} ${lado}">
+  <g transform="translate(${x} ${y}) scale(${escala})" fill="#ffffff" fill-rule="evenodd">
+    <path d="${A_SILUETA} ${A_OJO} ${A_VANO}"/>
+  </g>
+</svg>`
+}
+
 const png = (svg, lado) =>
   sharp(Buffer.from(svg)).resize(lado, lado).png({ compressionLevel: 9 }).toBuffer()
 
@@ -188,6 +213,10 @@ for (const { archivo, lado, radio, anchoA, barra, borde } of SALIDAS) {
   await writeFile(archivo, await png(svg, lado))
   console.log(`${archivo}  ${lado}×${lado}`)
 }
+
+// Badge de notificaciones: 96 px es el tamaño que pide Android (`small icon`).
+await writeFile('public/icons/badge-96.png', await png(svgBadge(512), 96))
+console.log(`public/icons/badge-96.png  96×96`)
 
 // Favicon: a 16 px la barra desaparece y el filete y las órbitas se vuelven
 // ruido, así que esta variante es solo la "A", más grande para que aguante la

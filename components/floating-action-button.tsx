@@ -10,6 +10,7 @@ import {
   iniciarEscaneo,
   minimizarEscaneo,
   mostrarEscaneo,
+  reintentarEscaneo,
   retomarAlVolver,
   useEscaneo,
   type Escaneo,
@@ -114,14 +115,15 @@ function PildoraDeEscaneo({ escaneo }: { escaneo: Escaneo }) {
  *
  * POR QUÉ DOS `<input type="file">` Y NO UNO
  *
- * `capture="environment"` no es un filtro: es una orden. Le dice al navegador
- * móvil que abra la cámara trasera directo, sin pasar por el selector de
- * archivos. Eso es lo que se quiere en "Tomar foto" y lo que NO se quiere en
- * "Subir documento", donde hay que llegar al explorador y a los PDF. Un solo
- * input no puede hacer las dos cosas, así que son dos.
+ * `capture="environment"` manda al navegador móvil a la cámara directo, sin
+ * pasar por el selector de archivos. Eso es lo que se quiere en "Tomar foto" y
+ * lo que NO se quiere en "Subir documento", donde hay que llegar al explorador
+ * y a los PDF. Un solo input no puede hacer las dos cosas, así que son dos.
  *
- * En escritorio `capture` se ignora y los dos abren el explorador; la opción
- * de cámara igual sirve si hay webcam.
+ * Ojo: `environment` es una PISTA, no una orden — la app de cámara del sistema
+ * puede abrir con la frontal igual (ver `camera-capture.tsx`, que existe por
+ * eso). Estos inputs quedaron como camino de respaldo: el de cámara solo se
+ * usa donde no hay `getUserMedia` o si se niega el permiso.
  *
  * ATAJOS DE LA PWA
  *
@@ -413,6 +415,7 @@ export function FloatingActionButton({
           cuentas={cuentas}
           onMinimizar={minimizarEscaneo}
           onDescartar={descartarEscaneo}
+          onReintentar={reintentarEscaneo}
         />
       )}
     </>

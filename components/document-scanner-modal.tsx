@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, Check, FileText, Loader2, ScanLine, X } from 'lucide-react'
+import { AlertTriangle, Check, FileText, Loader2, RotateCcw, ScanLine, X } from 'lucide-react'
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CurrencyOptions } from '@/components/currency-options'
@@ -60,6 +60,7 @@ export function DocumentScannerModal({
   cuentas = [],
   onMinimizar,
   onDescartar,
+  onReintentar,
 }: {
   /** La lectura en curso o terminada, tal como la publica el store. */
   escaneo: Escaneo
@@ -71,6 +72,8 @@ export function DocumentScannerModal({
   onMinimizar: () => void
   /** Tira el comprobante. Solo se llega acá a propósito o tras guardar. */
   onDescartar: () => void
+  /** Vuelve a mandar el mismo archivo a analizar, sin sacar otra foto. */
+  onReintentar: () => void
 }) {
   const { formatearMonto } = useFormatoRegional()
   const { t } = useTraduccion()
@@ -281,16 +284,30 @@ export function DocumentScannerModal({
           </p>
         )}
 
-        {/* Sin formulario que confirmar, la única salida sensata es tirarlo:
-            minimizar un comprobante ilegible solo deja una píldora en rojo. */}
+        {/* Reintentar primero, y destacado: la mayoría de estos errores son
+            del viaje —cuota de Gemini, conexión— y no del comprobante, así que
+            volver a mandarlo suele alcanzar. Descartar queda al lado porque
+            sin formulario que confirmar no hay otra salida: minimizar un
+            comprobante ilegible solo deja una píldora en rojo. */}
         {escaneo.fase === 'error' && (
-          <button
-            type="button"
-            onClick={onDescartar}
-            className="cursor-pointer rounded-lg border border-glass-stroke/50 px-4 py-2.5 text-sm text-on-surface-variant transition active:scale-95 hover:border-gold-leaf"
-          >
-            {t('escaner.descartar')}
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={onReintentar}
+              className="fire-gradient glow-gold flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-midnight-navy transition active:scale-95"
+            >
+              <RotateCcw className="size-4" aria-hidden />
+              {t('escaner.reintentar')}
+            </button>
+
+            <button
+              type="button"
+              onClick={onDescartar}
+              className="cursor-pointer rounded-lg border border-glass-stroke/50 px-4 py-2.5 text-sm text-on-surface-variant transition active:scale-95 hover:border-gold-leaf"
+            >
+              {t('escaner.descartar')}
+            </button>
+          </div>
         )}
 
         {/* --- Datos extraídos, editables ----------------------------------- */}

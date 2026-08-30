@@ -41,6 +41,16 @@ let secuencia = 0
 let abortador: AbortController | null = null
 
 /**
+ * Con qué se pidió la lectura en curso.
+ *
+ * Se guarda para poder REINTENTAR sin volver a sacar la foto: un fallo del
+ * escáner suele ser una cuota agotada o una conexión que se cortó, y en los
+ * dos casos el archivo sigue siendo bueno. Va al lado del escaneo y no adentro
+ * porque no es estado que la UI mire.
+ */
+let contexto: { categorias: string[]; t: Traductor } | null = null
+
+/**
  * Se avisó por notificación con la app en segundo plano y el usuario todavía
  * no volvió. Cuando vuelva, el modal se abre solo (`retomarAlVolver`).
  */
@@ -74,10 +84,30 @@ export function iniciarEscaneo(archivo: File, categorias: string[], t: Traductor
   const id = secuencia
   const controlador = new AbortController()
   abortador = controlador
+  contexto = { categorias, t }
 
   publicar({ id, archivo, fase: 'analizando', datos: null, falla: null, enPantalla: true })
 
   void analizar(id, archivo, categorias, controlador.signal, t)
+}
+
+/**
+ * Vuelve a mandar el MISMO archivo a analizar.
+ *
+ * Sin esto, un 429 de Gemini o un corte de conexión obligaban a descartar y
+ * sacar la foto de nuevo —con el ticket ya guardado en el bolsillo, muchas
+ * veces—. El comprobante no tiene nada de malo: lo que falló fue el viaje.
+ */
+export function reintentarEscaneo() {
+  if (!escaneo || escaneo.fase !== 'error' || !contexto) return
+
+  const controlador = new AbortController()
+  abortador = controlador
+
+  // Se conserva el `id`: es el mismo comprobante, no uno nuevo.
+  actualizar(escaneo.id, { fase: 'analizando', datos: null, falla: null })
+
+  void analizar(escaneo.id, escaneo.archivo, contexto.categorias, controlador.signal, contexto.t)
 }
 
 async function analizar(
@@ -162,8 +192,13 @@ async function notificar(titulo: string, cuerpo: string) {
 
   const opciones = {
     body: cuerpo,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    // El grande, a color, que se ve al desplegar el aviso.
+    icon: '/icons/icon-512.png',
+    // El chico de la barra de estado. Es OTRO archivo y no el ícono de la
+    // app: Android le extrae el alfa y lo pinta del color de acento, así que
+    // cualquier cosa con fondo se convierte en un cuadrado gris opaco. Este es
+    // la "A" blanca sobre transparente (`scripts/generate-icons.mjs`).
+    badge: '/icons/badge-96.png',
     // Un solo aviso a la vez: si ya había uno, este lo reemplaza.
     tag: 'aurem-comprobante',
     data: { url: '/dashboard' },
@@ -220,6 +255,7 @@ export function mostrarEscaneo() {
 export function descartarEscaneo() {
   abortador?.abort()
   abortador = null
+  contexto = null
   avisoPendiente = false
   if (escaneo) publicar(null)
 }
