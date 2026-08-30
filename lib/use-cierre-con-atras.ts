@@ -84,3 +84,38 @@ export function useCierreConAtras(activo: boolean, alCerrar: () => void) {
     }
   }, [activo])
 }
+
+/**
+ * Se come el gesto de atrás sin cerrar nada.
+ *
+ * Para las capas OBLIGATORIAS —hoy solo el onboarding—, donde las dos salidas
+ * posibles son malas: cerrar el modal saltea un paso que la app necesita, y
+ * dejar pasar el gesto cierra la app. La tercera es que no pase nada.
+ *
+ * Acá no sirve `CloseWatcher`: su contrato es "esto se cierra", y quedarse
+ * abierto en el `onclose` es pelearle a la API. El truco del historial sí
+ * modela esto bien — se vuelve a empujar la entrada que el gesto consumió—, y
+ * como no hay nada que cerrar tampoco hay un cierre por botón que desarmar.
+ *
+ * Ojo con lo que implica: mientras esté activo, el "atrás" deja de sacar de la
+ * app. Quedan el botón de inicio y el conmutador de aplicaciones, que el
+ * sistema garantiza y ninguna web puede tocar.
+ */
+export function useAtrasRetenido(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return
+
+    const empujar = () =>
+      window.history.pushState({ ...window.history.state, aurem_capa: true }, '')
+
+    empujar()
+    window.addEventListener('popstate', empujar)
+
+    return () => {
+      window.removeEventListener('popstate', empujar)
+      if ((window.history.state as { aurem_capa?: boolean } | null)?.aurem_capa) {
+        window.history.back()
+      }
+    }
+  }, [activo])
+}

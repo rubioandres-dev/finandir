@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { formatearActualizacion, formatearCompra, formatoPesos } from '@/lib/rates-format'
 import type { CotizacionDeMercado } from '@/lib/rates'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Panel completo de cotizaciones.
@@ -31,6 +32,9 @@ export function QuotesModal({
   fechaMep: string | null
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const hoja = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

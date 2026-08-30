@@ -16,6 +16,7 @@ import {
 } from '@/lib/category-icons'
 import { useTraduccion } from '@/components/currency-provider'
 import type { Categoria } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-3 py-2 text-sm outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -88,6 +89,9 @@ export function CategoriesManagerModal({
   categorias: CategoriaConOrigen[]
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const router = useRouter()
   const [formulario, setFormulario] = useState<Formulario | null>(null)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState<string | null>(null)

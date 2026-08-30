@@ -8,6 +8,7 @@ import { guardarObjetivo } from '@/app/dashboard/goals/actions'
 import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { TIPOS_DE_OBJETIVO, type TipoDeObjetivo } from '@/lib/goals-service'
 import type { Moneda } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-3 py-2 text-sm outline-none transition focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -46,6 +47,9 @@ export function GoalModal({
   tipoInicial?: TipoDeObjetivo
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const router = useRouter()
   const { t } = useTraduccion()
   const { formatearMonto } = useFormatoRegional()

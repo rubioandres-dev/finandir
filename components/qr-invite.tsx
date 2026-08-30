@@ -6,6 +6,7 @@ import { Check, Copy, Loader2, QrCode, X } from 'lucide-react'
 import jsQR from 'jsqr'
 import QRCode from 'qrcode'
 import { useTraduccion } from '@/components/currency-provider'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * El QR codifica una URL, no un id pelado.
@@ -23,6 +24,9 @@ export function enlaceDeInvitacion(spaceId: string): string {
 
 /** Modal con el QR del grupo y el enlace para copiar. */
 export function QrInviteModal({ spaceId, onCerrar }: { spaceId: string; onCerrar: () => void }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const { t } = useTraduccion()
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   const [copiado, setCopiado] = useState(false)
@@ -145,6 +149,9 @@ export function QrScannerModal({
   onDetectado: (texto: string) => void
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const { t } = useTraduccion()
   const video = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState<string | null>(null)

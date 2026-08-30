@@ -10,6 +10,7 @@ import {
   type EdicionDeMovimiento,
 } from '@/lib/transactions-actions'
 import { hoyEnArgentina, type Moneda } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 const CUOTAS_COMUNES = [1, 3, 6, 9, 12, 18, 24]
 
@@ -60,6 +61,9 @@ export function TransactionEditor({
   cuentas: CuentaElegible[]
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const { formatearMonto } = useFormatoRegional()
   const { t } = useTraduccion()
   const router = useRouter()

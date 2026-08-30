@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Globe, Loader2 } from 'lucide-react'
 import { useTraduccion } from '@/components/currency-provider'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Confirmación antes de cambiar idioma o región.
@@ -30,6 +31,9 @@ export function LocationConfirmModal({
   onConfirmar: () => void
   onCancelar: () => void
 }) {
+  // Atrás cancela, salvo con el guardado en vuelo (igual que Escape).
+  useCierreConAtras(!guardando, onCancelar)
+
   const { t } = useTraduccion()
 
   useEffect(() => {

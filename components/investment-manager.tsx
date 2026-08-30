@@ -17,6 +17,7 @@ import {
   type PlazoDeLiquidez,
   type TipoDeActivo,
 } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Cada tipo de activo con el plazo que le corresponde casi siempre.
@@ -74,6 +75,9 @@ function FormularioDeInversion({
   inversion?: Inversion
   onCerrar: () => void
 }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const { t } = useTraduccion()
   const { formatearMonto } = useFormatoRegional()
   const router = useRouter()

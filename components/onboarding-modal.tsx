@@ -10,6 +10,7 @@ import { RegionPicker } from '@/components/region-picker'
 import { LOCALE_POR_DEFECTO, type Locale } from '@/lib/formatters'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
+import { useAtrasRetenido } from '@/lib/use-cierre-con-atras'
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-4 py-3 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -47,6 +48,10 @@ export function OnboardingModal({
   const [locale, setLocale] = useState<Locale>(localeInicial)
   const [error, setError] = useState<string | null>(null)
   const [guardando, iniciar] = useTransition()
+
+  // El onboarding es obligatorio: el gesto de atrás no lo cierra, pero tampoco
+  // se deja pasar —cerraría la app—. Se lo traga y no pasa nada.
+  useAtrasRetenido(true)
 
   const nombreValido = nombre.trim().length > 0
 

@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { Bug, Loader2, Mail, X } from 'lucide-react'
 import { enviarReporte, type EstadoDeReporte } from '@/app/dashboard/report-actions'
 import { CONTACTO_SOPORTE, FASE, VERSION } from '@/lib/version'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * "Acerca de AUREM": qué versión estás usando y por dónde avisar que algo falla.
@@ -16,6 +17,9 @@ import { CONTACTO_SOPORTE, FASE, VERSION } from '@/lib/version'
  * en `components/layout/floating-panel.tsx`.
  */
 export function AboutModal({ onCerrar }: { onCerrar: () => void }) {
+  // Atrás cierra el modal, no la app.
+  useCierreConAtras(true, onCerrar)
+
   const ruta = usePathname()
   const hoja = useRef<HTMLDivElement>(null)
   const [estado, enviar, enviando] = useActionState<EstadoDeReporte, FormData>(enviarReporte, {})

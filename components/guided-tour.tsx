@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { ArrowLeft, ArrowRight, Check, Sparkles, X } from 'lucide-react'
 import { useTraduccion } from '@/components/currency-provider'
 import type { Clave } from '@/lib/i18n'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Recorrido guiado sobre el Home.
@@ -196,6 +197,10 @@ export function GuidedTourProvider({
     window.addEventListener('resize', medir)
     return () => window.removeEventListener('resize', medir)
   }, [activo, paso, recorrido])
+
+  // El gesto de atrás saltea el tour: es lo que espera quien lo quiere sacar
+  // de encima, y el recorrido no se vuelve a ofrecer solo.
+  useCierreConAtras(activo, cerrar)
 
   // Escape cierra, y el fondo no scrollea mientras el tour está abierto.
   useEffect(() => {
