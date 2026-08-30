@@ -1,5 +1,6 @@
 import { CreditCard, Droplets, TrendingUp, TriangleAlert } from 'lucide-react'
 import { CurrencySelector } from '@/components/currency-selector'
+import { OjoDePrivacidad } from '@/components/privacy-eye'
 import { Card, CardLabel } from '@/components/ui/card'
 import type { CapaDeBalance, ResumenDeBalance } from '@/lib/balance-overview'
 import { crearFormateadores, type Locale } from '@/lib/formatters'
@@ -160,10 +161,15 @@ export function BalanceOverviewCard({
       {/* --- Cabecera ---------------------------------------------------- */}
       <div className="flex items-start justify-between gap-3">
         <CardLabel className="text-gold-leaf">{t('balance.patrimonioTotal')}</CardLabel>
-        {/* El mismo selector del header. Acá tiene sentido repetirlo: es el
-            control que decide en qué divisa está expresado el número grande
-            que está justo debajo. */}
-        <CurrencySelector cotizacion={null} />
+
+        {/* Los dos controles de cómo se lee el número grande de abajo: en qué
+            divisa está, y si se ve. El selector es el mismo del header y acá
+            tiene sentido repetirlo; el ojito vive SOLO acá, porque arriba se
+            perdía entre los íconos de sistema. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <OjoDePrivacidad />
+          <CurrencySelector cotizacion={null} />
+        </div>
       </div>
 
       {patrimonioNeto === null ? (
