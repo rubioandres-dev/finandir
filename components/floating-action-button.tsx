@@ -1,8 +1,19 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Camera, FileUp, PenLine, Plus } from 'lucide-react'
+import { AlertTriangle, Camera, Check, FileUp, Loader2, PenLine, Plus, X } from 'lucide-react'
+import { CameraCapture, hayCamaraEnLaApp } from '@/components/camera-capture'
+import { useTraduccion } from '@/components/currency-provider'
 import { DocumentScannerModal } from '@/components/document-scanner-modal'
+import {
+  descartarEscaneo,
+  iniciarEscaneo,
+  minimizarEscaneo,
+  mostrarEscaneo,
+  retomarAlVolver,
+  useEscaneo,
+  type Escaneo,
+} from '@/components/escaner-store'
 import { QuickEntryModal } from '@/components/quick-entry-modal'
 import { consumirAccionRapida, useAccionRapidaPendiente } from '@/components/url-action-handler'
 import type { CuentaElegible } from '@/lib/types'
@@ -43,6 +54,62 @@ function AccionDial({
 }
 
 /**
+ * El comprobante que quedó trabajando de fondo.
+ *
+ * Es la prueba visible de que cerrar el modal no canceló nada: mientras esta
+ * píldora esté ahí, la lectura sigue viva y se puede volver a ella de un
+ * toque. La X es el único descarte de esta pantalla, y es explícito.
+ */
+function PildoraDeEscaneo({ escaneo }: { escaneo: Escaneo }) {
+  const { t } = useTraduccion()
+
+  const { Icono, texto, tono, gira } = {
+    analizando: {
+      Icono: Loader2,
+      texto: t('escaner.leyendo'),
+      tono: 'border-gold-leaf/30 text-gold-leaf',
+      gira: true,
+    },
+    listo: {
+      Icono: Check,
+      texto: t('escaner.pildoraLista'),
+      tono: 'border-income/40 text-income',
+      gira: false,
+    },
+    error: {
+      Icono: AlertTriangle,
+      texto: t('escaner.errorLectura'),
+      tono: 'border-expense/40 text-expense',
+      gira: false,
+    },
+  }[escaneo.fase]
+
+  return (
+    <div
+      className={`flex max-w-[16rem] items-center gap-1 rounded-xl border bg-menu py-1.5 pl-3 pr-1.5 shadow-2xl ${tono}`}
+    >
+      <button
+        type="button"
+        onClick={mostrarEscaneo}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-[11px] font-medium leading-snug"
+      >
+        <Icono className={`size-3.5 shrink-0 ${gira ? 'animate-spin' : ''}`} aria-hidden />
+        <span className="min-w-0 flex-1">{texto}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={descartarEscaneo}
+        aria-label={t('escaner.descartar')}
+        className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-subtle transition hover:bg-foreground/5"
+      >
+        <X className="size-3.5" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
+/**
  * Acceso rápido a las tres formas de cargar un movimiento.
  *
  * POR QUÉ DOS `<input type="file">` Y NO UNO
@@ -72,9 +139,11 @@ export function FloatingActionButton({
   categorias: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[]
   cuentas?: CuentaElegible[]
 }) {
+  const { t } = useTraduccion()
+
   const [abierto, setAbierto] = useState(false)
   const [cargaRapida, setCargaRapida] = useState(false)
-  const [archivo, setArchivo] = useState<File | null>(null)
+  const [camara, setCamara] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const inputCamara = useRef<HTMLInputElement>(null)
@@ -82,26 +151,69 @@ export function FloatingActionButton({
 
   const solicitud = useAccionRapidaPendiente()
 
+  /** El comprobante en curso vive en el store, no acá: sobrevive al modal. */
+  const escaneo = useEscaneo()
+
+  /**
+   * La lectura terminó con la app en segundo plano y ya se avisó por
+   * notificación: al volver, el comprobante se pone adelante solo.
+   *
+   * Va por `visibilitychange` y no por el click de la notificación porque el
+   * usuario puede volver de muchas maneras —tocando el aviso, desde el
+   * launcher, desde el conmutador de apps— y todas terminan acá.
+   */
+  useEffect(() => {
+    function alVolver() {
+      if (document.visibilityState === 'visible') retomarAlVolver()
+    }
+
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+  }, [])
+
   /** El atajo "Nuevo Gasto" abre la hoja de carga rápida, ya con foco en el campo. */
   const mostrarCargaRapida = cargaRapida || solicitud?.accion === 'new-expense'
 
   /**
-   * El atajo "Escanear" llegó pero la cámara no se puede abrir sola: falta el
-   * toque del usuario. Se abre el dial con "Tomar foto" resaltado —un toque, y
-   * la cámara sale—, que es preferible a un atajo que aparenta no hacer nada.
+   * El atajo "Escanear" abre el visor propio derecho, sin toque de por medio:
+   * `getUserMedia` pide PERMISO, no activación del usuario, así que funciona
+   * hasta en el arranque en frío desde el launcher — que es justo donde el
+   * `<input type="file">` se descartaba en silencio.
+   *
+   * Se DERIVA del store en vez de copiarse con un efecto por lo mismo que
+   * `mostrarCargaRapida`: un `setState` dentro del efecto mete un render de
+   * más y lo marca `react-hooks/set-state-in-effect`.
+   *
+   * `hayCamaraEnLaApp()` toca `navigator`, que en el servidor no existe: queda
+   * detrás del `&&` a propósito. En el render de hidratación la solicitud
+   * siempre es `null` —la emite un efecto de `<UrlActionHandler>`, que corre
+   * después—, así que el corto circuito nunca la deja evaluarse en el momento
+   * en que cliente y servidor tienen que coincidir.
    */
-  const esperandoFoto = solicitud?.accion === 'scan-receipt' && !solicitud.puedeAbrirCamara
+  const mostrarCamara = camara || (solicitud?.accion === 'scan-receipt' && hayCamaraEnLaApp())
+
+  /**
+   * El atajo "Escanear" llegó, no hay cámara propia y el `<input>` tampoco se
+   * puede disparar solo: falta el toque del usuario. Se abre el dial con
+   * "Tomar foto" resaltado —un toque, y la cámara sale—, que es preferible a
+   * un atajo que aparenta no hacer nada.
+   */
+  const esperandoFoto =
+    solicitud?.accion === 'scan-receipt' && !solicitud.puedeAbrirCamara && !mostrarCamara
 
   const dialAbierto = abierto || esperandoFoto
 
   /**
-   * Único caso que necesita un efecto: disparar la cámara.
+   * Único caso que necesita un efecto: disparar la cámara del sistema.
    *
-   * Es un side effect sobre el DOM (click en un input oculto), no estado, y los
-   * refs solo son seguros de leer fuera del render.
+   * Es un side effect sobre el DOM (click en un input oculto), no estado, y
+   * los refs solo son seguros de leer fuera del render. Con visor propio no se
+   * llega acá: lo abre `mostrarCamara`, derivado del render.
    */
   useEffect(() => {
     if (solicitud?.accion !== 'scan-receipt' || !solicitud.puedeAbrirCamara) return
+    if (hayCamaraEnLaApp()) return
+
     consumirAccionRapida()
     inputCamara.current?.click()
   }, [solicitud])
@@ -114,6 +226,13 @@ export function FloatingActionButton({
 
   function cerrarCargaRapida() {
     setCargaRapida(false)
+    consumirAccionRapida()
+  }
+
+  /** Consume la solicitud además de bajar la bandera: si no, el atajo sigue
+      latcheado y el visor se vuelve a abrir en el render siguiente. */
+  function cerrarCamara() {
+    setCamara(false)
     consumirAccionRapida()
   }
 
@@ -132,8 +251,17 @@ export function FloatingActionButton({
     }
 
     setError(null)
-    setArchivo(elegido)
     setAbierto(false)
+
+    // La lectura arranca acá y no en el modal: así el modal puede cerrarse sin
+    // llevársela puesta. El escáner solo necesita los NOMBRES de las
+    // categorías —la lista de la que la IA elige— porque el tipo lo fija el
+    // comprobante: siempre es un gasto.
+    iniciarEscaneo(
+      elegido,
+      categorias.map((c) => c.nombre),
+      t
+    )
   }
 
   return (
@@ -170,6 +298,8 @@ export function FloatingActionButton({
       )}
 
       <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-2.5 md:bottom-8 md:right-8">
+        {escaneo && !escaneo.enPantalla && <PildoraDeEscaneo escaneo={escaneo} />}
+
         {error && (
           <p
             role="alert"
@@ -212,7 +342,13 @@ export function FloatingActionButton({
               resaltado={esperandoFoto}
               alTocar={() => {
                 consumirAccionRapida()
-                inputCamara.current?.click()
+                setAbierto(false)
+
+                // El visor propio es el camino normal; la cámara del sistema
+                // queda para navegadores sin `getUserMedia`, donde no se puede
+                // elegir el lente pero al menos se saca la foto.
+                if (hayCamaraEnLaApp()) setCamara(true)
+                else inputCamara.current?.click()
               }}
             />
             <AccionDial
@@ -249,14 +385,34 @@ export function FloatingActionButton({
         <QuickEntryModal categorias={categorias} cuentas={cuentas} onCerrar={cerrarCargaRapida} />
       )}
 
-      {archivo && (
+      {mostrarCamara && (
+        <CameraCapture
+          onCapturar={(foto) => {
+            cerrarCamara()
+            iniciarEscaneo(
+              foto,
+              categorias.map((c) => c.nombre),
+              t
+            )
+          }}
+          onCerrar={cerrarCamara}
+          onCamaraDelSistema={() => {
+            cerrarCamara()
+            inputCamara.current?.click()
+          }}
+        />
+      )}
+
+      {/* Se monta mientras haya un escaneo, aunque esté minimizado: adentro se
+          oculta con CSS. Desmontarlo perdería lo que el usuario ya corrigió a
+          mano en el formulario. */}
+      {escaneo && (
         <DocumentScannerModal
-          archivo={archivo}
-          // El escáner solo necesita los nombres: son la lista de la que la IA
-          // elige, y el tipo lo fija el comprobante (siempre es un gasto).
+          escaneo={escaneo}
           categorias={categorias.map((c) => c.nombre)}
           cuentas={cuentas}
-          onCerrar={() => setArchivo(null)}
+          onMinimizar={minimizarEscaneo}
+          onDescartar={descartarEscaneo}
         />
       )}
     </>

@@ -7,6 +7,7 @@ import { AlertTriangle, Check, FileText, Loader2, ScanLine, X } from 'lucide-rea
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CurrencyOptions } from '@/components/currency-options'
+import type { Escaneo } from '@/components/escaner-store'
 import type { ComprobanteParseado } from '@/app/api/ai/parse-document/route'
 import {
   hoyEnArgentina,
@@ -49,19 +50,27 @@ function aBorrador(datos: ComprobanteParseado): Borrador {
  *
  * Porteado a `document.body` porque lo abre el FAB, que es `fixed`; anidarle
  * otro `fixed` adentro heredaría su contexto de apilado.
+ *
+ * NO LEE EL COMPROBANTE: eso lo hace `escaner-store`, que sobrevive a que este
+ * modal se cierre. Acá solo se muestra lo que el store tenga y se confirma.
  */
 export function DocumentScannerModal({
-  archivo,
+  escaneo,
   categorias,
   cuentas = [],
-  onCerrar,
+  onMinimizar,
+  onDescartar,
 }: {
-  archivo: File
+  /** La lectura en curso o terminada, tal como la publica el store. */
+  escaneo: Escaneo
   /** Nombres de las categorías del usuario, para que la IA elija de ahí. */
   categorias: string[]
   /** Cuentas y tarjetas disponibles como destino del gasto. */
   cuentas?: CuentaElegible[]
-  onCerrar: () => void
+  /** Sale de pantalla; la lectura sigue. Es lo que hace cerrar el modal. */
+  onMinimizar: () => void
+  /** Tira el comprobante. Solo se llega acá a propósito o tras guardar. */
+  onDescartar: () => void
 }) {
   const { formatearMonto } = useFormatoRegional()
   const { t } = useTraduccion()
@@ -69,11 +78,27 @@ export function DocumentScannerModal({
   const { modo } = useModoMoneda()
   const hoja = useRef<HTMLDivElement>(null)
 
-  const [borrador, setBorrador] = useState<Borrador | null>(null)
+  const { archivo, enPantalla } = escaneo
+  const analizando = escaneo.fase === 'analizando'
+
+  /**
+   * Solo lo que el usuario TOCÓ, no el movimiento entero.
+   *
+   * El borrador se deriva del parseo en el render en vez de copiarse a estado
+   * con un efecto: copiarlo exigiría un `setState` dentro de un efecto —que el
+   * compilador de React marca— y dejaría un frame con los campos vacíos justo
+   * cuando llega el resultado. Superponiendo las ediciones, el dato de la IA y
+   * lo corregido a mano conviven sin sincronización.
+   */
+  const [editado, setEditado] = useState<Partial<Borrador>>({})
   const [cuentaId, setCuentaId] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [analizando, setAnalizando] = useState(true)
   const [guardando, iniciarGuardado] = useTransition()
+
+  const borrador = useMemo(() => {
+    if (!escaneo.datos) return null
+    return { ...aBorrador(escaneo.datos), ...editado }
+  }, [escaneo.datos, editado])
 
   const esImagen = archivo.type.startsWith('image/')
 
@@ -96,47 +121,21 @@ export function DocumentScannerModal({
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') onCerrar()
+      // Minimizado sigue montado (ver el `hidden` de abajo): sin esta guarda
+      // el Escape de otro modal encimado también pasaría por acá.
+      if (evento.key === 'Escape' && enPantalla) onMinimizar()
     }
     document.addEventListener('keydown', alEscapar)
     return () => document.removeEventListener('keydown', alEscapar)
-  }, [onCerrar])
+  }, [onMinimizar, enPantalla])
 
-  // Analiza al montar. `cancelado` evita escribir estado si el modal se cerró
-  // mientras la petición estaba en vuelo.
-  useEffect(() => {
-    let cancelado = false
-
-    async function analizar() {
-      const cuerpo = new FormData()
-      cuerpo.append('file', archivo)
-      cuerpo.append('categories', categorias.join('\n'))
-
-      try {
-        const respuesta = await fetch('/api/ai/parse-document', { method: 'POST', body: cuerpo })
-        const datos = await respuesta.json()
-
-        if (cancelado) return
-
-        if (!respuesta.ok) {
-          setError(datos?.error ?? t('escaner.errorLectura'))
-        } else {
-          setBorrador(aBorrador(datos as ComprobanteParseado))
-        }
-      } catch {
-        if (!cancelado) setError(t('escaner.errorConexion'))
-      } finally {
-        if (!cancelado) setAnalizando(false)
-      }
-    }
-
-    analizar()
-    return () => {
-      cancelado = true
-    }
-    // `t` sólo cambia si cambia el idioma, y ahí volver a analizar no molesta:
-    // el modal vive lo que dura una confirmación.
-  }, [archivo, categorias, t])
+  /**
+   * Lo que se ve en rojo: primero el error de guardado —es la acción que el
+   * usuario acaba de intentar— y si no, la falla de lectura que trae el store.
+   */
+  const mensajeDeError =
+    error ??
+    (escaneo.falla ? ('clave' in escaneo.falla ? t(escaneo.falla.clave) : escaneo.falla.texto) : null)
 
   function guardar() {
     if (!borrador) return
@@ -165,7 +164,8 @@ export function DocumentScannerModal({
         return
       }
 
-      onCerrar()
+      // Guardado y adentro: acá sí se tira el comprobante, ya cumplió.
+      onDescartar()
       router.refresh()
     })
   }
@@ -174,7 +174,7 @@ export function DocumentScannerModal({
     // Cambiar de moneda invalida la cuenta elegida: `guardarTransaccion`
     // rechaza el par si no coinciden, y el select ya no la va a listar.
     if (campo === 'moneda') setCuentaId('')
-    setBorrador((previo) => (previo ? { ...previo, [campo]: valor } : previo))
+    setEditado((previo) => ({ ...previo, [campo]: valor }))
   }
 
   const cuentasCompatibles = borrador
@@ -184,16 +184,21 @@ export function DocumentScannerModal({
   if (typeof document === 'undefined') return null
 
   return createPortal(
+    // Minimizado se OCULTA, no se desmonta: desmontarlo tiraría lo editado a
+    // mano y el `objectURL` de la vista previa, y el usuario que vuelve desde
+    // la píldora espera encontrar el formulario como lo dejó.
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="escaner-titulo"
-      className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center"
+      className={`fixed inset-0 z-[85] items-end justify-center sm:items-center ${
+        enPantalla ? 'flex' : 'hidden'
+      }`}
     >
       <button
         type="button"
-        aria-label={t('comun.cerrar')}
-        onClick={onCerrar}
+        aria-label={t('escaner.minimizar')}
+        onClick={onMinimizar}
         className="absolute inset-0 bg-midnight-navy/70 backdrop-blur-sm"
       />
 
@@ -211,8 +216,8 @@ export function DocumentScannerModal({
           </h3>
           <button
             type="button"
-            onClick={onCerrar}
-            aria-label={t('comun.cerrar')}
+            onClick={onMinimizar}
+            aria-label={t('escaner.minimizar')}
             className="grid size-7 cursor-pointer place-items-center rounded-md text-subtle transition hover:bg-foreground/5"
           >
             <X className="size-4" aria-hidden />
@@ -247,17 +252,45 @@ export function DocumentScannerModal({
             <Loader2 className="size-7 animate-spin text-gold-leaf" aria-hidden />
             <p className="text-xs text-on-surface-variant">{t('escaner.leyendo')}</p>
             <p className="text-[11px] text-subtle">{t('escaner.demora')}</p>
+
+            {/* Se dice ANTES de que cierre, no después: es la única forma de
+                que el toque afuera deje de sentirse como una cancelación. */}
+            <p className="max-w-[22rem] text-balance text-center text-[11px] leading-snug text-subtle">
+              {t('escaner.sigueEnSegundoPlano')}
+            </p>
+
+            {/* Cancelar de verdad existe, pero hay que pedirlo: cerrar no
+                alcanza. Es la contracara de que nada se pierda por accidente. */}
+            <button
+              type="button"
+              onClick={onDescartar}
+              className="cursor-pointer rounded-md px-2 py-1 text-[11px] text-subtle underline underline-offset-2 transition hover:text-on-surface-variant"
+            >
+              {t('escaner.cancelarLectura')}
+            </button>
           </div>
         )}
 
-        {error && (
+        {mensajeDeError && (
           <p
             role="alert"
             className="flex items-start gap-2 rounded-lg border border-expense/30 bg-expense/10 px-3.5 py-2.5 text-sm text-expense"
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {error}
+            {mensajeDeError}
           </p>
+        )}
+
+        {/* Sin formulario que confirmar, la única salida sensata es tirarlo:
+            minimizar un comprobante ilegible solo deja una píldora en rojo. */}
+        {escaneo.fase === 'error' && (
+          <button
+            type="button"
+            onClick={onDescartar}
+            className="cursor-pointer rounded-lg border border-glass-stroke/50 px-4 py-2.5 text-sm text-on-surface-variant transition active:scale-95 hover:border-gold-leaf"
+          >
+            {t('escaner.descartar')}
+          </button>
         )}
 
         {/* --- Datos extraídos, editables ----------------------------------- */}

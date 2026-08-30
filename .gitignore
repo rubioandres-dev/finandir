@@ -39,6 +39,9 @@ yarn-error.log*
 /public/swe-worker-*.js
 /public/workbox-*.js
 /public/workbox-*.js.map
+# El worker propio (worker/index.js) compilado y con hash en el nombre.
+/public/worker-*.js
+/public/worker-*.js.map
 /public/fallback-*.js
 
 # vercel

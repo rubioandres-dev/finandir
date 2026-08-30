@@ -481,6 +481,27 @@ const ES_AR = {
   'escaner.avisoMoneda':
     'Este movimiento va al libro de {moneda} y estás mirando el de {actual}: no lo vas a ver en la lista hasta que cambies de moneda en el header.',
   'escaner.guardar': 'Guardar movimiento',
+  'escaner.minimizar': 'Cerrar sin cancelar la lectura',
+  'escaner.sigueEnSegundoPlano':
+    'Podés cerrar esta ventana: la lectura sigue en segundo plano y te avisamos cuando termine.',
+  'escaner.cancelarLectura': 'Cancelar la lectura',
+  'escaner.descartar': 'Descartar el comprobante',
+  'escaner.pildoraLista': 'Comprobante listo · tocá para confirmar',
+  'escaner.avisoListoTitulo': 'Comprobante listo',
+  'escaner.avisoListoCuerpo': 'AUREM terminó de leerlo. Abrí la app para confirmar el movimiento.',
+  'escaner.avisoErrorTitulo': 'No se pudo leer el comprobante',
+  'escaner.avisoErrorCuerpo': 'Abrí AUREM para ver qué pasó y probar de nuevo.',
+
+  // --- Cámara ---------------------------------------------------------------
+  'camara.titulo': 'Cámara',
+  'camara.abriendo': 'Abriendo la cámara…',
+  'camara.sinPermiso':
+    'No diste permiso para usar la cámara. Podés habilitarlo desde el candado de la barra de direcciones, o sacar la foto con la cámara del sistema.',
+  'camara.sinCamara': 'No se encontró ninguna cámara en este dispositivo.',
+  'camara.error': 'No se pudo abrir la cámara.',
+  'camara.usarSistema': 'Usar la cámara del sistema',
+  'camara.disparar': 'Sacar la foto',
+  'camara.cambiarLente': 'Cambiar de cámara',
 
   // --- Importador de resúmenes ----------------------------------------------
   'importador.nuevos': 'Nuevos',
@@ -782,6 +803,14 @@ const ES_NEUTRO: Parcial = {
     'Se crearán {cuotas} cuotas de {monto}, una por mes. El importe de arriba es el total de la operación.',
   'escaner.avisoMoneda':
     'Este movimiento va al libro de {moneda} y estás viendo el de {actual}: no lo verás en la lista hasta que cambies de moneda en el encabezado.',
+  'escaner.sigueEnSegundoPlano':
+    'Puedes cerrar esta ventana: la lectura sigue en segundo plano y te avisamos cuando termine.',
+  'escaner.pildoraLista': 'Comprobante listo · toca para confirmar',
+  'escaner.avisoListoCuerpo': 'AUREM terminó de leerlo. Abre la app para confirmar el movimiento.',
+  'escaner.avisoErrorCuerpo': 'Abre AUREM para ver qué pasó e inténtalo de nuevo.',
+
+  'camara.sinPermiso':
+    'No has dado permiso para usar la cámara. Puedes habilitarlo desde el candado de la barra de direcciones, o sacar la foto con la cámara del sistema.',
 
   'importador.arrastra': 'Arrastra el resumen de tu tarjeta',
   'importador.errorArchivo': 'No se pudo procesar el archivo. Inténtalo de nuevo.',
@@ -1159,6 +1188,26 @@ const EN: Parcial = {
   'escaner.avisoMoneda':
     'This transaction goes to your {moneda} book and you are looking at {actual}: it will not show up in the list until you switch currency in the header.',
   'escaner.guardar': 'Save transaction',
+  'escaner.minimizar': 'Close without cancelling the reading',
+  'escaner.sigueEnSegundoPlano':
+    'You can close this window: the reading carries on in the background and we will let you know when it is done.',
+  'escaner.cancelarLectura': 'Cancel the reading',
+  'escaner.descartar': 'Discard the receipt',
+  'escaner.pildoraLista': 'Receipt ready · tap to confirm',
+  'escaner.avisoListoTitulo': 'Receipt ready',
+  'escaner.avisoListoCuerpo': 'AUREM finished reading it. Open the app to confirm the transaction.',
+  'escaner.avisoErrorTitulo': 'The receipt could not be read',
+  'escaner.avisoErrorCuerpo': 'Open AUREM to see what happened and try again.',
+
+  'camara.titulo': 'Camera',
+  'camara.abriendo': 'Opening the camera…',
+  'camara.sinPermiso':
+    'You did not allow camera access. You can enable it from the padlock in the address bar, or take the photo with the system camera.',
+  'camara.sinCamara': 'No camera was found on this device.',
+  'camara.error': 'The camera could not be opened.',
+  'camara.usarSistema': 'Use the system camera',
+  'camara.disparar': 'Take the photo',
+  'camara.cambiarLente': 'Switch camera',
 
   'importador.nuevos': 'New',
   'importador.registrados': 'Already recorded',
