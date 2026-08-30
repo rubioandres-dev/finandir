@@ -22,9 +22,9 @@ export default async function AccountsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale , idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale , idioma, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const { cuentas, tarjetas, patrimonio, error } = await cargarCuentasYDeudas(supabase, monedas)
   const detallePorCuenta = new Map(tarjetas.map((t) => [t.id, t.detalle]))
 

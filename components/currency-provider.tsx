@@ -4,6 +4,11 @@ import { useRouter } from 'next/navigation'
 import { createContext, useContext, useMemo, useState, useTransition } from 'react'
 import { COOKIE_MONEDA, MAX_EDAD_COOKIE_MONEDA } from '@/lib/currency-mode'
 import {
+  COOKIE_PRIVACIDAD,
+  COOKIE_PRIVACIDAD_SESION,
+  MAX_EDAD_COOKIE_PRIVACIDAD,
+} from '@/lib/privacy-mode'
+import {
   crearFormateadores,
   LOCALE_POR_DEFECTO,
   type Formateadores,
@@ -42,6 +47,14 @@ type Contexto = {
    * el consolidado, con su cotización a la vista.
    */
   mostrarEquivalencias: boolean
+  /** Modo privado: los importes salen enmascarados en toda la app. */
+  oculto: boolean
+  /** El ojito. Tapa o destapa por esta sesión, sin tocar la preferencia. */
+  alternarPrivacidad: () => void
+  /** Ajustes: con qué estado arranca la app, de acá en adelante. */
+  fijarPrivacidadPorDefecto: (ocultar: boolean) => void
+  /** Lo que Ajustes tiene que mostrar tildado: la preferencia, no el ojito. */
+  ocultoPorDefecto: boolean
 }
 
 const MonedaContext = createContext<Contexto | null>(null)
@@ -64,6 +77,8 @@ export function CurrencyProvider({
   locale = LOCALE_POR_DEFECTO,
   idioma = IDIOMA_POR_DEFECTO,
   modulos = {},
+  ocultoInicial = false,
+  ocultoPorDefecto = false,
 }: {
   children: React.ReactNode
   modoInicial: Moneda
@@ -71,9 +86,15 @@ export function CurrencyProvider({
   locale?: Locale
   idioma?: Idioma
   modulos?: EstadoDeModulos
+  /** Estado con el que el servidor ya renderizó los importes. */
+  ocultoInicial?: boolean
+  /** Solo la preferencia, sin el override del ojito. Lo muestra Ajustes. */
+  ocultoPorDefecto?: boolean
 }) {
   const router = useRouter()
   const [modo, setModo] = useState<Moneda>(modoInicial)
+  const [oculto, setOculto] = useState(ocultoInicial)
+  const [porDefecto, setPorDefecto] = useState(ocultoPorDefecto)
   const [cambiando, iniciarCambio] = useTransition()
 
   const valor = useMemo<Contexto>(() => {
@@ -94,6 +115,42 @@ export function CurrencyProvider({
       modulos,
       cambiando,
       mostrarEquivalencias: modoEfectivo === 'USD',
+      oculto,
+      ocultoPorDefecto: porDefecto,
+
+      /**
+       * El ojito: escribe la cookie de SESIÓN y refresca.
+       *
+       * El `setOculto` optimista tapa al toque todo lo que formatea el
+       * cliente; el `router.refresh()` va a buscar de nuevo lo que formateó el
+       * servidor, que en esta app es media pantalla (consolidado, balance,
+       * cuentas, deudas). Sin el refresh esos importes quedarían visibles
+       * hasta la próxima navegación.
+       */
+      alternarPrivacidad: () => {
+        const siguiente = !oculto
+
+        // Sin `max-age`: cookie de sesión a propósito. Destapar un rato no
+        // tiene por qué cambiar con qué arranca la app mañana.
+        document.cookie = `${COOKIE_PRIVACIDAD_SESION}=${siguiente ? '1' : '0'}; path=/; SameSite=Lax`
+
+        setOculto(siguiente)
+        iniciarCambio(() => router.refresh())
+      },
+
+      /** Ajustes: cambia la preferencia y la aplica ya. */
+      fijarPrivacidadPorDefecto: (ocultar: boolean) => {
+        document.cookie = `${COOKIE_PRIVACIDAD}=${ocultar ? '1' : '0'}; path=/; max-age=${MAX_EDAD_COOKIE_PRIVACIDAD}; SameSite=Lax`
+
+        // Se borra el override del ojito: si no, elegir "ocultar por defecto"
+        // no haría nada visible mientras la sesión tenga los importes
+        // destapados, y parecería que el interruptor está roto.
+        document.cookie = `${COOKIE_PRIVACIDAD_SESION}=; path=/; max-age=0; SameSite=Lax`
+
+        setPorDefecto(ocultar)
+        setOculto(ocultar)
+        iniciarCambio(() => router.refresh())
+      },
       cambiarModo: (moneda: Moneda) => {
         if (moneda === modoEfectivo || !seleccionadas.includes(moneda)) return
 
@@ -106,7 +163,7 @@ export function CurrencyProvider({
         iniciarCambio(() => router.refresh())
       },
     }
-  }, [modo, monedas, locale, idioma, modulos, cambiando, router])
+  }, [modo, monedas, locale, idioma, modulos, cambiando, oculto, porDefecto, router])
 
   return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
@@ -149,8 +206,33 @@ export function useEquivalencias(): { mostrarEquivalencias: boolean } {
  * año actual, y no hace falta rehacerlo en cada render.
  */
 export function useFormatoRegional(): Formateadores {
-  const { locale } = useMonedaContext()
-  return useMemo(() => crearFormateadores(locale), [locale])
+  const { locale, oculto } = useMonedaContext()
+  return useMemo(() => crearFormateadores(locale, oculto), [locale, oculto])
+}
+
+/**
+ * El modo privado y sus dos interruptores.
+ *
+ * Lo usan el ojito del header y la sección de Ajustes. Para MOSTRAR un importe
+ * no hace falta: `useFormatoRegional()` ya lo aplica solo.
+ */
+export function usePrivacidad(): {
+  oculto: boolean
+  ocultoPorDefecto: boolean
+  alternar: () => void
+  fijarPorDefecto: (ocultar: boolean) => void
+  cambiando: boolean
+} {
+  const { oculto, ocultoPorDefecto, alternarPrivacidad, fijarPrivacidadPorDefecto, cambiando } =
+    useMonedaContext()
+
+  return {
+    oculto,
+    ocultoPorDefecto,
+    alternar: alternarPrivacidad,
+    fijarPorDefecto: fijarPrivacidadPorDefecto,
+    cambiando,
+  }
 }
 
 /**

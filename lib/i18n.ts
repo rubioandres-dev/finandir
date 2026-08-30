@@ -504,6 +504,16 @@ const ES_AR = {
   'camara.disparar': 'Sacar la foto',
   'camara.cambiarLente': 'Cambiar de cámara',
 
+  // --- Privacidad -----------------------------------------------------------
+  'privacidad.titulo': 'Privacidad',
+  'privacidad.ocultar': 'Ocultar los importes',
+  'privacidad.mostrar': 'Mostrar los importes',
+  'privacidad.ocultarPorDefecto': 'Ocultar los importes al abrir',
+  'privacidad.ocultarPorDefectoDetalle':
+    'La app arranca con los saldos tapados. El ojito del header los muestra cuando los necesites.',
+  'privacidad.ayuda':
+    'El ojito tapa y destapa por un rato, sin cambiar esta preferencia. Vale para este dispositivo: en otro teléfono se elige aparte.',
+
   // --- Importador de resúmenes ----------------------------------------------
   'importador.nuevos': 'Nuevos',
   'importador.registrados': 'Registrados',
@@ -1210,6 +1220,15 @@ const EN: Parcial = {
   'camara.usarSistema': 'Use the system camera',
   'camara.disparar': 'Take the photo',
   'camara.cambiarLente': 'Switch camera',
+
+  'privacidad.titulo': 'Privacy',
+  'privacidad.ocultar': 'Hide amounts',
+  'privacidad.mostrar': 'Show amounts',
+  'privacidad.ocultarPorDefecto': 'Hide amounts on open',
+  'privacidad.ocultarPorDefectoDetalle':
+    'The app starts with balances masked. The eye in the header reveals them when you need them.',
+  'privacidad.ayuda':
+    'The eye hides and reveals temporarily, without changing this preference. It applies to this device: another phone is set separately.',
 
   'importador.nuevos': 'New',
   'importador.registrados': 'Already recorded',

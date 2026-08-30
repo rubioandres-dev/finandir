@@ -23,9 +23,9 @@ export default async function TransactionsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale, idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale, idioma, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
 
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
   // cotización; los movimientos ahora vienen del feed, partido por período.

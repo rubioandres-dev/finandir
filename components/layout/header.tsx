@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useRef, useState } from 'react'
-import { Bell, HelpCircle, Scale, X } from 'lucide-react'
-import { useTraduccion } from '@/components/currency-provider'
+import { Bell, Eye, EyeOff, HelpCircle, Scale, X } from 'lucide-react'
+import { usePrivacidad, useTraduccion } from '@/components/currency-provider'
 import { CurrencySelector } from '@/components/currency-selector'
 import { useTour } from '@/components/guided-tour'
 import { FloatingPanel } from '@/components/layout/floating-panel'
@@ -15,6 +15,43 @@ import { claveDeAviso, marcarLeidos, useAvisosLeidos } from '@/lib/use-avisos-le
 /** Un botón de la fila de herramientas. Mismo alto que el avatar (36 px). */
 const HERRAMIENTA =
   'grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border transition active:scale-90'
+
+/**
+ * El ojito: tapa o destapa los importes de toda la app.
+ *
+ * Va en el header y no al lado de cada saldo porque el gesto es global —"que
+ * no se vea nada"— y tiene que estar a un toque desde cualquier pantalla, no
+ * solo desde el dashboard.
+ *
+ * `cambiando` lo deshabilita mientras el servidor vuelve a renderizar: la
+ * mitad de los importes de la app los formatea el servidor, así que hasta que
+ * no vuelva el refresh el estado en pantalla está a medio camino y aceptar
+ * otro toque ahí deja al ojito diciendo una cosa y a la pantalla otra.
+ */
+function OjoDePrivacidad() {
+  const { t } = useTraduccion()
+  const { oculto, alternar, cambiando } = usePrivacidad()
+
+  const Icono = oculto ? EyeOff : Eye
+
+  return (
+    <button
+      type="button"
+      onClick={alternar}
+      disabled={cambiando}
+      aria-pressed={oculto}
+      aria-label={oculto ? t('privacidad.mostrar') : t('privacidad.ocultar')}
+      title={oculto ? t('privacidad.mostrar') : t('privacidad.ocultar')}
+      className={`${HERRAMIENTA} disabled:opacity-60 ${
+        oculto
+          ? 'border-gold-leaf/60 text-gold-leaf'
+          : 'border-glass-stroke/60 text-on-surface-variant hover:border-gold-leaf/60 hover:text-gold-leaf'
+      }`}
+    >
+      <Icono className="size-[18px]" aria-hidden />
+    </button>
+  )
+}
 
 /**
  * La campana.
@@ -305,7 +342,16 @@ export function Header({
             <Scale className="size-4 shrink-0" aria-hidden />
           </Link>
 
-          <BotonDeAyuda />
+          <OjoDePrivacidad />
+
+          {/* La ayuda se esconde en pantallas ultra angostas, igual que el
+              acceso al consolidado y por el mismo motivo: la fila no da para
+              más y ésta tiene otra puerta —la guía está en la bandeja "Más"—.
+              El ojito no la tiene, y taparlo justo en el teléfono más chico
+              sería esconder la función de privacidad donde más se usa. */}
+          <span className="max-[359px]:hidden">
+            <BotonDeAyuda />
+          </span>
 
           <Notificaciones avisos={avisos} />
 

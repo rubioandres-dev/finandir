@@ -1,3 +1,4 @@
+import { MASCARA_DE_MONTO } from './privacy-mode'
 import type { Moneda } from './types'
 
 /**
@@ -164,6 +165,70 @@ export function formatCurrencyParts(
   return { symbol, integerPart, decimalPart, fullFormatted }
 }
 
+/**
+ * Las piezas que Intl arma para una moneda, sin el número.
+ *
+ * Se formatea un 0 y se leen las partes: es la única forma de saber si el
+ * símbolo va antes o después, si hay espacio duro en el medio y cuál es. Un
+ * `$ ••••` escrito a mano saldría mal en es-ES, donde el € va al final.
+ */
+function piezasDeMoneda(moneda: Moneda, locale: Locale): Intl.NumberFormatPart[] | null {
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: moneda,
+      maximumFractionDigits: 2,
+    }).formatToParts(0)
+  } catch {
+    return null
+  }
+}
+
+/** Las partes que ocupa el número, y que la máscara reemplaza entera. */
+const PARTES_NUMERICAS = new Set(['integer', 'group', 'decimal', 'fraction'])
+
+/**
+ * El importe tapado: se conserva el símbolo de la moneda y se pierde el resto.
+ *
+ * LA MÁSCARA ES DE LARGO FIJO A PROPÓSITO. Reemplazar dígito por dígito
+ * —"$ •.•••,••"— deja ver cuántas cifras tiene el número, que es justo el dato
+ * que importa esconder: no es lo mismo un saldo de cuatro dígitos que uno de
+ * siete. Con largo fijo no se filtra ni el orden de magnitud.
+ *
+ * El símbolo se queda porque no es sensible y porque la app muestra libros de
+ * varias monedas en la misma pantalla: sin él, dos filas tapadas de distinta
+ * divisa serían indistinguibles.
+ */
+export function formatCurrencyOculto(moneda: Moneda, locale: Locale): string {
+  const piezas = piezasDeMoneda(moneda, locale)
+  if (!piezas) return `${moneda} ${MASCARA_DE_MONTO}`
+
+  let puesta = false
+
+  return piezas
+    .map((pieza) => {
+      if (!PARTES_NUMERICAS.has(pieza.type)) return pieza.value
+      if (puesta) return ''
+      puesta = true
+      return MASCARA_DE_MONTO
+    })
+    .join('')
+}
+
+/** El equivalente tapado de `formatCurrencyParts`. */
+export function formatCurrencyPartsOculto(moneda: Moneda, locale: Locale): PartesDeMonto {
+  const piezas = piezasDeMoneda(moneda, locale)
+
+  return {
+    symbol: piezas?.find((p) => p.type === 'currency')?.value ?? moneda,
+    integerPart: MASCARA_DE_MONTO,
+    // Vacío y no "••": los decimales tapados serían dos puntitos sueltos y
+    // elevados que no se leen como parte del mismo número.
+    decimalPart: '',
+    fullFormatted: formatCurrencyOculto(moneda, locale),
+  }
+}
+
 // --- Fechas ------------------------------------------------------------------
 
 /**
@@ -237,6 +302,14 @@ export function formatShortMonth(periodo: string, locale: Locale): string {
 
 export type Formateadores = {
   locale: Locale
+  /**
+   * true si los importes salen enmascarados.
+   *
+   * Los formateadores ya lo aplican solos; está expuesto para lo que NO es un
+   * importe formateado y también hay que tapar —las barras de un gráfico, por
+   * ejemplo, que dibujan la magnitud sin escribirla—.
+   */
+  oculto: boolean
   /** Mismo nombre y misma firma que el de `lib/types.ts`, ya con el locale. */
   formatearMonto: (valor: number, moneda: Moneda) => string
   /** El importe desarmado en símbolo, entero y decimales. */
@@ -255,13 +328,20 @@ export type Formateadores = {
  * `anioActual` se resuelve una vez acá y no en cada llamada: en un listado de
  * 200 filas eso son 200 `Date` menos.
  */
-export function crearFormateadores(locale: Locale): Formateadores {
+export function crearFormateadores(locale: Locale, oculto = false): Formateadores {
   const anioActual = new Date().getUTCFullYear()
 
   return {
     locale,
-    formatearMonto: (valor, moneda) => formatCurrency(valor, moneda, locale),
-    partesDeMonto: (valor, moneda) => formatCurrencyParts(valor, moneda, locale),
+    oculto,
+    // El modo privado se aplica ACÁ y no en cada vista: es el único punto por
+    // el que pasan los importes de toda la app, así del cliente como del
+    // servidor. Taparlos en el formateador es lo que hace que no quede ninguno
+    // suelto en una pantalla que nadie se acordó de tocar.
+    formatearMonto: (valor, moneda) =>
+      oculto ? formatCurrencyOculto(moneda, locale) : formatCurrency(valor, moneda, locale),
+    partesDeMonto: (valor, moneda) =>
+      oculto ? formatCurrencyPartsOculto(moneda, locale) : formatCurrencyParts(valor, moneda, locale),
     formatearFecha: (fecha) => formatHumanDate(fecha, locale, anioActual),
     formatearFechaNumerica: (fecha) => formatDate(fecha, locale),
     formatearMesCorto: (periodo) => formatShortMonth(periodo, locale),

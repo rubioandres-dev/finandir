@@ -4,6 +4,7 @@ import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget
 import { CurrencySettings } from '@/components/currency-settings'
 import { LanguageSettings } from '@/components/language-settings'
 import { ModuleSettings } from '@/components/module-settings'
+import { PrivacySettings } from '@/components/privacy-settings'
 import { ProfileForm } from '@/components/profile-form'
 import { RegionSettings } from '@/components/region-settings'
 import { SettingsDraftProvider } from '@/components/settings-draft'
@@ -92,6 +93,10 @@ export default async function SettingsPage() {
         <LanguageSettings />
         <ModuleSettings />
       </SettingsDraftProvider>
+
+      {/* Fuera del borrador a propósito: vive en una cookie de este
+          dispositivo, no en el perfil, y guarda al toque. */}
+      <PrivacySettings />
 
       <Card>
         <CardContent className="flex flex-col gap-3">

@@ -21,7 +21,7 @@ export default async function CommitmentsPage() {
   if (!user) redirect('/login')
 
   const hoy = hoyEnArgentina()
-  const [{ curva, planes, error }, { cuentas }, { monedas, locale, idioma }] =
+  const [{ curva, planes, error }, { cuentas }, { monedas, locale, idioma, oculto }] =
     await Promise.all([
       cargarCompromisos(supabase, hoy),
       obtenerCuentasPorMoneda(supabase),
@@ -30,7 +30,7 @@ export default async function CommitmentsPage() {
 
   const tr = crearTraductor(idioma)
 
-  const { formatearMonto, formatearFecha, formatearMesCorto } = crearFormateadores(locale)
+  const { formatearMonto, formatearFecha, formatearMesCorto } = crearFormateadores(locale, oculto)
 
   const nombreDeCuenta = new Map(Object.values(cuentas).map((c) => [c.id, c.name]))
 

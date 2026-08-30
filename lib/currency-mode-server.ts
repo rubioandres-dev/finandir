@@ -11,6 +11,7 @@ import { COOKIE_MONEDA, normalizarModo } from './currency-mode'
 import { LOCALE_POR_DEFECTO } from './formatters'
 import { IDIOMA_POR_DEFECTO } from './i18n'
 import { MONEDAS_POR_DEFECTO } from './monedas'
+import { COOKIE_PRIVACIDAD, COOKIE_PRIVACIDAD_SESION, estaOculto } from './privacy-mode'
 import { cargarPerfil, type ContextoDePerfil } from './profile-service'
 import { createClient } from './supabase/server'
 import type { Moneda } from './types'
@@ -31,6 +32,29 @@ export async function leerModoMoneda(
 export type ContextoDeMonedas = ContextoDePerfil & {
   /** Divisa activa del header, garantizada dentro de `monedas`. */
   modo: Moneda
+  /** Modo privado: los importes se renderizan enmascarados. */
+  oculto: boolean
+  /** Solo la preferencia de Ajustes, sin el override del ojito. */
+  ocultoPorDefecto: boolean
+}
+
+/**
+ * ¿Los importes van tapados en esta request?
+ *
+ * Se lee en el servidor porque media app formatea los importes ahí: si esto
+ * viviera solo en el cliente, el HTML saldría con los números en claro y se
+ * taparían después, a la vista.
+ */
+export async function leerPrivacidad(): Promise<{ oculto: boolean; porDefecto: boolean }> {
+  const almacen = await cookies()
+  const preferencia = almacen.get(COOKIE_PRIVACIDAD)?.value
+
+  return {
+    oculto: estaOculto(preferencia, almacen.get(COOKIE_PRIVACIDAD_SESION)?.value),
+    // Sin la cookie de sesión: es la preferencia sola, que es lo que Ajustes
+    // tiene que mostrar tildado aunque el ojito esté diciendo otra cosa.
+    porDefecto: estaOculto(preferencia, undefined),
+  }
 }
 
 /**
@@ -62,11 +86,14 @@ export const cargarContextoDeMonedas = cache(async (): Promise<ContextoDeMonedas
       modulos: {},
       faltaMigracion: false,
       modo: MONEDAS_POR_DEFECTO[0],
+      oculto: false,
+      ocultoPorDefecto: false,
     }
   }
 
   const contexto = await cargarPerfil(supabase, user.id)
   const modo = await leerModoMoneda(contexto.monedas)
+  const privacidad = await leerPrivacidad()
 
-  return { ...contexto, modo }
+  return { ...contexto, modo, oculto: privacidad.oculto, ocultoPorDefecto: privacidad.porDefecto }
 })

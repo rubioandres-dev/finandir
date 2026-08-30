@@ -21,15 +21,17 @@ function Linea({
   valor,
   moneda,
   locale,
+  oculto,
   resta = false,
 }: {
   etiqueta: string
   valor: number
   moneda: Moneda
   locale: Locale
+  oculto: boolean
   resta?: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
 
   if (valor === 0) return null
 
@@ -56,12 +58,14 @@ function Columna({
   lado,
   principal,
   locale,
+  oculto,
 }: {
   lado: LadoDeLaMoneda
   principal: Moneda
   locale: Locale
+  oculto: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const esPrincipal = lado.moneda === principal
 
   return (
@@ -80,14 +84,18 @@ function Columna({
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-glass-stroke/25">
-          <Linea etiqueta="Cuentas y billeteras" valor={lado.liquido} moneda={lado.moneda} locale={locale} />
-          <Linea etiqueta="Inversiones" valor={lado.inversiones} moneda={lado.moneda} locale={locale} />
-          <Linea etiqueta="Me deben" valor={lado.porCobrar} moneda={lado.moneda} locale={locale} />
+          <Linea etiqueta="Cuentas y billeteras" valor={lado.liquido} moneda={lado.moneda} locale={locale}
+            oculto={oculto} />
+          <Linea etiqueta="Inversiones" valor={lado.inversiones} moneda={lado.moneda} locale={locale}
+            oculto={oculto} />
+          <Linea etiqueta="Me deben" valor={lado.porCobrar} moneda={lado.moneda} locale={locale}
+            oculto={oculto} />
           <Linea
             etiqueta="Deuda de tarjetas"
             valor={lado.deudaTarjetas}
             moneda={lado.moneda}
             locale={locale}
+            oculto={oculto}
             resta
           />
           <Linea
@@ -95,6 +103,7 @@ function Columna({
             valor={lado.deudaPersonal}
             moneda={lado.moneda}
             locale={locale}
+            oculto={oculto}
             resta
           />
         </div>
@@ -133,14 +142,16 @@ function TotalCruzado({
   color,
   valores,
   locale,
+  oculto,
 }: {
   etiqueta: string
   Icono: typeof Wallet
   color: string
   valores: { moneda: Moneda; valor: number }[]
   locale: Locale
+  oculto: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const conSaldo = valores.filter((v) => v.valor !== 0)
 
   return (
@@ -173,8 +184,8 @@ export default async function ConsolidatedPage() {
 
   // Esta vista IGNORA a propósito la moneda activa del header: su razón de
   // existir es mostrar todos los libros a la vez.
-  const { monedas, locale } = await cargarContextoDeMonedas()
-  const { formatearMonto } = crearFormateadores(locale)
+  const { monedas, locale, oculto } = await cargarContextoDeMonedas()
+  const { formatearMonto } = crearFormateadores(locale, oculto)
 
   const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
     await Promise.all([
@@ -264,6 +275,7 @@ export default async function ConsolidatedPage() {
             lado={lado}
             principal={consolidado.principal}
             locale={locale}
+            oculto={oculto}
           />
         ))}
       </section>
@@ -276,6 +288,7 @@ export default async function ConsolidatedPage() {
           color="text-income"
           valores={liquidezTotal}
           locale={locale}
+            oculto={oculto}
         />
         <TotalCruzado
           etiqueta="Pasivos totales"
@@ -283,6 +296,7 @@ export default async function ConsolidatedPage() {
           color="text-expense"
           valores={pasivosTotales}
           locale={locale}
+            oculto={oculto}
         />
       </div>
     </div>

@@ -59,6 +59,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       locale={contexto.locale}
       idioma={contexto.idioma}
       modulos={contexto.modulos}
+      ocultoInicial={contexto.oculto}
+      ocultoPorDefecto={contexto.ocultoPorDefecto}
     >
       {/* El tour arranca solo la primera vez, pero NO durante el onboarding:
           dos capas modales encimadas dejan al usuario sin saber cuál cerrar.

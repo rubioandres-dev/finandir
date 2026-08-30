@@ -41,6 +41,7 @@ function Bloque({
   capa,
   moneda,
   locale,
+  oculto,
   idioma,
   children,
 }: {
@@ -50,10 +51,11 @@ function Bloque({
   capa: CapaDeBalance
   moneda: Moneda
   locale: Locale
+  oculto: boolean
   idioma: Idioma
   children?: React.ReactNode
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const t = crearTraductor(idioma)
 
   // Con más de una divisa en juego, el desglose sin convertir es lo único que
@@ -96,6 +98,7 @@ function Chip({
   capa,
   moneda,
   locale,
+  oculto,
   idioma,
   resta = false,
 }: {
@@ -103,10 +106,11 @@ function Chip({
   capa: CapaDeBalance
   moneda: Moneda
   locale: Locale
+  oculto: boolean
   idioma: Idioma
   resta?: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const t = crearTraductor(idioma)
 
   if (capa.total === null || capa.total === 0) return null
@@ -127,19 +131,21 @@ function Chip({
 export function BalanceOverviewCard({
   resumen,
   locale,
+  oculto,
   idioma,
   mostrarInversiones = true,
   mostrarDeudas = true,
 }: {
   resumen: ResumenDeBalance
   locale: Locale
+  oculto: boolean
   idioma: Idioma
   /** Módulo `investments`: apagado, el bloque no se muestra. */
   mostrarInversiones?: boolean
   /** Módulo `debts`: apagado, el chip de deuda personal no se muestra. */
   mostrarDeudas?: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const t = crearTraductor(idioma)
 
   const { moneda, patrimonioNeto } = resumen
@@ -187,6 +193,7 @@ export function BalanceOverviewCard({
           capa={resumen.porCobrar}
           moneda={moneda}
           locale={locale}
+          oculto={oculto}
           idioma={idioma}
         />
         {mostrarDeudas && (
@@ -195,6 +202,7 @@ export function BalanceOverviewCard({
             capa={resumen.deudaPersonal}
             moneda={moneda}
             locale={locale}
+          oculto={oculto}
             idioma={idioma}
             resta
           />
@@ -214,6 +222,7 @@ export function BalanceOverviewCard({
           capa={resumen.liquidez}
           moneda={moneda}
           locale={locale}
+          oculto={oculto}
           idioma={idioma}
         />
 
@@ -224,6 +233,7 @@ export function BalanceOverviewCard({
           capa={resumen.tarjetas}
           moneda={moneda}
           locale={locale}
+          oculto={oculto}
           idioma={idioma}
         >
           {/* Las cuotas del mes son un RECORTE del saldo de arriba, no un
@@ -257,6 +267,7 @@ export function BalanceOverviewCard({
               capa={resumen.inversiones}
               moneda={moneda}
               locale={locale}
+          oculto={oculto}
               idioma={idioma}
             />
           </div>

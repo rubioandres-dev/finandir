@@ -26,9 +26,9 @@ export default async function InvestmentsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas, locale, idioma } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale, idioma, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
   const { inversiones, resumen, error } = await cargarInversiones(supabase, monedas)
 
   /**
@@ -126,7 +126,7 @@ export default async function InvestmentsPage() {
           <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
             {tr('inv.distribucion')}
           </h2>
-          <InvestmentDistribution tramos={tramos} moneda={modo} locale={locale} />
+          <InvestmentDistribution tramos={tramos} moneda={modo} locale={locale} oculto={oculto} />
         </section>
       )}
 

@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   if (!user) redirect('/login')
 
   // Moneda activa del header: recorta todo lo que se muestra abajo.
-  const { modo, monedas, idioma, locale, modulos } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma, locale, modulos, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
 
   const {
@@ -168,6 +168,7 @@ export default async function DashboardPage() {
           <BalanceOverviewCard
             resumen={balance}
             locale={locale}
+            oculto={oculto}
             idioma={idioma}
             mostrarInversiones={moduloActivo(modulos, 'investments')}
             mostrarDeudas={moduloActivo(modulos, 'debts')}

@@ -24,12 +24,14 @@ export function InvestmentDistribution({
   tramos,
   moneda,
   locale,
+  oculto,
 }: {
   tramos: TramoDeDistribucion[]
   moneda: Moneda
   locale: Locale
+  oculto: boolean
 }) {
-  const { formatearMonto } = crearFormateadores(locale)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
 
   if (tramos.length === 0) return null
 
