@@ -22,6 +22,7 @@ import { useModuloActivo, useTraduccion } from '@/components/currency-provider'
 import { avanceDentroDelTier, siguienteTier, tierPara } from '@/lib/goals-service'
 import type { Clave } from '@/lib/i18n'
 import type { Modulo } from '@/lib/modules'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Lo que no entra en la barra inferior.
@@ -137,6 +138,9 @@ export function MoreMenuDrawer({
   // Un módulo apagado no aparece en la bandeja. Guía y Ajustes no tienen
   // módulo: son la salida de emergencia para volver a prender lo que se apagó.
   const visibles = SECCIONES.filter((s) => !s.modulo || activo(s.modulo))
+
+  // Atrás cierra la bandeja, no la app.
+  useCierreConAtras(true, onCerrar)
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {

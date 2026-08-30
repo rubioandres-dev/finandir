@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Panel flotante anclado a un botón, renderizado FUERA del header.
@@ -100,6 +101,11 @@ export function FloatingPanel({
       window.removeEventListener('scroll', ubicar, true)
     }
   }, [ancla])
+
+  // El panel solo se monta abierto, así que el gesto de atrás siempre aplica:
+  // cierra el desplegable en vez de navegar o cerrar la PWA. Acá cubre de una
+  // vez a los dos menús del header y al selector de moneda.
+  useCierreConAtras(true, onCerrar)
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {

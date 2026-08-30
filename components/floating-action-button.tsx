@@ -18,6 +18,7 @@ import {
 import { QuickEntryModal } from '@/components/quick-entry-modal'
 import { consumirAccionRapida, useAccionRapidaPendiente } from '@/components/url-action-handler'
 import type { CuentaElegible } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /** Mismo tope que la API: rechazarlo acá ahorra subir 20 MB para nada. */
 const TAMANO_MAXIMO = 8 * 1024 * 1024
@@ -225,6 +226,10 @@ export function FloatingActionButton({
     // Apaga el resaltado si el usuario descartó el atajo sin usarlo.
     consumirAccionRapida()
   }
+
+  // El dial abierto es una capa como cualquier otra: atrás lo cierra en vez de
+  // cerrar la app. Los modales que abre traen el suyo propio.
+  useCierreConAtras(dialAbierto, cerrarDial)
 
   function cerrarCargaRapida() {
     setCargaRapida(false)
