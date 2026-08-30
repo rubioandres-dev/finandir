@@ -9,6 +9,7 @@ import { useModoMoneda, useFormatoRegional, useTraduccion } from '@/components/c
 import { CurrencyOptions } from '@/components/currency-options'
 import type { Escaneo } from '@/components/escaner-store'
 import type { ComprobanteParseado } from '@/app/api/ai/parse-document/route'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 import {
   hoyEnArgentina,
   type CuentaElegible,
@@ -121,6 +122,11 @@ export function DocumentScannerModal({
     if (!vistaPrevia) return
     return () => URL.revokeObjectURL(vistaPrevia)
   }, [vistaPrevia])
+
+  // El gesto de atrás del teléfono minimiza, igual que tocar afuera: nunca
+  // cierra la app ni cancela la lectura. Solo mientras está en pantalla; en
+  // segundo plano el modal sigue montado pero no debe capturar nada.
+  useCierreConAtras(enPantalla, onMinimizar)
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {

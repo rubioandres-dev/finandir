@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
 import { SmartInput } from '@/components/smart-input'
 import type { CuentaElegible } from '@/lib/types'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * Carga rápida de un movimiento, sin salir de donde estabas.
@@ -37,6 +38,9 @@ export function QuickEntryModal({
   onCerrar: () => void
 }) {
   const hoja = useRef<HTMLDivElement>(null)
+
+  // El gesto de atrás cierra la hoja, no la app.
+  useCierreConAtras(true, onCerrar)
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {

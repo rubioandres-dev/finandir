@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Camera, Images, Loader2, RefreshCw, X } from 'lucide-react'
 import { useTraduccion } from '@/components/currency-provider'
+import { useCierreConAtras } from '@/lib/use-cierre-con-atras'
 
 /**
  * CÁMARA PROPIA, Y NO `<input capture="environment">`
@@ -135,6 +136,9 @@ export function CameraCapture({
       flujo.current = null
     }
   }, [lente])
+
+  // Sin esto, el gesto de atrás con la cámara abierta cierra la PWA entera.
+  useCierreConAtras(true, onCerrar)
 
   useEffect(() => {
     function alEscapar(evento: KeyboardEvent) {
