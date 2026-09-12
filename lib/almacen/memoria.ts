@@ -45,6 +45,13 @@ export type AlmacenEnMemoria = Almacen & {
    */
   sembrar(clave: Clave, valor: unknown): void
 
+  /**
+   * Escribe bytes crudos, sin serializar ni versionar. Simula a un servidor
+   * que altera el contenido: es como se prueba que GCM autentica ademas de
+   * cifrar.
+   */
+  sembrarCrudo(clave: Clave, contenido: Uint8Array<ArrayBuffer>): void
+
   /** Lee sin pasar por el libro. Para aserciones sobre el estado final. */
   espiar<T>(clave: Clave): T | null
 
@@ -58,7 +65,7 @@ const decodificador = new TextDecoder()
 export function crearAlmacenEnMemoria(
   opciones: OpcionesDeMemoria = {}
 ): AlmacenEnMemoria {
-  const bloques = new Map<Clave, { contenido: Uint8Array; version: Version }>()
+  const bloques = new Map<Clave, { contenido: Uint8Array<ArrayBuffer>; version: Version }>()
   const llamadas = { obtener: 0, guardar: 0, borrar: 0 }
   const intentosPorClave = new Map<Clave, number>()
   let contador = 0
@@ -135,6 +142,10 @@ export function crearAlmacenEnMemoria(
         contenido: codificador.encode(JSON.stringify(valor)),
         version: siguienteVersion(),
       })
+    },
+
+    sembrarCrudo(clave, contenido) {
+      bloques.set(clave, { contenido, version: siguienteVersion() })
     },
 
     espiar(clave) {

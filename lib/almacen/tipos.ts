@@ -56,9 +56,20 @@ export type Clave = string
  */
 export type Version = string
 
+/**
+ * El `<ArrayBuffer>` explicito recorre TODA la interface y no es ceremonia:
+ * desde TypeScript 5.7 `Uint8Array` a secas significa
+ * `Uint8Array<ArrayBufferLike>`, que incluye `SharedArrayBuffer` y por eso no
+ * es asignable al `BufferSource` que exige Web Crypto.
+ *
+ * Se arregla aca, en el tipo del modelo, y no con un cast en cada llamada:
+ * ningun almacen guarda memoria compartida, asi que el tipo ancho era
+ * simplemente incorrecto. Ademas evita una copia de ~400 kB por operacion, que
+ * es lo que costaria normalizar el buffer en cada punto de uso.
+ */
 export type Bloque = {
   clave: Clave
-  contenido: Uint8Array
+  contenido: Uint8Array<ArrayBuffer>
   version: Version
 }
 
@@ -66,6 +77,18 @@ export type Bloque = {
 export type ResumenDeBloque = {
   clave: Clave
   version: Version
+  /**
+   * Tamanio ALMACENADO, no el del contenido en claro.
+   *
+   * La diferencia aparece con `crearAlmacenCifrado()`: ahi cada bloque carga
+   * un byte de version, doce de IV y dieciseis del tag de GCM, y el envoltorio
+   * no puede informar el tamanio original sin descifrar todo — que es
+   * justamente lo que `listar()` existe para evitar.
+   *
+   * Es el numero correcto igual, porque la pregunta que responde `listar()` es
+   * "cuanto ocupa esto en la cuota del usuario", no "cuantos caracteres tiene
+   * el JSON".
+   */
   bytes: number
   /** ISO 8601. `null` si el backend no lo informa. */
   modificado: string | null
@@ -95,7 +118,7 @@ export interface Almacen {
    */
   guardar(
     clave: Clave,
-    contenido: Uint8Array,
+    contenido: Uint8Array<ArrayBuffer>,
     versionEsperada: VersionEsperada
   ): Promise<Bloque>
 

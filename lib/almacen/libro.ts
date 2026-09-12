@@ -127,7 +127,7 @@ export interface Libro {
 const codificador = new TextEncoder()
 const decodificador = new TextDecoder()
 
-function codificar(valor: unknown): Uint8Array {
+function codificar(valor: unknown): Uint8Array<ArrayBuffer> {
   return codificador.encode(JSON.stringify(valor))
 }
 
