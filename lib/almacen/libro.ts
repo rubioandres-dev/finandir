@@ -14,6 +14,15 @@
  * más. La lógica que puede corromper datos está escrita UNA vez y se testea UNA
  * vez, contra un almacén en memoria.
  *
+ * `crearLibro()` VS `abrirLibro()`
+ *
+ * `crearLibro()` devuelve el libro y nada más: sirve para tests y para cuando ya
+ * se sabe que el almacén está sano. `abrirLibro()` además lee el manifiesto,
+ * corre las migraciones de esquema y REANUDA lo que haya quedado a medio hacer.
+ * En la app se usa siempre `abrirLibro()`; dejar entrar a alguien a leer datos
+ * sin haber terminado un borrado a medias es exactamente el bug que el diario
+ * existe para evitar.
+ *
  * CÓMO LO RECIBEN LAS SERVICES
  *
  * 13 de las 16 services de `lib/` ya reciben `supabase: SupabaseClient` por
@@ -26,7 +35,6 @@
 import {
   CLAVE_MANIFIESTO,
   claveDeShard,
-  COLECCIONES,
   ESQUEMA_ACTUAL,
   manifiestoInicial,
   MAX_INTENTOS_DE_INTENCION,
@@ -48,7 +56,7 @@ import {
 } from './tipos'
 import type { Transaccion } from '../types'
 
-/** Reintentos de una escritura que perdió la carrera. Ver `mutar()`. */
+/** Reintentos de una escritura que perdió la carrera. Ver `escribir()`. */
 const MAX_REINTENTOS = 4
 
 // -----------------------------------------------------------------------------
@@ -99,15 +107,27 @@ export interface Libro {
     cambio: (actual: Coleccion[C]) => Coleccion[C]
   ): Promise<void>
 
-  /** Igual que `mutar()`, sobre el shard de un año. Mismo contrato de pureza. */
+  /**
+   * Igual que `mutar()`, sobre el shard de un año. Mismo contrato de pureza.
+   *
+   * Si el año todavía no tenía shard, lo registra en el manifiesto y le calcula
+   * las aperturas desde el cierre del ejercicio anterior. Eso pasa acá y no en
+   * quien llama porque olvidarse sería un saldo mal calculado y silencioso.
+   */
   mutarMovimientos(
     anio: number,
     cambio: (actual: ShardDeMovimientos) => ShardDeMovimientos
   ): Promise<void>
 
+  /** Los años que tienen shard, ascendente. */
+  aniosConMovimientos(): Promise<number[]>
+
+  manifiesto(): Promise<Manifiesto>
+  mutarManifiesto(cambio: (actual: Manifiesto) => Manifiesto): Promise<void>
+
   /**
    * Corre una operación que toca varios bloques, anotándola en el diario para
-   * poder reanudarla si se corta. `ejecutar` tiene que ser idempotente: puede
+   * poder reanudarla si se corta. `ejecutar` tiene que ser IDEMPOTENTE: puede
    * correr dos veces. Ver el comentario del diario en documentos.ts.
    */
   diferir(
@@ -119,6 +139,27 @@ export interface Libro {
   /** Tira el caché en memoria. Tras un cambio de backend o un logout. */
   invalidar(): void
 }
+
+/**
+ * Cómo rehacer cada operación multi-bloque que quedó a medias. Se inyecta en
+ * `abrirLibro()` en vez de importarse, para que el libro no dependa de las
+ * operaciones y las operaciones puedan depender del libro.
+ */
+export type Replays = {
+  [O in OperacionDiferida]?: (
+    libro: Libro,
+    parametros: Record<string, unknown>
+  ) => Promise<void>
+}
+
+/**
+ * De una versión de esquema a la siguiente. La clave es la versión DE ORIGEN:
+ * `MIGRACIONES[1]` lleva un documento de la 1 a la 2.
+ */
+export type Migraciones = Record<
+  number,
+  (libro: Libro) => Promise<void>
+>
 
 // -----------------------------------------------------------------------------
 // Serialización
@@ -209,15 +250,56 @@ export function crearLibro(almacen: Almacen): Libro {
     movimientos: [],
   })
 
-  async function leerShard(anio: number): Promise<ShardDeMovimientos> {
-    return obtener(claveDeShard(anio), shardVacio(anio))
+  const leerShard = (anio: number) => obtener(claveDeShard(anio), shardVacio(anio))
+
+  const leerManifiesto = () => obtener(CLAVE_MANIFIESTO, manifiestoInicial)
+
+  const escribirManifiesto = (cambio: (m: Manifiesto) => Manifiesto) =>
+    escribir(CLAVE_MANIFIESTO, cambio, manifiestoInicial)
+
+  /**
+   * Saldo de cada cuenta al cierre de un ejercicio: su apertura más todo lo que
+   * pasó ese año, cuotas futuras del mismo año incluidas.
+   */
+  async function saldosAlCierre(anio: number): Promise<Record<string, number>> {
+    const shard = await leerShard(anio)
+    const saldos: Record<string, number> = { ...shard.aperturas }
+
+    for (const m of shard.movimientos) {
+      const delta = m.type === 'INCOME' ? m.amount : -m.amount
+      saldos[m.account_id] = (saldos[m.account_id] ?? 0) + delta
+    }
+
+    return saldos
   }
 
-  return {
+  /**
+   * Le pone al shard de `anio` las aperturas que salen del cierre del ejercicio
+   * anterior. Sin esto, un año nuevo arrancaría con todas las cuentas en cero y
+   * el saldo que ve el usuario sería el del año corriente, no el real.
+   *
+   * El primer ejercicio de todos se queda con aperturas vacías, que es correcto:
+   * antes de él no hay nada.
+   */
+  async function asegurarAperturas(anio: number): Promise<void> {
+    const manifiesto = await leerManifiesto()
+    const anteriores = manifiesto.shards.filter((a) => a < anio)
+    if (anteriores.length === 0) return
+
+    const cierre = await saldosAlCierre(Math.max(...anteriores))
+    // `escribir` directo y no `mutarMovimientos`: si pasara por ahí volvería a
+    // entrar al registro de shards y esto sería recursivo.
+    await escribir(
+      claveDeShard(anio),
+      (s: ShardDeMovimientos) => ({ ...s, aperturas: cierre }),
+      shardVacio(anio)
+    )
+  }
+
+  const libro: Libro = {
     tipo: almacen.tipo,
 
     async leer(coleccion) {
-      // TODO fase 3: correr MIGRACIONES cuando manifiesto.esquema < ESQUEMA_ACTUAL.
       return obtener(coleccion, () => vacioDe(coleccion))
     },
 
@@ -254,10 +336,27 @@ export function crearLibro(almacen: Almacen): Libro {
     },
 
     async mutarMovimientos(anio, cambio) {
+      const manifiesto = await leerManifiesto()
+      const esNuevo = !manifiesto.shards.includes(anio)
+
       await escribir(claveDeShard(anio), cambio, shardVacio(anio))
-      // TODO fase 3: si el shard es nuevo, agregarlo a `manifiesto.shards` y
-      // disparar 'cerrar-ejercicio' para escribirle las aperturas.
+
+      if (esNuevo) {
+        await escribirManifiesto((m) =>
+          m.shards.includes(anio)
+            ? m
+            : { ...m, shards: [...m.shards, anio].sort((a, b) => a - b) }
+        )
+        await asegurarAperturas(anio)
+      }
     },
+
+    async aniosConMovimientos() {
+      return (await leerManifiesto()).shards
+    },
+
+    manifiesto: leerManifiesto,
+    mutarManifiesto: escribirManifiesto,
 
     async diferir(operacion, parametros, ejecutar) {
       const intencion: Intencion = {
@@ -269,20 +368,14 @@ export function crearLibro(almacen: Almacen): Libro {
       }
 
       // Se anota ANTES de tocar nada. Si el proceso muere entre esta línea y el
-      // final de `ejecutar`, el próximo arranque encuentra la intención y la
-      // rehace (por eso `ejecutar` tiene que ser idempotente).
-      await escribir<Manifiesto>(
-        CLAVE_MANIFIESTO,
-        (m) => ({ ...m, pendiente: intencion }),
-        manifiestoInicial
-      )
+      // final de `ejecutar`, el próximo `abrirLibro()` encuentra la intención y
+      // la rehace (por eso `ejecutar` tiene que ser idempotente).
+      await escribirManifiesto((m) => ({ ...m, pendiente: intencion }))
 
       await ejecutar()
 
-      await escribir<Manifiesto>(
-        CLAVE_MANIFIESTO,
-        (m) => (m.pendiente?.id === intencion.id ? { ...m, pendiente: null } : m),
-        manifiestoInicial
+      await escribirManifiesto((m) =>
+        m.pendiente?.id === intencion.id ? { ...m, pendiente: null } : m
       )
     },
 
@@ -290,6 +383,100 @@ export function crearLibro(almacen: Almacen): Libro {
       cache.clear()
     },
   }
+
+  return libro
+}
+
+// -----------------------------------------------------------------------------
+// Apertura: migraciones y reanudación
+// -----------------------------------------------------------------------------
+
+export type OpcionesDeApertura = {
+  replays?: Replays
+  migraciones?: Migraciones
+}
+
+export class IntencionAtascada extends Error {
+  constructor(readonly intencion: Intencion) {
+    super(
+      `La operación "${intencion.operacion}" falló ${intencion.intentos} veces y ` +
+        'no se puede completar sola.'
+    )
+    this.name = 'IntencionAtascada'
+  }
+}
+
+/**
+ * Abre el almacén y lo deja en un estado consistente antes de devolverlo.
+ *
+ * En este orden, que importa:
+ *
+ *   1. Migraciones de esquema. Un replay escrito para el esquema nuevo no tiene
+ *      por qué entender documentos viejos.
+ *   2. Reanudación del diario. Recién después de esto hay datos que se puedan
+ *      leer sin riesgo de ver un borrado a medio hacer.
+ *
+ * Si la intención pendiente ya agotó los intentos, LANZA en vez de seguir. Es
+ * deliberado: una operación que falla siempre y de la que nadie se entera deja
+ * el almacén roto para siempre, y en silencio.
+ */
+export async function abrirLibro(
+  almacen: Almacen,
+  opciones: OpcionesDeApertura = {}
+): Promise<Libro> {
+  const libro = crearLibro(almacen)
+  const { replays = {}, migraciones = {} } = opciones
+
+  let manifiesto = await libro.manifiesto()
+
+  // --- 1. Migraciones de esquema ---------------------------------------------
+  while (manifiesto.esquema < ESQUEMA_ACTUAL) {
+    const migracion = migraciones[manifiesto.esquema]
+    if (!migracion) {
+      throw new Error(
+        `No hay migración del esquema ${manifiesto.esquema} al ${manifiesto.esquema + 1}.`
+      )
+    }
+
+    await migracion(libro)
+    const desde = manifiesto.esquema
+    await libro.mutarManifiesto((m) =>
+      m.esquema === desde ? { ...m, esquema: desde + 1 } : m
+    )
+    manifiesto = await libro.manifiesto()
+  }
+
+  // --- 2. Reanudación del diario ---------------------------------------------
+  const pendiente = manifiesto.pendiente
+  if (pendiente) {
+    if (pendiente.intentos >= MAX_INTENTOS_DE_INTENCION) {
+      throw new IntencionAtascada(pendiente)
+    }
+
+    const replay = replays[pendiente.operacion]
+    if (!replay) {
+      throw new Error(
+        `Quedó pendiente "${pendiente.operacion}" y no hay replay registrado para ella.`
+      )
+    }
+
+    // Se cuenta el intento ANTES de correrlo. Si esta operación cuelga o
+    // revienta el proceso, el próximo arranque ve el contador más alto y
+    // termina rindiéndose en vez de reintentar para siempre.
+    await libro.mutarManifiesto((m) =>
+      m.pendiente?.id === pendiente.id
+        ? { ...m, pendiente: { ...m.pendiente, intentos: m.pendiente.intentos + 1 } }
+        : m
+    )
+
+    await replay(libro, pendiente.parametros)
+
+    await libro.mutarManifiesto((m) =>
+      m.pendiente?.id === pendiente.id ? { ...m, pendiente: null } : m
+    )
+  }
+
+  return libro
 }
 
 /** El valor de una colección que todavía no tiene bloque. */
@@ -301,18 +488,3 @@ function vacioDe<C extends NombreDeColeccion>(coleccion: C): Coleccion[C] {
   }
   return [] as unknown as Coleccion[C]
 }
-
-// -----------------------------------------------------------------------------
-// Pendiente de las fases siguientes
-// -----------------------------------------------------------------------------
-
-/**
- * TODO fase 3 — `abrirLibro(almacen)`: lee el manifiesto, corre las migraciones
- * de esquema y reanuda `manifiesto.pendiente` ANTES de devolver el libro. Hasta
- * `MAX_INTENTOS_DE_INTENCION` veces; después avisa y no deja seguir.
- */
-export const REANUDAR_PENDIENTE_SIN_IMPLEMENTAR = {
-  MAX_INTENTOS_DE_INTENCION,
-  ESQUEMA_ACTUAL,
-  COLECCIONES,
-} as const
