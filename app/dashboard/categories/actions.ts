@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
 
@@ -50,7 +50,7 @@ export async function crearCategoria(
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('categorias', (categorias) => {
       // El duplicado se chequea ADENTRO: era el 23505 que se atrapaba despues
       // del insert, y ahora lo cubre el lazo de reintentos si otro dispositivo
       // crea la misma categoria en el medio.
@@ -109,7 +109,7 @@ export async function actualizarCategoria(
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('categorias', (categorias) => {
       const repetida = categorias.some(
         (c) =>
           c.id !== id &&
@@ -160,7 +160,7 @@ export async function borrarCategoria(id: string): Promise<ResultadoDeCategoria>
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) =>
+    await (await libroDelServidor(supabase, user.id)).mutar('categorias', (categorias) =>
       categorias.filter((c) => !(c.id === id && c.user_id === user.id))
     )
   } catch (error) {

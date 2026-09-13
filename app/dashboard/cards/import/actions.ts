@@ -12,7 +12,7 @@ import {
   type ConsumoImportado,
   type MovimientoExistente,
 } from '@/lib/reconciliation-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import type { Transaccion } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 
@@ -63,7 +63,7 @@ export async function conciliarConsumos(
 
   let data
   try {
-    data = await crearLibroRelacional(supabase).movimientos(desde, hasta)
+    data = await (await libroDelServidor(supabase)).movimientos(desde, hasta)
   } catch (error) {
     console.error('[conciliarConsumos]', error)
     return { ok: false, error: 'No se pudieron leer los movimientos existentes.' }
@@ -104,7 +104,7 @@ export async function importarConsumos(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const libro = crearLibroRelacional(supabase, user.id)
+  const libro = await libroDelServidor(supabase, user.id)
 
   const cuenta = (await libro.leer('cuentas')).find((c) => c.id === datos.data.accountId)
   if (!cuenta) return { ok: false, error: 'No se encontró la tarjeta elegida.' }
@@ -119,7 +119,7 @@ export async function importarConsumos(
   }
 
   const { categoriaId, error: errorCategoria } = await obtenerOCrearCategoria(
-    crearLibroRelacional(supabase, user.id),
+    await libroDelServidor(supabase, user.id),
     user.id,
     datos.data.categoria,
     'EXPENSE'

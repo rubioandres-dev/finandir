@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { CalendarClock, CreditCard, PartyPopper, TrendingDown } from 'lucide-react'
 import { DebtCurveChart } from '@/components/debt-curve-chart'
 import { Card, CardLabel } from '@/components/ui/card'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
@@ -24,8 +24,8 @@ export default async function CommitmentsPage() {
   const hoy = hoyEnArgentina()
   const [{ curva, planes, error }, { cuentas }, { monedas, locale, idioma, oculto }] =
     await Promise.all([
-      cargarCompromisos(crearLibroRelacional(supabase), hoy),
-      obtenerCuentasPorMoneda(crearLibroRelacional(supabase)),
+      cargarCompromisos(await libroDelServidor(supabase), hoy),
+      obtenerCuentasPorMoneda(await libroDelServidor(supabase)),
       cargarContextoDeMonedas(),
     ])
 

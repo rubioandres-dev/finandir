@@ -8,7 +8,7 @@ import {
 } from '@/lib/category-budgets-service'
 import { codigoDeError } from '@/lib/almacen/tipos'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { createClient } from '@/lib/supabase/server'
 import type { Moneda, Transaccion } from '@/lib/types'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
@@ -73,7 +73,7 @@ export async function guardarTransaccion(
     return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
   }
 
-  const libro = crearLibroRelacional(supabase, user.id)
+  const libro = await libroDelServidor(supabase, user.id)
 
   // Si el movimiento va a una tarjeta, la cuenta destino es la tarjeta: el
   // saldo del banco no se toca y la deuda de la tarjeta crece.
@@ -239,7 +239,7 @@ export async function guardarPresupuesto(
 
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const libro = crearLibroRelacional(supabase, user.id)
+  const libro = await libroDelServidor(supabase, user.id)
 
   try {
     // El presupuesto vive EMBEBIDO en su categoria, asi que definirlo es mutar
@@ -302,7 +302,7 @@ export async function borrarTransaccion(id: string): Promise<ResultadoGuardado> 
   try {
     // Se lleva las cuotas si es la madre de un plan: `borrarMovimiento` replica
     // el `on delete cascade` de `parent_transaction_id` en los dos backends.
-    await crearLibroRelacional(supabase, user.id).borrarMovimiento(id)
+    await (await libroDelServidor(supabase, user.id)).borrarMovimiento(id)
   } catch (error) {
     console.error('[borrarTransaccion]', error)
     return { ok: false, error: 'No se pudo borrar el movimiento.' }

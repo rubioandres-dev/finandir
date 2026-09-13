@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { DebtManager } from '@/components/debt-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { crearTraductor } from '@/lib/i18n'
@@ -23,7 +23,7 @@ export default async function DebtsPage() {
   const { modo, monedas, locale , idioma, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale, oculto)
-  const { deudas, patrimonio, error } = await cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas)
+  const { deudas, patrimonio, error } = await cargarCuentasYDeudas(await libroDelServidor(supabase), monedas)
 
   // Solo el libro activo, igual que en cuentas y movimientos.
   const deudasVisibles = deudas.filter((d) => esDeLaMoneda(d, modo))

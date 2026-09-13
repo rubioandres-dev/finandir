@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { UrlActionHandler } from '@/components/url-action-handler'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
@@ -27,13 +27,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // request, así que las páginas de abajo lo vuelven a pedir sin costo.
   const [cotizacion, { tarjetas, cuentas }, contexto, resCategorias] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
-    cargarCuentasYDeudas(crearLibroRelacional(supabase)),
+    cargarCuentasYDeudas(await libroDelServidor(supabase)),
     cargarContextoDeMonedas(),
     // Nombre y tipo: es lo que necesitan los dos modales del FAB. El escáner
     // usa los nombres para que la IA elija de las categorías reales del
     // usuario, y la carga rápida necesita el tipo para filtrar el select
     // según sea gasto o ingreso.
-    crearLibroRelacional(supabase).leer('categorias'),
+    (await libroDelServidor(supabase)).leer('categorias'),
   ])
 
   const categoriasDelFab = resCategorias.map((c) => ({
@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     tipo: c.type as 'INCOME' | 'EXPENSE',
   }))
 
-  const { nivel, avisos } = await cargarDatosDeCabecera(crearLibroRelacional(supabase), tarjetas, hoyEnArgentina())
+  const { nivel, avisos } = await cargarDatosDeCabecera(await libroDelServidor(supabase), tarjetas, hoyEnArgentina())
 
   const nombreDeMetadata =
     typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name

@@ -4,7 +4,7 @@ import { FileScan } from 'lucide-react'
 import { StatementImporter } from '@/components/statement-importer'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
 import { createClient } from '@/lib/supabase/server'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 
 export const metadata: Metadata = { title: 'Importar resumen' }
 
@@ -15,7 +15,7 @@ export default async function ImportStatementPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { cuentas } = await obtenerCuentasPorMoneda(crearLibroRelacional(supabase))
+  const { cuentas } = await obtenerCuentasPorMoneda(await libroDelServidor(supabase))
   const tarjetas = Object.values(cuentas)
     .filter((c) => c.type === 'CREDIT_CARD')
     .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))

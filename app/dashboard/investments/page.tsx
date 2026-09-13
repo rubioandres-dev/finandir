@@ -16,7 +16,7 @@ import { crearTraductor } from '@/lib/i18n'
 import { normalizarMoneda } from '@/lib/monedas'
 import { createClient } from '@/lib/supabase/server'
 import { crearFormateadores } from '@/lib/formatters'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 
 export const metadata: Metadata = { title: 'Inversiones' }
 
@@ -30,7 +30,7 @@ export default async function InvestmentsPage() {
   const { modo, monedas, locale, idioma, oculto } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
   const { formatearMonto } = crearFormateadores(locale, oculto)
-  const { inversiones, resumen, error } = await cargarInversiones(crearLibroRelacional(supabase), monedas)
+  const { inversiones, resumen, error } = await cargarInversiones(await libroDelServidor(supabase), monedas)
 
   /**
    * Esta vista pasa a respetar el selector del header, como Cuentas y

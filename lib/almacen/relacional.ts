@@ -91,12 +91,30 @@ function noPortado(que: string): never {
 }
 
 /**
- * `userId` es opcional porque SOLO el perfil lo necesita: cuentas, deudas y
- * saldos ya vienen filtrados por la RLS. Las paginas que no leen el perfil no
- * tienen que ir a buscarlo, y las que si lo leen normalmente ya lo tienen a
- * mano. Si falta, se resuelve una sola vez contra la sesion.
+ * Un libro por cliente de Supabase.
+ *
+ * `createClient()` devuelve uno NUEVO en cada request —lee las cookies de ese
+ * request—, asi que la clave del WeakMap es, en los hechos, el request. Sin
+ * esto, una pagina que llama a tres services crea tres libros, cada uno con su
+ * propio memo de `accounts`: tres consultas identicas donde alcanza una.
+ *
+ * El caso peor hoy es `settings/actions.ts`, con siete.
+ *
+ * WeakMap y no Map: cuando el request termina y nadie referencia al cliente, el
+ * libro se va con el. Un Map lo dejaria vivo para siempre.
  */
-export function crearLibroRelacional(
+const librosPorCliente = new WeakMap<SupabaseClient, Libro>()
+
+export function crearLibroRelacional(supabase: SupabaseClient, userId?: string): Libro {
+  const existente = librosPorCliente.get(supabase)
+  if (existente) return existente
+
+  const libro = construirLibroRelacional(supabase, userId)
+  librosPorCliente.set(supabase, libro)
+  return libro
+}
+
+function construirLibroRelacional(
   supabase: SupabaseClient,
   userId?: string
 ): Libro {

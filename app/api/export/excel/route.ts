@@ -1,6 +1,6 @@
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { movimientosDesde } from '@/lib/almacen/consultas'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { resumirBalance } from '@/lib/balance-overview'
 import { cargarCompromisos } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
@@ -64,13 +64,13 @@ export async function GET() {
   let datos
   try {
     datos = await Promise.all([
-      cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-      cargarInversiones(crearLibroRelacional(supabase), monedas),
-      cargarCompromisos(crearLibroRelacional(supabase), hoy),
-      cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
+      cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
+      cargarInversiones(await libroDelServidor(supabase), monedas),
+      cargarCompromisos(await libroDelServidor(supabase), hoy),
+      cargarFlujoMensual(await libroDelServidor(supabase), modo, hoy),
       obtenerCotizacionDelDia(supabase),
-      movimientosDesde(crearLibroRelacional(supabase), desdeElAnio),
-      crearLibroRelacional(supabase).leer('categorias'),
+      movimientosDesde(await libroDelServidor(supabase), desdeElAnio),
+      (await libroDelServidor(supabase)).leer('categorias'),
     ])
   } catch (error) {
     console.error('[export/excel]', error)

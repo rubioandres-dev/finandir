@@ -4,7 +4,7 @@ import { Award, Target } from 'lucide-react'
 import { GoalsManager } from '@/components/goals-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import {
@@ -43,10 +43,10 @@ export default async function GoalsPage() {
   const t = crearTraductor(idioma)
 
   const [datos, { patrimonio }, { resumen }, { objetivos, faltaMigracion }] = await Promise.all([
-    cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, undefined, monedas),
-    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarInversiones(crearLibroRelacional(supabase), monedas),
-    cargarObjetivos(crearLibroRelacional(supabase)),
+    cargarDatosDelDashboard(await libroDelServidor(supabase), supabase, undefined, monedas),
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
+    cargarInversiones(await libroDelServidor(supabase), monedas),
+    cargarObjetivos(await libroDelServidor(supabase)),
   ])
 
   // Todo se mide en la divisa PRINCIPAL. Un objetivo de ahorro no puede

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 import { FALTA_MIGRACION_INVERSIONES } from '@/lib/investments-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
 
@@ -95,7 +95,7 @@ export async function guardarInversion(entrada: InversionAGuardar): Promise<Resu
   const id = datos.data.id ?? crypto.randomUUID()
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('inversiones', (inversiones) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('inversiones', (inversiones) => {
       const previa = inversiones.find((i) => i.id === id)
       const guardada = {
         ...fila,
@@ -128,7 +128,7 @@ export async function borrarInversion(id: string): Promise<ResultadoGuardado> {
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('inversiones', (inversiones) =>
+    await (await libroDelServidor(supabase, user.id)).mutar('inversiones', (inversiones) =>
       inversiones.filter((i) => i.id !== id)
     )
   } catch (error) {

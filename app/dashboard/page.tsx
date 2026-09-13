@@ -12,7 +12,7 @@ import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { MonthlyFlowChart } from '@/components/monthly-flow-chart'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { resumirBalance } from '@/lib/balance-overview'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { calcularAvances } from '@/lib/category-budgets-service'
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     ingresosDelMes,
     gastosDelMes,
     errorCarga,
-  } = await cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, modo, monedas)
+  } = await cargarDatosDelDashboard(await libroDelServidor(supabase), supabase, modo, monedas)
 
   const hoy = hoyEnArgentina()
 
@@ -65,11 +65,11 @@ export default async function DashboardPage() {
     { curva },
     { serie: flujoMensual },
   ] = await Promise.all([
-    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
     obtenerCotizacionesDelMercado(),
-    cargarInversiones(crearLibroRelacional(supabase), monedas),
-    cargarCompromisos(crearLibroRelacional(supabase), hoy),
-    cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
+    cargarInversiones(await libroDelServidor(supabase), monedas),
+    cargarCompromisos(await libroDelServidor(supabase), hoy),
+    cargarFlujoMensual(await libroDelServidor(supabase), modo, hoy),
   ])
 
   // El mapa va después: reusa el MEP que `cargarDatosDelDashboard` ya resolvió

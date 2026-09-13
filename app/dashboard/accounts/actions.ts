@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { todosLosMovimientos } from '@/lib/almacen/consultas'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
 import { hoyEnArgentina } from '@/lib/types'
@@ -98,7 +98,7 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   const esTarjeta = datos.data.type === 'CREDIT_CARD'
-  const libro = crearLibroRelacional(supabase, user.id)
+  const libro = await libroDelServidor(supabase, user.id)
   const id = datos.data.id ?? crypto.randomUUID()
 
   try {
@@ -175,7 +175,7 @@ export async function borrarCuenta(id: string): Promise<ResultadoGuardado> {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const libro = crearLibroRelacional(supabase, user.id)
+  const libro = await libroDelServidor(supabase, user.id)
 
   try {
     // Se cuenta ANTES y se niega el borrado: la app NO cascadea el borrado de
@@ -251,7 +251,7 @@ export async function guardarDeuda(entrada: DeudaAGuardar): Promise<ResultadoGua
   const id = datos.data.id ?? crypto.randomUUID()
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('deudas', (deudas) => {
       const previa = deudas.find((d) => d.id === id)
       const guardada = {
         ...fila,
@@ -293,7 +293,7 @@ export async function registrarPagoDeDeuda(
   try {
     let encontrada = false
 
-    await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) =>
+    await (await libroDelServidor(supabase, user.id)).mutar('deudas', (deudas) =>
       deudas.map((deuda) => {
         if (deuda.id !== id) return deuda
         encontrada = true
@@ -321,7 +321,7 @@ export async function borrarDeuda(id: string): Promise<ResultadoGuardado> {
   const supabase = await createClient()
 
   try {
-    await crearLibroRelacional(supabase).mutar('deudas', (deudas) =>
+    await (await libroDelServidor(supabase)).mutar('deudas', (deudas) =>
       deudas.filter((d) => d.id !== id)
     )
   } catch (error) {

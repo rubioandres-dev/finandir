@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { NightOutCalculator } from '@/components/night-out-calculator'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { crearTraductor } from '@/lib/i18n'
@@ -26,8 +26,8 @@ export default async function CalculatorPage() {
   // esto la calculadora sólo podría mandar todo a la categoría por defecto y a
   // la cuenta de la moneda, que es justo lo que el usuario viene a elegir.
   const [resCategorias, { cuentas }] = await Promise.all([
-    crearLibroRelacional(supabase).leer('categorias'),
-    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
+    (await libroDelServidor(supabase)).leer('categorias'),
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
   ])
 
   // Solo las de la moneda activa: `guardarTransaccion` rechaza una cuenta cuya

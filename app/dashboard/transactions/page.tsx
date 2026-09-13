@@ -4,7 +4,7 @@ import { CategoriesManagerButton } from '@/components/categories-manager-modal'
 import { TransactionFeedTabs } from '@/components/transaction-feed-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
@@ -31,9 +31,9 @@ export default async function TransactionsPage() {
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
   // cotización; los movimientos ahora vienen del feed, partido por período.
   const [{ categorias, cotizacion, errorCarga }, { cuentas }, feed] = await Promise.all([
-    cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, modo, monedas),
-    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarFeedDeMovimientos(crearLibroRelacional(supabase), modo),
+    cargarDatosDelDashboard(await libroDelServidor(supabase), supabase, modo, monedas),
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
+    cargarFeedDeMovimientos(await libroDelServidor(supabase), modo),
   ])
 
   // Para el editor: solo cuentas de la moneda activa, que son las únicas a las

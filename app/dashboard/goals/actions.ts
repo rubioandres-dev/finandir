@@ -13,7 +13,7 @@ import {
   type Objetivo,
 } from '@/lib/goals-service'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { guardarPerfil } from '@/lib/profile-service'
 import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
@@ -81,7 +81,7 @@ export async function guardarObjetivo(
   let guardado: Objetivo | null = null
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('objetivos', (objetivos) => {
       // El upsert por la clave unica (user_id, type, category_id) se vuelve
       // "buscar por tipo y reemplazar". La busqueda va ADENTRO: si otro
       // dispositivo creo el mismo objetivo en el medio, el reintento lo
@@ -138,7 +138,7 @@ export async function borrarObjetivo(id: string): Promise<ResultadoSimple> {
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) =>
+    await (await libroDelServidor(supabase, user.id)).mutar('objetivos', (objetivos) =>
       objetivos.filter((o) => o.id !== id)
     )
   } catch (error) {
@@ -176,7 +176,7 @@ export async function registrarLogros(
   let marcados = 0
 
   try {
-    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) => {
+    await (await libroDelServidor(supabase, user.id)).mutar('objetivos', (objetivos) => {
       // Solo los que TODAVIA no tienen fecha de logro, decidido adentro: la
       // funcion es idempotente y la corre cada render, asi que preguntar afuera
       // marcaria dos veces el mismo logro si dos pestañas renderizan a la vez.
@@ -197,13 +197,13 @@ export async function registrarLogros(
   if (marcados === 0) return null
 
 
-  const perfil = await crearLibroRelacional(supabase, user.id).leer('perfil')
+  const perfil = await (await libroDelServidor(supabase, user.id)).leer('perfil')
 
   const xpSumado = marcados * XP_POR_LOGRO
   const xpTotal = Number(perfil?.aurem_xp ?? 0) + xpSumado
   const tier = tierPara(xpTotal)
 
-  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
+  const resultado = await guardarPerfil(await libroDelServidor(supabase, user.id), {
     aurem_xp: xpTotal,
     aurem_tier: tier.codigo,
   })

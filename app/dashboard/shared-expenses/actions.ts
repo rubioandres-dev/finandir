@@ -13,7 +13,7 @@ import {
   faltaLaTabla,
   repartir,
 } from '@/lib/shared-expenses-service'
-import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { createClient } from '@/lib/supabase/server'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 
@@ -38,7 +38,7 @@ async function nombreVisible(supabase: SupabaseClient, user: User): Promise<stri
   // se pudo leer. Sin nombre hay dos alternativas mas abajo.
   let delPerfil: string | undefined
   try {
-    delPerfil = (await crearLibroRelacional(supabase, user.id).leer('perfil'))
+    delPerfil = (await (await libroDelServidor(supabase, user.id)).leer('perfil'))
       .display_name?.trim()
   } catch {
     delPerfil = undefined
@@ -656,7 +656,7 @@ export async function registrarSalida(
       // factura. Se deshace el gasto: es preferible no registrar nada a dejar
       // una mitad que el usuario no tiene forma de detectar.
       if (gasto.id) {
-        await crearLibroRelacional(supabase, user.id).borrarMovimiento(gasto.id)
+        await (await libroDelServidor(supabase, user.id)).borrarMovimiento(gasto.id)
       }
       return { ok: false, error: adelanto.error }
     }
@@ -719,7 +719,7 @@ export async function registrarSalida(
       const ahora = new Date().toISOString()
 
       try {
-        await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) => [
+        await (await libroDelServidor(supabase, user.id)).mutar('deudas', (deudas) => [
           ...deudas,
           ...sinVinculo.map((f) => ({
             ...f,
