@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Coins, Scale, TrendingDown, Wallet } from 'lucide-react'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { consolidar, type LadoDeLaMoneda } from '@/lib/consolidated-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { obtenerMapaDeCambio } from '@/lib/exchange'
@@ -189,7 +190,7 @@ export default async function ConsolidatedPage() {
 
   const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
     await Promise.all([
-      cargarCuentasYDeudas(supabase, monedas),
+      cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
       cargarInversiones(supabase, monedas),
       obtenerCotizacionDelDia(supabase),
     ])

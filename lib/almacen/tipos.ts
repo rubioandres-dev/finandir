@@ -41,7 +41,12 @@
  */
 
 /** Qué backend está detrás. Para mensajes de error y telemetría, nada más. */
-export type TipoDeAlmacen = 'drive' | 'nube' | 'local' | 'memoria'
+/**
+ * `relacional` es el andamio de la migracion, no un backend de verdad: son las
+ * tablas de siempre vestidas de `Libro` para poder portar las services una sola
+ * vez. Se va el dia que no quede nadie en ese modo. Ver relacional.ts.
+ */
+export type TipoDeAlmacen = 'drive' | 'nube' | 'local' | 'memoria' | 'relacional'
 
 /**
  * Nombre de un bloque dentro del almacén. Es plano: no hay carpetas.

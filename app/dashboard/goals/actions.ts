@@ -14,6 +14,7 @@ import {
   type Objetivo,
 } from '@/lib/goals-service'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { guardarPerfil } from '@/lib/profile-service'
 import { createClient } from '@/lib/supabase/server'
 
@@ -200,7 +201,7 @@ export async function registrarLogros(
   const xpTotal = Number(perfil?.aurem_xp ?? 0) + xpSumado
   const tier = tierPara(xpTotal)
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     aurem_xp: xpTotal,
     aurem_tier: tier.codigo,
   })

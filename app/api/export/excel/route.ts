@@ -1,4 +1,5 @@
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { resumirBalance } from '@/lib/balance-overview'
 import { cargarCompromisos } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
@@ -65,7 +66,7 @@ export async function GET() {
     resMovimientos,
     resCategorias,
   ] = await Promise.all([
-    cargarCuentasYDeudas(supabase, monedas),
+    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarInversiones(supabase, monedas),
     cargarCompromisos(supabase, hoy),
     cargarFlujoMensual(supabase, modo, hoy),

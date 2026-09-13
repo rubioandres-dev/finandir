@@ -4,6 +4,7 @@ import { Award, Target } from 'lucide-react'
 import { GoalsManager } from '@/components/goals-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import {
@@ -43,7 +44,7 @@ export default async function GoalsPage() {
 
   const [datos, { patrimonio }, { resumen }, { objetivos, faltaMigracion }] = await Promise.all([
     cargarDatosDelDashboard(undefined, monedas),
-    cargarCuentasYDeudas(supabase, monedas),
+    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarInversiones(supabase, monedas),
     cargarObjetivos(supabase),
   ])

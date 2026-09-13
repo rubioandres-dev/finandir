@@ -1,6 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
 import { MONEDAS_POR_DEFECTO, normalizarMoneda, type TotalPorMoneda } from './monedas'
-import type { Cuenta, DetalleTarjeta, Deuda, Moneda, Tarjeta } from './types'
+import { hoyEnArgentina, type Cuenta, type Deuda, type Moneda, type Tarjeta } from './types'
 
 /**
  * Foto patrimonial, siempre desagregada por moneda: pesos y dólares no se
@@ -118,9 +118,18 @@ export function calcularPatrimonio(
   }
 }
 
-/** Cuentas del usuario con el detalle de tarjeta ya adjunto donde aplica. */
+/**
+ * Cuentas del usuario con el detalle de tarjeta ya adjunto donde aplica.
+ *
+ * EL SALDO YA NO ES UNA COLUMNA
+ *
+ * `balance` sale de `libro.saldos()`. En modo relacional eso todavía es la
+ * columna que mantiene el trigger; en modo Bóveda es un número DERIVADO de los
+ * movimientos. La diferencia no se nota desde acá, que es exactamente el punto
+ * de que esto reciba un `Libro`.
+ */
 export async function cargarCuentasYDeudas(
-  supabase: SupabaseClient,
+  libro: Libro,
   monedas: Moneda[] = MONEDAS_POR_DEFECTO
 ): Promise<{
   cuentas: Cuenta[]
@@ -129,34 +138,54 @@ export async function cargarCuentasYDeudas(
   patrimonio: Patrimonio
   error: string | null
 }> {
-  const [resCuentas, resDetalles, resDeudas] = await Promise.all([
-    supabase.from('accounts').select('*').order('created_at'),
-    supabase.from('credit_card_details').select('*'),
-    supabase.from('debts').select('*').order('created_at', { ascending: false }),
-  ])
+  let guardadas
+  let deudas: Deuda[]
+  let saldos: Record<string, number>
 
-  const error =
-    resCuentas.error?.message ?? resDetalles.error?.message ?? resDeudas.error?.message ?? null
+  try {
+    ;[guardadas, deudas, saldos] = await Promise.all([
+      libro.leer('cuentas'),
+      libro.leer('deudas'),
+      libro.saldos(hoyEnArgentina()),
+    ])
+  } catch (error) {
+    // Se devuelve el error en vez de lanzarlo: media docena de páginas llaman a
+    // esto y ninguna debería caerse entera porque no se pudo leer una cuenta.
+    return {
+      cuentas: [],
+      tarjetas: [],
+      deudas: [],
+      patrimonio: calcularPatrimonio([], [], monedas),
+      error: error instanceof Error ? error.message : 'No se pudieron leer las cuentas.',
+    }
+  }
 
-  const cuentas = (resCuentas.data ?? []) as Cuenta[]
-  const detalles = (resDetalles.data ?? []) as DetalleTarjeta[]
-  const deudas = (resDeudas.data ?? []) as Deuda[]
+  const cuentas: Cuenta[] = guardadas.map((c) => ({
+    id: c.id,
+    user_id: c.user_id,
+    name: c.name,
+    type: c.type,
+    currency: c.currency,
+    is_liquid: c.is_liquid,
+    created_at: c.created_at,
+    // Una cuenta sin movimientos no aparece en `saldos`, y eso es cero.
+    balance: saldos[c.id] ?? 0,
+  }))
 
-  const detallePorCuenta = new Map(detalles.map((d) => [d.account_id, d]))
+  const saldoPorId = new Map(cuentas.map((c) => [c.id, c]))
 
-  const tarjetas: Tarjeta[] = cuentas
-    .filter((c) => c.type === 'CREDIT_CARD')
-    .flatMap((c) => {
-      const detalle = detallePorCuenta.get(c.id)
-      // Una tarjeta sin fechas de cierre no sirve para recomendar nada.
-      return detalle ? [{ ...c, detalle }] : []
-    })
+  const tarjetas: Tarjeta[] = guardadas.flatMap((c) => {
+    // Una tarjeta sin fechas de cierre no sirve para recomendar nada.
+    if (c.type !== 'CREDIT_CARD' || !c.detalle) return []
+    const cuenta = saldoPorId.get(c.id)
+    return cuenta ? [{ ...cuenta, detalle: c.detalle }] : []
+  })
 
   return {
     cuentas,
     tarjetas,
     deudas,
     patrimonio: calcularPatrimonio(cuentas, deudas, monedas),
-    error,
+    error: null,
   }
 }

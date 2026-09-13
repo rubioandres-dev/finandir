@@ -12,6 +12,7 @@ import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { MonthlyFlowChart } from '@/components/monthly-flow-chart'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { resumirBalance } from '@/lib/balance-overview'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { calcularAvances } from '@/lib/category-budgets-service'
@@ -64,7 +65,7 @@ export default async function DashboardPage() {
     { curva },
     { serie: flujoMensual },
   ] = await Promise.all([
-    cargarCuentasYDeudas(supabase, monedas),
+    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     obtenerCotizacionesDelMercado(),
     cargarInversiones(supabase, monedas),
     cargarCompromisos(supabase, hoy),

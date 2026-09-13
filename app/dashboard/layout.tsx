@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { UrlActionHandler } from '@/components/url-action-handler'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
@@ -26,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // request, así que las páginas de abajo lo vuelven a pedir sin costo.
   const [cotizacion, { tarjetas, cuentas }, contexto, resCategorias] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
-    cargarCuentasYDeudas(supabase),
+    cargarCuentasYDeudas(crearLibroRelacional(supabase)),
     cargarContextoDeMonedas(),
     // Nombre y tipo: es lo que necesitan los dos modales del FAB. El escáner
     // usa los nombres para que la IA elija de las categorías reales del

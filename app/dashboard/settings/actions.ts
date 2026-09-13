@@ -6,6 +6,7 @@ import { CATALOGO_LOCALES, normalizarLocale, type Locale } from '@/lib/formatter
 import { CATALOGO_IDIOMAS, normalizarIdioma } from '@/lib/i18n'
 import { normalizarModulos, type EstadoDeModulos } from '@/lib/modules'
 import { CATALOGO_MONEDAS, normalizarListaDeMonedas } from '@/lib/monedas'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { guardarPerfil } from '@/lib/profile-service'
 import { createClient } from '@/lib/supabase/server'
 import type { Moneda } from '@/lib/types'
@@ -65,7 +66,7 @@ export async function actualizarPerfil(
   // El perfil guarda el mismo nombre: es la fuente de verdad desde el
   // onboarding, y si los dos se desincronizan gana el que se lea primero.
   // Que falle no invalida el cambio: `user_metadata` ya se guardó.
-  await guardarPerfil(supabase, user.id, { display_name: datos.data.nombre || null })
+  await guardarPerfil(crearLibroRelacional(supabase, user.id), { display_name: datos.data.nombre || null })
 
   // El nombre lo lee el layout del dashboard para el avatar y el menú.
   revalidatePath('/dashboard', 'layout')
@@ -108,7 +109,7 @@ export async function guardarDivisas(monedas: Moneda[]): Promise<EstadoDePerfil>
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     selected_currencies: normalizarListaDeMonedas(datos.data),
   })
 
@@ -144,7 +145,7 @@ export async function guardarLocale(locale: string): Promise<EstadoDePerfil> {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     locale: normalizarLocale(datos.data),
   })
 
@@ -182,7 +183,7 @@ export async function guardarIdioma(idioma: string): Promise<EstadoDePerfil> {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     language: normalizarIdioma(datos.data),
   })
 
@@ -210,7 +211,7 @@ export async function guardarModulos(estado: EstadoDeModulos): Promise<EstadoDeP
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     active_modules: normalizarModulos(estado),
   })
 
@@ -276,7 +277,7 @@ export async function guardarAjustes(entrada: AjustesAGuardar): Promise<EstadoDe
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     ...(locale !== undefined ? { locale: normalizarLocale(locale) } : {}),
     ...(idioma !== undefined ? { language: normalizarIdioma(idioma) } : {}),
     // `normalizarModulos` descarta claves que no son módulos y las de los
@@ -321,7 +322,7 @@ export async function completarOnboarding(entrada: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const resultado = await guardarPerfil(supabase, user.id, {
+  const resultado = await guardarPerfil(crearLibroRelacional(supabase, user.id), {
     display_name: datos.data.nombre,
     selected_currencies: normalizarListaDeMonedas(datos.data.monedas),
     locale: normalizarLocale(datos.data.locale),

@@ -12,6 +12,7 @@ import { LOCALE_POR_DEFECTO } from './formatters'
 import { IDIOMA_POR_DEFECTO } from './i18n'
 import { MONEDAS_POR_DEFECTO } from './monedas'
 import { COOKIE_PRIVACIDAD, COOKIE_PRIVACIDAD_SESION, estaOculto } from './privacy-mode'
+import { crearLibroRelacional } from './almacen/relacional'
 import { cargarPerfil, type ContextoDePerfil } from './profile-service'
 import { createClient } from './supabase/server'
 import type { Moneda } from './types'
@@ -91,7 +92,7 @@ export const cargarContextoDeMonedas = cache(async (): Promise<ContextoDeMonedas
     }
   }
 
-  const contexto = await cargarPerfil(supabase, user.id)
+  const contexto = await cargarPerfil(crearLibroRelacional(supabase, user.id))
   const modo = await leerModoMoneda(contexto.monedas)
   const privacidad = await leerPrivacidad()
 

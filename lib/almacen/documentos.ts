@@ -23,6 +23,7 @@
  */
 
 import type { PresupuestoDeCategoria } from '../category-budgets-service'
+import type { EstadoDeModulos } from '../modules'
 import type { Objetivo } from '../goals-service'
 import type {
   Categoria,
@@ -71,8 +72,23 @@ export type CategoriaGuardada = Categoria & {
  * ejercicio (ver `ShardDeMovimientos.aperturas`), que es como lo haría un libro
  * contable y no cuesta nada porque el shard ya está en memoria.
  */
+/**
+ * El perfil, con los modulos apagados adentro.
+ *
+ * `UserProfile` no incluye `active_modules` —la columna la agrego la 011 y el
+ * tipo nunca la siguio—, asi que guardar el perfil "tal cual" perderia en
+ * silencio cada switch que el usuario haya apagado.
+ *
+ * `storage_backend` NO esta aca y es a proposito: vive en Supabase siempre.
+ * Hay que saber DONDE estan los datos antes de poder leerlos, asi que ese dato
+ * no puede vivir adentro de los datos.
+ */
+export type PerfilGuardado = UserProfile & {
+  active_modules: EstadoDeModulos
+}
+
 export type Coleccion = {
-  perfil: UserProfile
+  perfil: PerfilGuardado
   cuentas: CuentaGuardada[]
   categorias: CategoriaGuardada[]
   deudas: Deuda[]

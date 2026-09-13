@@ -4,6 +4,7 @@ import { CategoriesManagerButton } from '@/components/categories-manager-modal'
 import { TransactionFeedTabs } from '@/components/transaction-feed-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
@@ -31,7 +32,7 @@ export default async function TransactionsPage() {
   // cotización; los movimientos ahora vienen del feed, partido por período.
   const [{ categorias, cotizacion, errorCarga }, { cuentas }, feed] = await Promise.all([
     cargarDatosDelDashboard(modo, monedas),
-    cargarCuentasYDeudas(supabase, monedas),
+    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarFeedDeMovimientos(supabase, modo),
   ])
 

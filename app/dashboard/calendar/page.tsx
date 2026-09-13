@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { CalendarDays } from 'lucide-react'
 import { FinancialCalendar } from '@/components/financial-calendar'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { cargarEventosDelMes } from '@/lib/calendar-service'
 import { createClient } from '@/lib/supabase/server'
 import { hoyEnArgentina } from '@/lib/types'
@@ -33,7 +34,7 @@ export default async function CalendarPage({
   const hoy = hoyEnArgentina()
   const [anio, mes] = mesPedido((await searchParams).m, hoy)
 
-  const { tarjetas } = await cargarCuentasYDeudas(supabase)
+  const { tarjetas } = await cargarCuentasYDeudas(crearLibroRelacional(supabase))
   const { eventos, error } = await cargarEventosDelMes(supabase, tarjetas, anio, mes)
 
   return (

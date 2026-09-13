@@ -32,8 +32,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PresupuestoDeCategoria } from '../category-budgets-service'
 import type { Objetivo } from '../goals-service'
-import type { Deuda, Inversion, Transaccion, UserProfile } from '../types'
-import type { CategoriaGuardada, CuentaGuardada } from './documentos'
+import type { Deuda, Inversion, Transaccion } from '../types'
+import { normalizarModulos } from '../modules'
+import type { CategoriaGuardada, CuentaGuardada, PerfilGuardado } from './documentos'
 import type { Libro } from './libro'
 import { recalcularAperturas } from './operaciones'
 
@@ -302,8 +303,11 @@ async function verificar(
 
 // --- Mapeos sueltos -----------------------------------------------------------
 
-function aPerfil(p: Fila): UserProfile {
+function aPerfil(p: Fila): PerfilGuardado {
   return {
+    // Sin esto, migrar le prende al usuario todos los modulos que habia
+    // apagado. Es el tipo de perdida que no tira ningun error.
+    active_modules: normalizarModulos(p.active_modules),
     user_id: p.user_id as string,
     display_name: (p.display_name as string | null) ?? null,
     selected_currencies: Array.isArray(p.selected_currencies)
