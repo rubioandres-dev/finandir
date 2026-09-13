@@ -150,16 +150,32 @@ security definer
 set search_path = public
 as $$
 begin
+  -- Un ADMIN que sigue siendo ADMIN no quita nada: el UPDATE OF role se
+  -- dispara aunque el valor no cambie, y sin esta salida temprana el unico
+  -- admin del grupo no podria ni reguardar su propia fila.
+  if tg_op = 'UPDATE' and new.role = 'ADMIN' then
+    return new;
+  end if;
+
+  -- NEW no existe en un DELETE: en PL/pgSQL leer `new.space_id` ahi revienta
+  -- con "record new is not assigned yet". Por eso el campo se saca de OLD, que
+  -- esta en las dos operaciones.
   if not exists (
     select 1 from public.shared_space_members
-     where space_id = coalesce(old.space_id, new.space_id)
+     where space_id = old.space_id
        and role = 'ADMIN'
        and id <> old.id
   ) then
     raise exception 'El espacio quedaria sin administradores.' using errcode = '23514';
   end if;
 
-  return coalesce(new, old);
+  -- Un BEFORE DELETE tiene que devolver OLD: devolver NULL cancelaria el
+  -- borrado en silencio.
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+
+  return new;
 end;
 $$;
 
@@ -177,8 +193,22 @@ create trigger shared_members_guardar_admin
 alter table public.shared_space_claves enable row level security;
 alter table public.shared_space_claves force row level security;
 
-/** Miembro del espacio con cuenta. Se usa en las politicas de abajo. */
-create or replace function public.es_miembro_del_espacio(p_space uuid)
+-- `es_miembro_del_espacio` YA EXISTE desde la 011 y se usa tal cual.
+--
+-- No se redefine, y no es por prolijidad: `create or replace` no puede cambiar
+-- el nombre de un parametro, asi que redeclararla como `p_space` en vez de
+-- `p_space_id` aborta con 42P13. Y dropearla para recrearla seria peor: una
+-- docena de policies de la 011 y la 015 dependen de ella, y el drop se las
+-- lleva puestas o falla.
+--
+-- Regla para las migraciones que vengan: si una funcion ya existe, se usa. Si
+-- hay que cambiarle la firma, es una funcion nueva con otro nombre.
+
+/**
+ * Admin del espacio. Es nueva; sigue el nombre de parametro de la 011 para que
+ * el dia que alguien quiera tocarla no choque con lo mismo.
+ */
+create or replace function public.es_admin_del_espacio(p_space_id uuid)
 returns boolean
 language sql
 security definer
@@ -187,25 +217,12 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.shared_space_members
-     where space_id = p_space and user_id = auth.uid()
+     where space_id = p_space_id and user_id = auth.uid() and role = 'ADMIN'
   );
 $$;
 
-create or replace function public.es_admin_del_espacio(p_space uuid)
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.shared_space_members
-     where space_id = p_space and user_id = auth.uid() and role = 'ADMIN'
-  );
-$$;
-
-grant execute on function public.es_miembro_del_espacio(uuid) to authenticated;
-grant execute on function public.es_admin_del_espacio(uuid)  to authenticated;
+revoke all on function public.es_admin_del_espacio(uuid) from public;
+grant execute on function public.es_admin_del_espacio(uuid) to authenticated;
 
 -- Leer: cualquier miembro ve los sobres del espacio. No es una filtracion —un
 -- sobre ajeno esta cifrado con la publica de otro y es inabrible— y simplifica
