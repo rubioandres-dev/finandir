@@ -163,6 +163,35 @@ export class ConflictoDeVersion extends Error {
  * Es el único error de escritura que el usuario puede resolver por su cuenta,
  * así que merece un mensaje propio en vez de un "no se pudo guardar".
  */
+/**
+ * Un error de backend que CONSERVA el codigo original.
+ *
+ * Sin esto, cruzar la interface pierde el codigo: PostgREST lo manda aparte
+ * (`error.code`) y envolverlo en un `Error` pelado lo deja solo adentro del
+ * mensaje. Cada chequeo tipo `if (error.code === '23505')` de las services
+ * dejaba de matchear en silencio — el aviso no salia nunca y nadie se enteraba.
+ * Ya paso una vez; esta clase existe para que no vuelva a pasar.
+ */
+export class ErrorDelAlmacen extends Error {
+  constructor(
+    mensaje: string,
+    readonly codigo?: string
+  ) {
+    super(mensaje)
+    this.name = 'ErrorDelAlmacen'
+  }
+}
+
+/** El codigo de PostgREST de un error, venga envuelto o crudo. */
+export function codigoDeError(error: unknown): string | undefined {
+  if (error instanceof ErrorDelAlmacen) return error.codigo
+  if (error && typeof error === 'object' && 'code' in error) {
+    const codigo = (error as { code?: unknown }).code
+    return typeof codigo === 'string' ? codigo : undefined
+  }
+  return undefined
+}
+
 export class AlmacenSinEspacio extends Error {
   constructor(readonly tipo: TipoDeAlmacen) {
     super('No hay espacio disponible para guardar.')

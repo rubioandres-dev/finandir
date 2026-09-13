@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
+import { todosLosMovimientos } from '@/lib/almacen/consultas'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
+import { hoyEnArgentina } from '@/lib/types'
+
+/** Senal interna: el nombre ya esta tomado. No sale nunca a la UI. */
+const NOMBRE_REPETIDO = 'nombre-repetido'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 
 const TIPOS = ['BANK', 'WALLET', 'CASH', 'INVESTMENT', 'CREDIT_CARD'] as const
@@ -78,24 +85,7 @@ function causaConocida(codigo?: string): string | null {
   return null
 }
 
-type ErrorDeSupabase = {
-  code?: string
-  message?: string
-  details?: string | null
-  hint?: string | null
-}
 
-/**
- * Texto con el motivo real del rechazo.
- *
- * Tragarse el error de Postgres detrás de un "no se pudo guardar" dejaba al
- * usuario sin ninguna pista de qué corregir; acá se muestra tal cual.
- */
-function detalleDelError(error: ErrorDeSupabase): string {
-  const partes = [error.message, error.details, error.hint].filter(Boolean)
-  const cuerpo = partes.join(' · ') || 'error desconocido'
-  return error.code ? `${cuerpo} [${error.code}]` : cuerpo
-}
 
 export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoGuardado> {
   const datos = cuentaSchema.safeParse(entrada)
@@ -108,67 +98,69 @@ export async function guardarCuenta(entrada: CuentaAGuardar): Promise<ResultadoG
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
   const esTarjeta = datos.data.type === 'CREDIT_CARD'
-  const esAlta = !datos.data.id
+  const libro = crearLibroRelacional(supabase, user.id)
+  const id = datos.data.id ?? crypto.randomUUID()
 
-  const fila: Record<string, unknown> = {
-    user_id: user.id,
-    name: datos.data.name,
-    type: datos.data.type,
-    currency: datos.data.currency,
-    // Ni las tarjetas ni las inversiones cuentan como disponible.
-    is_liquid: !esTarjeta && datos.data.type !== 'INVESTMENT',
-  }
-  // Solo se escribe si el formulario lo mandó: así editar el nombre no pisa
-  // un saldo que los triggers pudieron mover mientras tanto.
-  if (datos.data.balance != null) fila.balance = datos.data.balance
+  try {
+    await libro.mutar('cuentas', (cuentas) => {
+      // El chequeo de nombre repetido va ADENTRO: era el `23505` que se
+      // atrapaba despues del insert, y ahora lo resuelve el lazo de reintentos.
+      const repetida = cuentas.some(
+        (c) =>
+          c.id !== id &&
+          c.name.trim().toLowerCase() === datos.data.name.trim().toLowerCase()
+      )
+      if (repetida) throw new Error(NOMBRE_REPETIDO)
 
-  const { data: cuenta, error } = esAlta
-    ? await supabase.from('accounts').insert(fila).select('id').single()
-    : await supabase.from('accounts').update(fila).eq('id', datos.data.id!).select('id').single()
+      const previa = cuentas.find((c) => c.id === id)
 
-  if (error) {
-    const causa = causaConocida(error.code)
-    if (causa) return { ok: false, error: `${causa} (${detalleDelError(error)})` }
-    if (error.code === '23505') return { ok: false, error: 'Ya tenés una cuenta con ese nombre.' }
-    console.error('[guardarCuenta]', error)
-    return { ok: false, error: `No se pudo guardar la cuenta: ${detalleDelError(error)}` }
-  }
-
-  if (!cuenta) {
-    return { ok: false, error: 'No se encontró la cuenta que querés editar.' }
-  }
-
-  if (esTarjeta) {
-    const { error: errorDetalle } = await supabase.from('credit_card_details').upsert(
-      {
-        account_id: cuenta.id,
-        closing_day: datos.data.closing_day,
-        due_day: datos.data.due_day,
-        credit_limit: datos.data.credit_limit ?? null,
-        bank_name: datos.data.bank_name || null,
-        last_four_digits: datos.data.last_four_digits || null,
-      },
-      { onConflict: 'account_id' }
-    )
-
-    if (errorDetalle) {
-      // Un alta a medias es peor que ninguna: dejaba una cuenta con el nombre
-      // y nada más, imposible de completar porque el nombre ya estaba tomado.
-      if (esAlta) await supabase.from('accounts').delete().eq('id', cuenta.id)
-
-      console.error('[guardarCuenta:detalle]', errorDetalle)
-      const motivo =
-        causaConocida(errorDetalle.code) ?? 'No se pudieron guardar los datos de la tarjeta'
-      return {
-        ok: false,
-        error: `${motivo}: ${detalleDelError(errorDetalle)}${
-          esAlta ? '. No se creó la cuenta.' : ''
-        }`,
+      const guardada = {
+        id,
+        user_id: user.id,
+        name: datos.data.name,
+        type: datos.data.type,
+        currency: datos.data.currency,
+        // Ni las tarjetas ni las inversiones cuentan como disponible.
+        is_liquid: !esTarjeta && datos.data.type !== 'INVESTMENT',
+        created_at: previa?.created_at ?? new Date().toISOString(),
+        // Si dejo de ser tarjeta, el detalle viejo ya no describe nada.
+        detalle: esTarjeta
+          ? {
+              account_id: id,
+              closing_day: datos.data.closing_day!,
+              due_day: datos.data.due_day!,
+              credit_limit: datos.data.credit_limit ?? null,
+              bank_name: datos.data.bank_name || null,
+              last_four_digits: datos.data.last_four_digits || null,
+            }
+          : null,
       }
+
+      return previa
+        ? cuentas.map((c) => (c.id === id ? guardada : c))
+        : [...cuentas, guardada]
+    })
+
+    // El saldo va aparte porque NO es un campo de la cuenta: es un derivado de
+    // los movimientos. `ajustarSaldo` traduce "mi banco tiene 50.000" a lo que
+    // corresponda en cada backend.
+    if (datos.data.balance != null) {
+      await libro.ajustarSaldo(id, datos.data.balance, hoyEnArgentina())
     }
-  } else if (!esAlta) {
-    // Dejó de ser tarjeta: el detalle viejo ya no describe nada.
-    await supabase.from('credit_card_details').delete().eq('account_id', cuenta.id)
+  } catch (error) {
+    if (error instanceof Error && error.message === NOMBRE_REPETIDO) {
+      return { ok: false, error: 'Ya tenes una cuenta con ese nombre.' }
+    }
+
+    const causa = causaConocida(codigoDeError(error))
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    if (causa) return { ok: false, error: `${causa} (${detalle})` }
+
+    console.error('[guardarCuenta]', error)
+    // El borrado compensatorio del alta a medias ya no hace falta: la cuenta y
+    // su detalle se escriben en la MISMA mutacion, asi que o entran los dos o
+    // no entra ninguno.
+    return { ok: false, error: `No se pudo guardar la cuenta: ${detalle}` }
   }
 
   revalidatePath('/dashboard/accounts')
@@ -183,22 +175,26 @@ export async function borrarCuenta(id: string): Promise<ResultadoGuardado> {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { count } = await supabase
-    .from('transactions')
-    .select('id', { count: 'exact', head: true })
-    .eq('account_id', id)
+  const libro = crearLibroRelacional(supabase, user.id)
 
-  if ((count ?? 0) > 0) {
-    return {
-      ok: false,
-      error: `La cuenta tiene ${count} movimientos. Borralos primero o dejá la cuenta como está.`,
+  try {
+    // Se cuenta ANTES y se niega el borrado: la app NO cascadea el borrado de
+    // una cuenta a proposito. `operaciones.borrarCuenta` si lo hace, y por eso
+    // no se usa aca: son dos intenciones distintas.
+    const suyos = (await todosLosMovimientos(libro)).filter((m) => m.account_id === id)
+
+    if (suyos.length > 0) {
+      return {
+        ok: false,
+        error: `La cuenta tiene ${suyos.length} movimientos. Borralos primero o deja la cuenta como esta.`,
+      }
     }
-  }
 
-  const { error } = await supabase.from('accounts').delete().eq('id', id)
-  if (error) {
+    await libro.mutar('cuentas', (cuentas) => cuentas.filter((c) => c.id !== id))
+  } catch (error) {
     console.error('[borrarCuenta]', error)
-    return { ok: false, error: `No se pudo borrar la cuenta: ${detalleDelError(error)}` }
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo borrar la cuenta: ${detalle}` }
   }
 
   revalidatePath('/dashboard/accounts')
@@ -252,15 +248,24 @@ export async function guardarDeuda(entrada: DeudaAGuardar): Promise<ResultadoGua
     is_settled: pendiente === 0,
   }
 
-  const { error } = datos.data.id
-    ? await supabase.from('debts').update(fila).eq('id', datos.data.id)
-    : await supabase.from('debts').insert(fila)
+  const id = datos.data.id ?? crypto.randomUUID()
 
-  if (error) {
-    const causa = causaConocida(error.code)
-    if (causa) return { ok: false, error: `${causa} (${detalleDelError(error)})` }
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) => {
+      const previa = deudas.find((d) => d.id === id)
+      const guardada = {
+        ...fila,
+        id,
+        created_at: previa?.created_at ?? new Date().toISOString(),
+      }
+      return previa ? deudas.map((d) => (d.id === id ? guardada : d)) : [...deudas, guardada]
+    })
+  } catch (error) {
+    const causa = causaConocida(codigoDeError(error))
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    if (causa) return { ok: false, error: `${causa} (${detalle})` }
     console.error('[guardarDeuda]', error)
-    return { ok: false, error: `No se pudo guardar la deuda: ${detalleDelError(error)}` }
+    return { ok: false, error: `No se pudo guardar la deuda: ${detalle}` }
   }
 
   revalidatePath('/dashboard/debts')
@@ -282,22 +287,25 @@ export async function registrarPagoDeDeuda(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { data: deuda, error: errorLectura } = await supabase
-    .from('debts')
-    .select('remaining_amount')
-    .eq('id', id)
-    .single()
+  try {
+    let encontrada = false
 
-  if (errorLectura || !deuda) return { ok: false, error: 'No se encontró la deuda.' }
+    await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) =>
+      deudas.map((deuda) => {
+        if (deuda.id !== id) return deuda
+        encontrada = true
 
-  const pendiente = Math.max(0, Number(deuda.remaining_amount) - monto)
+        // RESTAR ES UNA OPERACION RELATIVA, y por eso pasa aca adentro.
+        // Calcular el pendiente afuera y despues mutar aplicaria el saldo VIEJO
+        // si otro dispositivo registro un pago en el medio: el segundo pago se
+        // perderia sin que nadie se entere.
+        const pendiente = Math.max(0, deuda.remaining_amount - monto)
+        return { ...deuda, remaining_amount: pendiente, is_settled: pendiente === 0 }
+      })
+    )
 
-  const { error } = await supabase
-    .from('debts')
-    .update({ remaining_amount: pendiente, is_settled: pendiente === 0 })
-    .eq('id', id)
-
-  if (error) {
+    if (!encontrada) return { ok: false, error: 'No se encontro la deuda.' }
+  } catch (error) {
     console.error('[registrarPagoDeDeuda]', error)
     return { ok: false, error: 'No se pudo registrar el pago.' }
   }
@@ -308,9 +316,12 @@ export async function registrarPagoDeDeuda(
 
 export async function borrarDeuda(id: string): Promise<ResultadoGuardado> {
   const supabase = await createClient()
-  const { error } = await supabase.from('debts').delete().eq('id', id)
 
-  if (error) {
+  try {
+    await crearLibroRelacional(supabase).mutar('deudas', (deudas) =>
+      deudas.filter((d) => d.id !== id)
+    )
+  } catch (error) {
     console.error('[borrarDeuda]', error)
     return { ok: false, error: 'No se pudo borrar la deuda.' }
   }

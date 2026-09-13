@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { FALTA_MIGRACION_PRESUPUESTOS } from '@/lib/category-budgets-service'
-
-/** Los codigos con los que PostgREST/Postgres avisan que falta la tabla. */
-const CODIGOS_DE_TABLA_FALTANTE = ['PGRST205', 'PGRST204', '42P01']
+import {
+  FALTA_MIGRACION_PRESUPUESTOS,
+  faltaLaTabla as faltaLaTablaDePresupuestos,
+} from '@/lib/category-budgets-service'
+import { codigoDeError } from '@/lib/almacen/tipos'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
@@ -48,10 +49,8 @@ export type MovimientoAGuardar = z.infer<typeof movimientoSchema>
 // 42703 = la columna no existe; PGRST204 = no está en el schema cache de
 // PostgREST. Ambos significan lo mismo acá: falta correr migrations/004.
 //
-// Recibe el MENSAJE y no el codigo: pasando por `Libro`, el error de PostgREST
-// llega envuelto en un `Error` y el codigo ya no viaja aparte.
-function faltanColumnasDelPlan(mensaje: string) {
-  return mensaje.includes('42703') || mensaje.includes('PGRST204')
+function faltanColumnasDelPlan(codigo?: string) {
+  return codigo === '42703' || codigo === 'PGRST204'
 }
 
 export async function guardarTransaccion(
@@ -190,7 +189,7 @@ export async function guardarTransaccion(
 
     // La guarda de moneda del trigger de migrations/002 llega como texto.
     if (mensaje.includes('moneda')) return { ok: false, error: mensaje }
-    if (faltanColumnasDelPlan(mensaje)) {
+    if (faltanColumnasDelPlan(codigoDeError(error))) {
       return {
         ok: false,
         error:
@@ -282,10 +281,7 @@ export async function guardarPresupuesto(
       })
     )
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
-    // `faltaLaTablaDePresupuestos` compara contra el CODIGO de PostgREST, que
-    // pasando por `Libro` ya no viaja aparte: llega adentro del mensaje.
-    if (CODIGOS_DE_TABLA_FALTANTE.some((codigo) => mensaje.includes(codigo))) {
+    if (faltaLaTablaDePresupuestos(codigoDeError(error))) {
       return { ok: false, error: FALTA_MIGRACION_PRESUPUESTOS }
     }
     console.error('[guardarPresupuesto]', error)

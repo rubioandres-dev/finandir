@@ -143,6 +143,17 @@ export interface Libro {
   // sabe. Relacional los mapea a INSERT/UPDATE/DELETE directo; documentos, a una
   // mutacion del shard.
 
+  /**
+   * Deja el saldo de una cuenta EN `saldo`, hoy.
+   *
+   * No es "escribir la columna balance": en modo documentos el saldo se deriva
+   * de los movimientos, asi que fijarlo es mover la APERTURA del ejercicio para
+   * que la cuenta cierre en el numero pedido. El usuario dice "mi banco tiene
+   * 50.000" y eso es lo que tiene que mostrar la app, sin inventar un
+   * movimiento que el no hizo.
+   */
+  ajustarSaldo(cuentaId: string, saldo: number, alDia: string): Promise<void>
+
   /** Un movimiento por id, o `null` si no existe. */
   movimiento(id: string): Promise<Transaccion | null>
 
@@ -400,6 +411,25 @@ export function crearLibro(almacen: Almacen): Libro {
 
     async aniosConMovimientos() {
       return (await leerManifiesto()).shards
+    },
+
+    async ajustarSaldo(cuentaId, saldo, alDia) {
+      const derivado = (await libro.saldos(alDia))[cuentaId] ?? 0
+      const diferencia = saldo - derivado
+      if (diferencia === 0) return
+
+      // La apertura del PRIMER ejercicio: es el unico lugar donde se puede
+      // fijar un saldo sin tocar ningun movimiento del usuario.
+      const anios = await libro.aniosConMovimientos()
+      const primero = anios.length > 0 ? Math.min(...anios) : shardDeFecha(alDia)
+
+      await libro.mutarMovimientos(primero, (shard) => ({
+        ...shard,
+        aperturas: {
+          ...shard.aperturas,
+          [cuentaId]: (shard.aperturas[cuentaId] ?? 0) + diferencia,
+        },
+      }))
     },
 
     async movimiento(id) {

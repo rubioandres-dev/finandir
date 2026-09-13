@@ -48,6 +48,7 @@ import type {
   PerfilGuardado,
 } from './documentos'
 import { manifiestoInicial } from './documentos'
+import { ErrorDelAlmacen } from './tipos'
 import type { Libro } from './libro'
 
 /** La tabla no existe: falta correr esa migración en el SQL Editor. */
@@ -149,7 +150,7 @@ export function crearLibroRelacional(
       if (esTablaFaltante(error.code)) {
         throw new FaltaMigracionRelacional('007_user_profiles_and_currencies.sql')
       }
-      throw new Error(error.message)
+      throw new ErrorDelAlmacen(error.message, error.code)
     }
 
     // Sin fila: el usuario existe pero nunca pasó por el onboarding. Es un
@@ -203,7 +204,7 @@ export function crearLibroRelacional(
       if (esTablaFaltante(error.code)) {
         throw new FaltaMigracionRelacional('007_user_profiles_and_currencies.sql')
       }
-      throw new Error(error.message)
+      throw new ErrorDelAlmacen(error.message, error.code)
     }
   }
 
@@ -227,7 +228,7 @@ export function crearLibroRelacional(
         .from('accounts')
         .select('*')
         .order('created_at')
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
       return (data ?? []) as Fila[]
     })()
     return cuentasCrudas
@@ -276,7 +277,7 @@ export function crearLibroRelacional(
 
     if (error) {
       if (esTablaFaltante(error.code)) return []
-      throw new Error(error.message)
+      throw new ErrorDelAlmacen(error.message, error.code)
     }
 
     return ((data ?? []) as Fila[]).map((d) => ({
@@ -302,7 +303,7 @@ export function crearLibroRelacional(
       supabase.from('category_budgets').select('id, category_id, amount, currency'),
     ])
 
-    if (resCategorias.error) throw new Error(resCategorias.error.message)
+    if (resCategorias.error) throw new ErrorDelAlmacen(resCategorias.error.message, resCategorias.error.code)
 
     // Sin la 013 no hay presupuestos, y una categoria sin presupuesto sigue
     // siendo una categoria: el error no corta.
@@ -396,7 +397,7 @@ export function crearLibroRelacional(
       const { error } = await supabase
         .from('accounts')
         .upsert(filas, { onConflict: 'id' })
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
 
       const detalles = aEscribir.map((c) => c.detalle).filter((d) => d !== null)
       if (detalles.length > 0) {
@@ -405,14 +406,14 @@ export function crearLibroRelacional(
         const { error: errorDetalle } = await supabase
           .from('credit_card_details')
           .upsert(detalles, { onConflict: 'account_id' })
-        if (errorDetalle) throw new Error(errorDetalle.message)
+        if (errorDetalle) throw new ErrorDelAlmacen(errorDetalle.message, errorDetalle.code)
       }
     }
 
     if (aBorrar.length > 0) {
       // El detalle se va solo: la FK de `credit_card_details` cascadea.
       const { error } = await supabase.from('accounts').delete().in('id', aBorrar)
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
     }
 
     cuentasCrudas = null
@@ -432,7 +433,7 @@ export function crearLibroRelacional(
       const { error } = await supabase
         .from('categories')
         .upsert(filas, { onConflict: 'id' })
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
 
       // `user_id` es NOT NULL en `category_budgets` y no viaja en
       // `PresupuestoDeCategoria`: el presupuesto es de quien es la categoria,
@@ -444,13 +445,13 @@ export function crearLibroRelacional(
         const { error: errorPres } = await supabase
           .from('category_budgets')
           .upsert(presupuestos, { onConflict: 'id' })
-        if (errorPres) throw new Error(errorPres.message)
+        if (errorPres) throw new ErrorDelAlmacen(errorPres.message, errorPres.code)
       }
     }
 
     if (aBorrar.length > 0) {
       const { error } = await supabase.from('categories').delete().in('id', aBorrar)
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
     }
   }
 
@@ -485,6 +486,24 @@ export function crearLibroRelacional(
       if (coleccion === 'categorias') {
         const antes = await leerCategorias()
         await escribirCategorias(antes, cambio(antes as Coleccion[C]) as CategoriaGuardada[])
+        return
+      }
+
+      if (coleccion === 'deudas') {
+        const antes = await leerDeudas()
+        const despues = cambio(antes as Coleccion[C]) as Deuda[]
+        const { aEscribir, aBorrar } = diferenciar(antes, despues)
+
+        if (aEscribir.length > 0) {
+          const { error } = await supabase
+            .from('debts')
+            .upsert(aEscribir, { onConflict: 'id' })
+          if (error) throw new ErrorDelAlmacen(error.message, error.code)
+        }
+        if (aBorrar.length > 0) {
+          const { error } = await supabase.from('debts').delete().in('id', aBorrar)
+          if (error) throw new ErrorDelAlmacen(error.message, error.code)
+        }
         return
       }
 
@@ -523,8 +542,21 @@ export function crearLibroRelacional(
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
 
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
       return ((data ?? []) as Fila[]).map(aMovimiento)
+    },
+
+    async ajustarSaldo(cuentaId: string, saldo: number): Promise<void> {
+      // En relacional el saldo ES una columna, que despues mantiene el trigger
+      // `apply_transaction_to_balance`. `alDia` no se usa: la columna solo sabe
+      // del presente.
+      const { error } = await supabase
+        .from('accounts')
+        .update({ balance: saldo })
+        .eq('id', cuentaId)
+
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
+      cuentasCrudas = null
     },
 
     async movimiento(id: string): Promise<Transaccion | null> {
@@ -534,7 +566,7 @@ export function crearLibroRelacional(
         .eq('id', id)
         .maybeSingle()
 
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
       return data ? aMovimiento(data as Fila) : null
     },
 
@@ -547,7 +579,7 @@ export function crearLibroRelacional(
         .from('transactions')
         .upsert(movimientos, { onConflict: 'id' })
 
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
     },
 
     async editarMovimiento(movimiento: Transaccion): Promise<void> {
@@ -558,7 +590,7 @@ export function crearLibroRelacional(
         .update(movimiento)
         .eq('id', movimiento.id)
 
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
     },
 
     async borrarMovimiento(id: string): Promise<void> {
@@ -566,7 +598,7 @@ export function crearLibroRelacional(
       // `on delete cascade` desde la migracion 003. Del lado de documentos hay
       // que hacerlo a mano, y por eso el metodo existe en la interface.
       const { error } = await supabase.from('transactions').delete().eq('id', id)
-      if (error) throw new Error(error.message)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
     },
 
     /**
