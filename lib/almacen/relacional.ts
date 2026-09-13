@@ -434,7 +434,12 @@ export function crearLibroRelacional(
         .upsert(filas, { onConflict: 'id' })
       if (error) throw new Error(error.message)
 
-      const presupuestos = aEscribir.flatMap((c) => c.presupuestos)
+      // `user_id` es NOT NULL en `category_budgets` y no viaja en
+      // `PresupuestoDeCategoria`: el presupuesto es de quien es la categoria,
+      // asi que se completa desde ella en vez de ensuciar el tipo.
+      const presupuestos = aEscribir.flatMap((c) =>
+        c.presupuestos.map((pres) => ({ ...pres, user_id: c.user_id }))
+      )
       if (presupuestos.length > 0) {
         const { error: errorPres } = await supabase
           .from('category_budgets')

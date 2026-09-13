@@ -2,15 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import {
-  FALTA_MIGRACION_PRESUPUESTOS,
-  TABLA_PRESUPUESTOS,
-  faltaLaTabla as faltaLaTablaDePresupuestos,
-} from '@/lib/category-budgets-service'
+import { FALTA_MIGRACION_PRESUPUESTOS } from '@/lib/category-budgets-service'
+
+/** Los codigos con los que PostgREST/Postgres avisan que falta la tabla. */
+const CODIGOS_DE_TABLA_FALTANTE = ['PGRST205', 'PGRST204', '42P01']
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
-import type { Moneda } from '@/lib/types'
+import type { Moneda, Transaccion } from '@/lib/types'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
 import { resolverPlan, sumarMeses } from '@/lib/cuotas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
@@ -48,8 +47,11 @@ export type MovimientoAGuardar = z.infer<typeof movimientoSchema>
 
 // 42703 = la columna no existe; PGRST204 = no está en el schema cache de
 // PostgREST. Ambos significan lo mismo acá: falta correr migrations/004.
-function faltanColumnasDelPlan(codigo?: string) {
-  return codigo === '42703' || codigo === 'PGRST204'
+//
+// Recibe el MENSAJE y no el codigo: pasando por `Libro`, el error de PostgREST
+// llega envuelto en un `Error` y el codigo ya no viaja aparte.
+function faltanColumnasDelPlan(mensaje: string) {
+  return mensaje.includes('42703') || mensaje.includes('PGRST204')
 }
 
 export async function guardarTransaccion(
@@ -129,94 +131,79 @@ export async function guardarTransaccion(
   })
 
   const cuotas = plan.cuotas
-  const montos = plan.montos
+  const idMadre = crypto.randomUUID()
+  const ahora = new Date().toISOString()
 
-  const comun = {
+  /**
+   * El plan entero, de una.
+   *
+   * Antes esto eran dos inserts —la madre primero para conocer su id, despues
+   * las demas apuntandole— con un borrado compensatorio si el segundo fallaba.
+   * Generando el id de la madre en el cliente, las N cuotas se arman juntas y
+   * se guardan en una sola operacion.
+   *
+   * Los metadatos del plan van repetidos en cada cuota a proposito: asi el
+   * desglose del recargo se puede mostrar desde cualquiera sin ir a buscar la
+   * madre.
+   */
+  const movimientos: Transaccion[] = plan.montos.map((monto, indice) => ({
+    id: indice === 0 ? idMadre : crypto.randomUUID(),
     user_id: user.id,
     account_id: cuentaId,
     category_id: categoriaId,
+    amount: monto,
+    amount_usd: calcularMontoUsd(monto, datos.data.currency, cotizacion),
     currency: datos.data.currency,
     type: datos.data.type,
     description: datos.data.description,
-  }
-
-  // Metadatos del plan repetidos en cada cuota: así el desglose del recargo
-  // se puede mostrar desde cualquiera sin ir a buscar la madre.
-  const metadatosPlan = {
+    date: indice === 0 ? datos.data.date : sumarMeses(datos.data.date, indice),
+    created_at: ahora,
+    installment_current: cuotas > 1 ? indice + 1 : null,
+    installment_total: cuotas > 1 ? cuotas : null,
+    parent_transaction_id: indice === 0 ? null : idMadre,
     has_interest: plan.tieneInteres,
     cash_price: cuotas > 1 ? plan.precioContado : null,
     total_financed_amount: cuotas > 1 ? plan.totalAPagar : null,
-    installment_amount: cuotas > 1 ? montos[0] : null,
-  }
+    installment_amount: cuotas > 1 ? plan.montos[0] : null,
+  }))
 
-  // Primera cuota: es la "madre" a la que apuntan las demás.
-  const primeraCuota = {
-    amount: montos[0],
-    amount_usd: calcularMontoUsd(montos[0], datos.data.currency, cotizacion),
-    date: datos.data.date,
-    installment_current: cuotas > 1 ? 1 : null,
-    installment_total: cuotas > 1 ? cuotas : null,
-  }
+  try {
+    await libro.agregarMovimientos(movimientos)
+  } catch (error) {
+    console.error('[guardarTransaccion]', error)
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
 
-  let { data: primera, error: errorInsert } = await supabase
-    .from('transactions')
-    .insert({ ...comun, ...metadatosPlan, ...primeraCuota })
-    .select('id')
-    .single()
+    // Un plan a medias es peor que ninguno: si el usuario reintenta, los ids
+    // nuevos duplicarian las cuotas que si entraron. `borrarMovimiento` se
+    // lleva la madre y sus cuotas de un saque.
+    //
+    // El dia que `abrirLibro()` este cableado esto sobra: el diario reanuda la
+    // operacion con los MISMOS ids y la completa en vez de deshacerla.
+    if (cuotas > 1) {
+      try {
+        await libro.borrarMovimiento(idMadre)
+      } catch {
+        // Si tampoco se puede limpiar, el mensaje de abajo es lo unico que
+        // queda; no tiene sentido tapar el error original con este.
+      }
+    }
 
-  // Sin migrations/004 las columnas del plan no existen y el insert falla, aun
-  // para un gasto simple. Reintentamos sin esos metadatos: el reparto en cuotas
-  // ya está resuelto en `montos`, así que lo único que se pierde es el desglose
-  // del recargo, que vuelve solo cuando se corra la migración.
-  let guardaMetadatos = true
-  if (errorInsert && faltanColumnasDelPlan(errorInsert.code)) {
-    guardaMetadatos = false
-    console.warn(
-      '[guardarTransaccion] Faltan las columnas de intereses; se guarda sin el',
-      'desglose del plan. Ejecutá migrations/004_installments_and_interest.sql.'
-    )
-    ;({ data: primera, error: errorInsert } = await supabase
-      .from('transactions')
-      .insert({ ...comun, ...primeraCuota })
-      .select('id')
-      .single())
-  }
-
-  if (errorInsert || !primera) {
-    console.error('[guardarTransaccion]', errorInsert)
-    // 23514 = la guarda de moneda del trigger de migrations/002.
-    if (errorInsert?.code === '23514' && errorInsert.message?.includes('moneda')) {
-      return { ok: false, error: errorInsert.message }
+    // La guarda de moneda del trigger de migrations/002 llega como texto.
+    if (mensaje.includes('moneda')) return { ok: false, error: mensaje }
+    if (faltanColumnasDelPlan(mensaje)) {
+      return {
+        ok: false,
+        error:
+          'Faltan las columnas de intereses. Ejecutá ' +
+          'migrations/004_installments_and_interest.sql en el SQL Editor de Supabase.',
+      }
     }
     return { ok: false, error: 'No se pudo guardar el movimiento. Intentá de nuevo.' }
   }
 
-  // Cuotas siguientes: una por mes, con su fecha real de imputación.
-  if (cuotas > 1) {
-    const restantes = montos.slice(1).map((monto, indice) => ({
-      ...comun,
-      ...(guardaMetadatos ? metadatosPlan : {}),
-      amount: monto,
-      amount_usd: calcularMontoUsd(monto, datos.data.currency, cotizacion),
-      date: sumarMeses(datos.data.date, indice + 1),
-      installment_current: indice + 2,
-      installment_total: cuotas,
-      parent_transaction_id: primera.id,
-    }))
-
-    const { error: errorCuotas } = await supabase.from('transactions').insert(restantes)
-
-    if (errorCuotas) {
-      // Sin las cuotas restantes quedaría un plan a medias: deshacemos.
-      await supabase.from('transactions').delete().eq('id', primera.id)
-      console.error('[guardarTransaccion:cuotas]', errorCuotas)
-      return { ok: false, error: 'No se pudieron generar las cuotas. Intentá de nuevo.' }
-    }
-  }
-
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/transactions')
-  return { ok: true, id: primera.id as string }
+  return { ok: true, id: idMadre }
 }
 
 const presupuestoSchema = z.object({
@@ -255,27 +242,50 @@ export async function guardarPresupuesto(
 
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } =
-    datos.data.monto === null
-      ? await supabase
-          .from(TABLA_PRESUPUESTOS)
-          .delete()
-          .eq('user_id', user.id)
-          .eq('category_id', datos.data.categoriaId)
-          .eq('currency', datos.data.moneda)
-      : await supabase.from(TABLA_PRESUPUESTOS).upsert(
-          {
-            user_id: user.id,
-            category_id: datos.data.categoriaId,
-            currency: datos.data.moneda,
-            amount: datos.data.monto,
-          },
-          // Coincide con `category_budgets_user_category_currency_key` de la 013.
-          { onConflict: 'user_id,category_id,currency' }
+  const libro = crearLibroRelacional(supabase, user.id)
+
+  try {
+    // El presupuesto vive EMBEBIDO en su categoria, asi que definirlo es mutar
+    // la categoria. La busqueda del que ya existe va adentro de la mutacion:
+    // decidir afuera si hay que crear o reemplazar es lo que duplicaria si otro
+    // dispositivo escribe en el medio.
+    await libro.mutar('categorias', (categorias) =>
+      categorias.map((categoria) => {
+        if (categoria.id !== datos.data.categoriaId) return categoria
+
+        const otrasMonedas = categoria.presupuestos.filter(
+          (pres) => pres.currency !== datos.data.moneda
         )
 
-  if (error) {
-    if (faltaLaTablaDePresupuestos(error.code)) {
+        if (datos.data.monto === null) {
+          return { ...categoria, presupuestos: otrasMonedas }
+        }
+
+        const previo = categoria.presupuestos.find(
+          (pres) => pres.currency === datos.data.moneda
+        )
+
+        return {
+          ...categoria,
+          presupuestos: [
+            ...otrasMonedas,
+            {
+              // Se reusa el id del que habia: si no, cada cambio de monto
+              // dejaria una fila nueva y la vieja colgada.
+              id: previo?.id ?? crypto.randomUUID(),
+              category_id: datos.data.categoriaId,
+              currency: datos.data.moneda,
+              amount: datos.data.monto,
+            },
+          ],
+        }
+      })
+    )
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
+    // `faltaLaTablaDePresupuestos` compara contra el CODIGO de PostgREST, que
+    // pasando por `Libro` ya no viaja aparte: llega adentro del mensaje.
+    if (CODIGOS_DE_TABLA_FALTANTE.some((codigo) => mensaje.includes(codigo))) {
       return { ok: false, error: FALTA_MIGRACION_PRESUPUESTOS }
     }
     console.error('[guardarPresupuesto]', error)
@@ -295,10 +305,11 @@ export async function borrarTransaccion(id: string): Promise<ResultadoGuardado> 
 
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  // El RLS ya limita el borrado a las filas propias; el .eq es defensa extra.
-  const { error } = await supabase.from('transactions').delete().eq('id', id)
-
-  if (error) {
+  try {
+    // Se lleva las cuotas si es la madre de un plan: `borrarMovimiento` replica
+    // el `on delete cascade` de `parent_transaction_id` en los dos backends.
+    await crearLibroRelacional(supabase, user.id).borrarMovimiento(id)
+  } catch (error) {
     console.error('[borrarTransaccion]', error)
     return { ok: false, error: 'No se pudo borrar el movimiento.' }
   }
