@@ -356,6 +356,99 @@ export function crearLibroRelacional(
     }
   }
 
+  // --- Escritura de colecciones chicas ---------------------------------------
+  //
+  // `mutar()` da la coleccion entera de vuelta, asi que hay que diferenciar
+  // contra lo que habia para saber que insertar, actualizar y borrar. Para
+  // movimientos eso seria inviable —por eso existen los metodos angostos—, pero
+  // cuentas y categorias son decenas de filas: diferenciarlas es barato y
+  // mantiene la interface chica.
+
+  type ConId = { id: string }
+
+  function diferenciar<T extends ConId>(antes: T[], despues: T[]) {
+    const antesPorId = new Map(antes.map((x) => [x.id, x]))
+    const despuesPorId = new Map(despues.map((x) => [x.id, x]))
+
+    return {
+      aEscribir: despues.filter((x) => {
+        const previo = antesPorId.get(x.id)
+        return !previo || JSON.stringify(previo) !== JSON.stringify(x)
+      }),
+      aBorrar: antes.filter((x) => !despuesPorId.has(x.id)).map((x) => x.id),
+    }
+  }
+
+  async function escribirCuentas(
+    antes: CuentaGuardada[],
+    despues: CuentaGuardada[]
+  ): Promise<void> {
+    const { aEscribir, aBorrar } = diferenciar(antes, despues)
+
+    if (aEscribir.length > 0) {
+      // `detalle` no es una columna de `accounts`: viaja embebido en el modelo
+      // de documentos y aca vuelve a su tabla.
+      const filas = aEscribir.map(({ detalle: _d, ...cuenta }) => {
+        void _d
+        return { ...cuenta, user_id: cuenta.user_id || undefined }
+      })
+
+      const { error } = await supabase
+        .from('accounts')
+        .upsert(filas, { onConflict: 'id' })
+      if (error) throw new Error(error.message)
+
+      const detalles = aEscribir.map((c) => c.detalle).filter((d) => d !== null)
+      if (detalles.length > 0) {
+        // Despues de las cuentas: `credit_card_details.account_id` las
+        // referencia, asi que al reves el insert rebota.
+        const { error: errorDetalle } = await supabase
+          .from('credit_card_details')
+          .upsert(detalles, { onConflict: 'account_id' })
+        if (errorDetalle) throw new Error(errorDetalle.message)
+      }
+    }
+
+    if (aBorrar.length > 0) {
+      // El detalle se va solo: la FK de `credit_card_details` cascadea.
+      const { error } = await supabase.from('accounts').delete().in('id', aBorrar)
+      if (error) throw new Error(error.message)
+    }
+
+    cuentasCrudas = null
+  }
+
+  async function escribirCategorias(
+    antes: CategoriaGuardada[],
+    despues: CategoriaGuardada[]
+  ): Promise<void> {
+    const { aEscribir, aBorrar } = diferenciar(antes, despues)
+
+    if (aEscribir.length > 0) {
+      const filas = aEscribir.map(({ presupuestos: _p, ...categoria }) => {
+        void _p
+        return categoria
+      })
+      const { error } = await supabase
+        .from('categories')
+        .upsert(filas, { onConflict: 'id' })
+      if (error) throw new Error(error.message)
+
+      const presupuestos = aEscribir.flatMap((c) => c.presupuestos)
+      if (presupuestos.length > 0) {
+        const { error: errorPres } = await supabase
+          .from('category_budgets')
+          .upsert(presupuestos, { onConflict: 'id' })
+        if (errorPres) throw new Error(errorPres.message)
+      }
+    }
+
+    if (aBorrar.length > 0) {
+      const { error } = await supabase.from('categories').delete().in('id', aBorrar)
+      if (error) throw new Error(error.message)
+    }
+  }
+
   return {
     tipo: 'relacional',
 
@@ -378,6 +471,18 @@ export function crearLibroRelacional(
       coleccion: C,
       cambio: (actual: Coleccion[C]) => Coleccion[C]
     ): Promise<void> {
+      if (coleccion === 'cuentas') {
+        const antes = await leerCuentas()
+        await escribirCuentas(antes, cambio(antes as Coleccion[C]) as CuentaGuardada[])
+        return
+      }
+
+      if (coleccion === 'categorias') {
+        const antes = await leerCategorias()
+        await escribirCategorias(antes, cambio(antes as Coleccion[C]) as CategoriaGuardada[])
+        return
+      }
+
       if (coleccion !== 'perfil') return noPortado(coleccion)
 
       // Sin bloqueo optimista, y no es un olvido: la tabla relacional no tiene

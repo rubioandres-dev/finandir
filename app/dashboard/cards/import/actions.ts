@@ -12,6 +12,7 @@ import {
   type ConsumoImportado,
   type MovimientoExistente,
 } from '@/lib/reconciliation-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
 
 const consumoSchema = z.object({
@@ -123,7 +124,7 @@ export async function importarConsumos(
   }
 
   const { categoriaId, error: errorCategoria } = await obtenerOCrearCategoria(
-    supabase,
+    crearLibroRelacional(supabase, user.id),
     user.id,
     datos.data.categoria,
     'EXPENSE'

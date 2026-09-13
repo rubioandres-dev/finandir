@@ -123,7 +123,7 @@ export async function updateTransaction(
   let categoriaId: string | null = null
   if (existente.type !== 'TRANSFER') {
     const resultado = await obtenerOCrearCategoria(
-      supabase,
+      libro,
       user.id,
       datos.data.category_suggested,
       existente.type === 'INCOME' ? 'INCOME' : 'EXPENSE'

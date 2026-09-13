@@ -8,6 +8,7 @@ import {
   faltaLaTabla as faltaLaTablaDePresupuestos,
 } from '@/lib/category-budgets-service'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
 import type { Moneda } from '@/lib/types'
 import { obtenerOCrearCategoria, obtenerOCrearCuenta } from '@/lib/finanzas'
@@ -71,6 +72,8 @@ export async function guardarTransaccion(
     return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
   }
 
+  const libro = crearLibroRelacional(supabase, user.id)
+
   // Si el movimiento va a una tarjeta, la cuenta destino es la tarjeta: el
   // saldo del banco no se toca y la deuda de la tarjeta crece.
   let cuentaId: string
@@ -87,15 +90,15 @@ export async function guardarTransaccion(
     }
     cuentaId = elegida.id
   } else {
-    const { cuenta, error: errorCuenta } = await obtenerOCrearCuenta(
-      supabase,
+    const { cuentaId: resuelta, error: errorCuenta } = await obtenerOCrearCuenta(
+      libro,
       user.id,
       datos.data.currency
     )
-    if (errorCuenta || !cuenta) {
+    if (errorCuenta || !resuelta) {
       return { ok: false, error: errorCuenta ?? 'No se pudo determinar la cuenta.' }
     }
-    cuentaId = cuenta.id
+    cuentaId = resuelta
   }
 
   // El CHECK `transactions_transfer_has_no_category` obliga a que las
@@ -103,7 +106,7 @@ export async function guardarTransaccion(
   let categoriaId: string | null = null
   if (datos.data.type !== 'TRANSFER') {
     const resultado = await obtenerOCrearCategoria(
-      supabase,
+      libro,
       user.id,
       datos.data.category_suggested,
       datos.data.type

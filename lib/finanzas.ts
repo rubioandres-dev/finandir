@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CategoriaGuardada, CuentaGuardada } from './almacen/documentos'
 import type { Libro } from './almacen/libro'
 import { MONEDAS_POR_DEFECTO, nombreDeMoneda } from './monedas'
 import { hoyEnArgentina, type Cuenta, type Moneda, type TipoCategoria } from './types'
@@ -46,31 +46,47 @@ export function nombreDeCuenta(moneda: Moneda): string {
  * Ahora se elige una entre varias, con un criterio estable.
  */
 export async function obtenerOCrearCuenta(
-  supabase: SupabaseClient,
+  libro: Libro,
   userId: string,
   moneda: Moneda
-): Promise<{ cuenta: Cuenta | null; error: string | null }> {
-  const { cuenta, error } = await elegirCuentaPorDefecto(supabase, moneda)
-  if (error) return { cuenta: null, error }
-  if (cuenta) return { cuenta, error: null }
+): Promise<{ cuentaId: string | null; error: string | null }> {
+  // La captura por closure es el patron para sacar un resultado de `mutar()`,
+  // que devuelve void. NO viola el contrato de repetibilidad: si hay conflicto,
+  // `cambio` se vuelve a correr sobre los datos frescos y la ULTIMA asignacion
+  // es la que queda. Lo prohibido es LEER estado de afuera, no escribirlo.
+  let elegida: string | null = null
 
-  const { data: creada, error: errorInsert } = await supabase
-    .from('accounts')
-    .insert({ user_id: userId, name: nombreDeCuenta(moneda), currency: moneda })
-    .select()
-    .single()
+  try {
+    await libro.mutar('cuentas', (cuentas) => {
+      const candidata = elegirCuentaPorDefecto(cuentas, moneda)
+      if (candidata) {
+        elegida = candidata.id
+        // Devolver el mismo array es una mutacion vacia: el adaptador
+        // relacional no encuentra diferencias y no escribe nada.
+        return cuentas
+      }
 
-  if (!errorInsert) return { cuenta: creada as Cuenta, error: null }
-
-  // 23505 = otro request creó la cuenta entre nuestra lectura y nuestro
-  // insert. Releemos con el mismo criterio en vez de fallar.
-  if (errorInsert.code === '23505') {
-    const reintento = await elegirCuentaPorDefecto(supabase, moneda)
-    if (reintento.error) return { cuenta: null, error: reintento.error }
-    if (reintento.cuenta) return { cuenta: reintento.cuenta, error: null }
+      const nueva: CuentaGuardada = {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        name: nombreDeCuenta(moneda),
+        type: 'BANK',
+        currency: moneda,
+        is_liquid: true,
+        created_at: new Date().toISOString(),
+        detalle: null,
+      }
+      elegida = nueva.id
+      return [...cuentas, nueva]
+    })
+  } catch (error) {
+    return {
+      cuentaId: null,
+      error: error instanceof Error ? error.message : 'No se pudo determinar la cuenta.',
+    }
   }
 
-  return { cuenta: null, error: errorInsert.message }
+  return { cuentaId: elegida, error: null }
 }
 
 /**
@@ -86,25 +102,16 @@ export async function obtenerOCrearCuenta(
  *      por fecha de creación hace que la misma cuenta gane siempre — un
  *      criterio inestable mandaría cada gasto a una cuenta distinta.
  */
-async function elegirCuentaPorDefecto(
-  supabase: SupabaseClient,
+function elegirCuentaPorDefecto(
+  cuentas: CuentaGuardada[],
   moneda: Moneda
-): Promise<{ cuenta: Cuenta | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('accounts')
-    .select('*')
-    .eq('currency', moneda)
-    .order('created_at')
+): CuentaGuardada | null {
+  const deLaMoneda = [...cuentas]
+    .filter((c) => c.currency === moneda)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
 
-  if (error) return { cuenta: null, error: error.message }
-
-  const cuentas = (data ?? []) as Cuenta[]
-  const noTarjetas = cuentas.filter((c) => c.type !== 'CREDIT_CARD')
-
-  return {
-    cuenta: noTarjetas.find((c) => c.is_liquid) ?? noTarjetas[0] ?? null,
-    error: null,
-  }
+  const noTarjetas = deLaMoneda.filter((c) => c.type !== 'CREDIT_CARD')
+  return noTarjetas.find((c) => c.is_liquid) ?? noTarjetas[0] ?? null
 }
 
 /**
@@ -154,7 +161,7 @@ export async function obtenerCuentasPorMoneda(
  * `name` es citext, así que la comparación ya es case-insensitive.
  */
 export async function obtenerOCrearCategoria(
-  supabase: SupabaseClient,
+  libro: Libro,
   userId: string,
   nombre: string,
   tipo: TipoCategoria
@@ -162,42 +169,41 @@ export async function obtenerOCrearCategoria(
   const limpio = nombre.trim()
   if (!limpio) return { categoriaId: null, error: null }
 
-  // Sin `maybeSingle()`, por lo mismo que en `obtenerOCrearCuenta`: desde
-  // migrations/008 hay categorías globales (`user_id is null`) que el usuario
-  // también puede leer, así que un mismo nombre puede traer dos filas —la
-  // global y la propia— y `maybeSingle()` fallaría con PGRST116. Gana la
-  // propia: si alguien se armó su "Comida", es a la que quiere imputar.
-  const { data: existentes, error: errorLectura } = await supabase
-    .from('categories')
-    .select('id, user_id')
-    .eq('name', limpio)
-    .eq('type', tipo)
+  let elegida: string | null = null
 
-  if (errorLectura) return { categoriaId: null, error: errorLectura.message }
+  try {
+    await libro.mutar('categorias', (categorias) => {
+      // Desde migrations/008 hay categorias globales (`user_id` nulo) que el
+      // usuario tambien lee, asi que un mismo nombre puede traer dos. Gana la
+      // propia: si alguien se armo su "Comida", es a la que quiere imputar.
+      const mismoNombre = categorias.filter(
+        (c) => c.name.trim().toLowerCase() === limpio.toLowerCase() && c.type === tipo
+      )
 
-  if (existentes && existentes.length > 0) {
-    const propia = existentes.find((c) => c.user_id === userId)
-    return { categoriaId: (propia ?? existentes[0]).id as string, error: null }
+      const existente = mismoNombre.find((c) => c.user_id === userId) ?? mismoNombre[0]
+      if (existente) {
+        elegida = existente.id
+        return categorias
+      }
+
+      const nueva: CategoriaGuardada = {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        name: limpio,
+        type: tipo,
+        icon: 'circle',
+        color: '#64748B',
+        presupuestos: [],
+      }
+      elegida = nueva.id
+      return [...categorias, nueva]
+    })
+  } catch (error) {
+    return {
+      categoriaId: null,
+      error: error instanceof Error ? error.message : 'No se pudo resolver la categoria.',
+    }
   }
 
-  const { data: creada, error: errorInsert } = await supabase
-    .from('categories')
-    .insert({ user_id: userId, name: limpio, type: tipo, icon: 'circle', color: '#64748B' })
-    .select('id')
-    .single()
-
-  if (!errorInsert) return { categoriaId: creada.id as string, error: null }
-
-  if (errorInsert.code === '23505') {
-    const { data: reintento } = await supabase
-      .from('categories')
-      .select('id, user_id')
-      .eq('name', limpio)
-      .eq('type', tipo)
-
-    const propia = reintento?.find((c) => c.user_id === userId) ?? reintento?.[0]
-    return { categoriaId: (propia?.id as string) ?? null, error: null }
-  }
-
-  return { categoriaId: null, error: errorInsert.message }
+  return { categoriaId: elegida, error: null }
 }
