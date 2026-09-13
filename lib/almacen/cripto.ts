@@ -200,7 +200,12 @@ async function desenvolver(
       { name: 'AES-GCM', iv: desdeBase64(partes[1]) },
       { name: 'AES-GCM', length: 256 },
       extraible,
-      ['encrypt', 'decrypt']
+      // `wrapKey`/`unwrapKey` ademas de cifrar: la DEK tambien envuelve la
+      // clave privada del usuario (ver grupos.ts). Web Crypto es estricto con
+      // los usos —una clave sin el uso `wrapKey` rechaza `wrapKey` con
+      // InvalidAccessError aunque el algoritmo lo soporte—, asi que van
+      // declarados aca y no donde se usan.
+      ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
     )
   } catch {
     // GCM autentica además de cifrar: esto falla tanto si el secreto es otro
