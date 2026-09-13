@@ -26,7 +26,7 @@ export default async function CalculatorPage() {
   // esto la calculadora sólo podría mandar todo a la categoría por defecto y a
   // la cuenta de la moneda, que es justo lo que el usuario viene a elegir.
   const [resCategorias, { cuentas }] = await Promise.all([
-    supabase.from('categories').select('name').eq('type', 'EXPENSE').order('name'),
+    crearLibroRelacional(supabase).leer('categorias'),
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
   ])
 
@@ -37,7 +37,11 @@ export default async function CalculatorPage() {
     .filter((c) => esDeLaMoneda(c, modo))
     .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))
 
-  const categorias = (resCategorias.data ?? []).map((c) => ({ nombre: c.name as string }))
+  // La calculadora solo ofrece categorias de gasto: el recorte que antes hacia
+  // el `.eq('type','EXPENSE')` de la query ahora es un filtro.
+  const categorias = resCategorias
+    .filter((c) => c.type === 'EXPENSE')
+    .map((c) => ({ nombre: c.name }))
 
   return (
     <div className="flex flex-col gap-4">

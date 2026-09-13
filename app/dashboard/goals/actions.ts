@@ -197,11 +197,7 @@ export async function registrarLogros(
   if (marcados === 0) return null
 
 
-  const { data: perfil } = await supabase
-    .from('user_profiles')
-    .select('aurem_xp')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const perfil = await crearLibroRelacional(supabase, user.id).leer('perfil')
 
   const xpSumado = marcados * XP_POR_LOGRO
   const xpTotal = Number(perfil?.aurem_xp ?? 0) + xpSumado

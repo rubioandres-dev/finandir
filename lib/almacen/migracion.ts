@@ -32,9 +32,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PresupuestoDeCategoria } from '../category-budgets-service'
 import type { Objetivo } from '../goals-service'
-import type { Deuda, Inversion, Transaccion } from '../types'
+import type { Inversion, Transaccion } from '../types'
 import { normalizarModulos } from '../modules'
-import type { CategoriaGuardada, CuentaGuardada, PerfilGuardado } from './documentos'
+import type {
+  CategoriaGuardada,
+  CuentaGuardada,
+  DeudaGuardada,
+  PerfilGuardado,
+} from './documentos'
 import type { Libro } from './libro'
 import { recalcularAperturas } from './operaciones'
 
@@ -323,7 +328,7 @@ function aPerfil(p: Fila): PerfilGuardado {
   }
 }
 
-function aDeuda(d: Fila): Deuda {
+function aDeuda(d: Fila): DeudaGuardada {
   return {
     id: d.id as string,
     user_id: d.user_id as string,
@@ -331,11 +336,12 @@ function aDeuda(d: Fila): Deuda {
     total_amount: num(d.total_amount),
     remaining_amount: num(d.remaining_amount),
     currency: String(d.currency ?? 'ARS').trim(),
-    type: d.type as Deuda['type'],
+    type: d.type as DeudaGuardada['type'],
     due_date: (d.due_date as string | null) ?? null,
     is_settled: d.is_settled === true,
     description: (d.description as string | null) ?? null,
     created_at: (d.created_at as string) ?? new Date().toISOString(),
+    source_transaction_id: (d.source_transaction_id as string | null) ?? null,
   }
 }
 

@@ -257,6 +257,9 @@ export async function guardarDeuda(entrada: DeudaAGuardar): Promise<ResultadoGua
         ...fila,
         id,
         created_at: previa?.created_at ?? new Date().toISOString(),
+        // El vinculo al gasto que la origino solo lo pone la calculadora de
+        // salidas; una deuda cargada a mano no tiene ninguno.
+        source_transaction_id: previa?.source_transaction_id ?? null,
       }
       return previa ? deudas.map((d) => (d.id === id ? guardada : d)) : [...deudas, guardada]
     })

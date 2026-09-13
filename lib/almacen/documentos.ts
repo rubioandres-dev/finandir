@@ -99,11 +99,25 @@ export type PerfilGuardado = UserProfile & {
   active_modules: EstadoDeModulos
 }
 
+/**
+ * Deuda con el vinculo al gasto que la origino (migracion 017).
+ *
+ * `Deuda` nunca tuvo la columna. Hoy solo se ESCRIBE —la calculadora de salidas
+ * ata las cuentas por cobrar a su gasto— y todavia nadie la lee, pero perderla
+ * al migrar cortaria esa trazabilidad para siempre y sin aviso.
+ *
+ * Cuarto campo con la misma historia, despues de `active_modules`, el `user_id`
+ * de los presupuestos y el `is_custom` de las categorias.
+ */
+export type DeudaGuardada = Deuda & {
+  source_transaction_id: string | null
+}
+
 export type Coleccion = {
   perfil: PerfilGuardado
   cuentas: CuentaGuardada[]
   categorias: CategoriaGuardada[]
-  deudas: Deuda[]
+  deudas: DeudaGuardada[]
   inversiones: Inversion[]
   objetivos: Objetivo[]
 }

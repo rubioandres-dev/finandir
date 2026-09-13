@@ -79,13 +79,11 @@ export async function guardarTransaccion(
   // saldo del banco no se toca y la deuda de la tarjeta crece.
   let cuentaId: string
   if (datos.data.account_id) {
-    const { data: elegida, error: errorElegida } = await supabase
-      .from('accounts')
-      .select('id, currency')
-      .eq('id', datos.data.account_id)
-      .single()
+    const elegida = (await libro.leer('cuentas')).find(
+      (c) => c.id === datos.data.account_id
+    )
 
-    if (errorElegida || !elegida) return { ok: false, error: 'No se encontró la cuenta elegida.' }
+    if (!elegida) return { ok: false, error: 'No se encontró la cuenta elegida.' }
     if (elegida.currency.trim() !== datos.data.currency) {
       return { ok: false, error: 'La moneda del movimiento no coincide con la de la cuenta.' }
     }

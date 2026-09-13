@@ -33,10 +33,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // usa los nombres para que la IA elija de las categorías reales del
     // usuario, y la carga rápida necesita el tipo para filtrar el select
     // según sea gasto o ingreso.
-    supabase.from('categories').select('name, type').order('name'),
+    crearLibroRelacional(supabase).leer('categorias'),
   ])
 
-  const categoriasDelFab = (resCategorias.data ?? []).map((c) => ({
+  const categoriasDelFab = resCategorias.map((c) => ({
     nombre: c.name as string,
     tipo: c.type as 'INCOME' | 'EXPENSE',
   }))

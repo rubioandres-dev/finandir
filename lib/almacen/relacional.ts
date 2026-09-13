@@ -43,6 +43,7 @@ import type { Deuda, Inversion, Transaccion } from '../types'
 import type {
   CategoriaGuardada,
   Coleccion,
+  DeudaGuardada,
   CuentaGuardada,
   Manifiesto,
   NombreDeColeccion,
@@ -270,7 +271,7 @@ export function crearLibroRelacional(
     })
   }
 
-  async function leerDeudas(): Promise<Deuda[]> {
+  async function leerDeudas(): Promise<DeudaGuardada[]> {
     const { data, error } = await supabase
       .from('debts')
       .select('*')
@@ -293,6 +294,7 @@ export function crearLibroRelacional(
       is_settled: d.is_settled === true,
       description: (d.description as string | null) ?? null,
       created_at: (d.created_at as string) ?? '',
+      source_transaction_id: (d.source_transaction_id as string | null) ?? null,
     }))
   }
 
@@ -580,7 +582,7 @@ export function crearLibroRelacional(
 
       if (coleccion === 'deudas') {
         const antes = await leerDeudas()
-        await escribirPlana('debts', antes, cambio(antes as Coleccion[C]) as Deuda[])
+        await escribirPlana('debts', antes, cambio(antes as Coleccion[C]) as DeudaGuardada[])
         return
       }
 

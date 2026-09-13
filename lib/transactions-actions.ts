@@ -136,11 +136,9 @@ export async function updateTransaction(
   // migrations/002 lo verifica igual, pero el mensaje de acá se entiende.
   let cuentaId = existente.account_id
   if (datos.data.account_id && datos.data.account_id !== existente.account_id) {
-    const { data: elegida } = await supabase
-      .from('accounts')
-      .select('id, currency')
-      .eq('id', datos.data.account_id)
-      .single()
+    const elegida = (await libro.leer('cuentas')).find(
+      (c) => c.id === datos.data.account_id
+    )
 
     if (!elegida) return { ok: false, error: 'No se encontró la cuenta elegida.' }
     if ((elegida.currency as string).trim() !== moneda) {

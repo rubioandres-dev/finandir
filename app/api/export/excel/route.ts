@@ -1,4 +1,5 @@
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
+import { movimientosDesde } from '@/lib/almacen/consultas'
 import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { resumirBalance } from '@/lib/balance-overview'
 import { cargarCompromisos } from '@/lib/commitments-service'
@@ -10,7 +11,7 @@ import { cargarInversiones } from '@/lib/investments-service'
 import { cargarFlujoMensual } from '@/lib/monthly-flow'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
-import { hoyEnArgentina, type Categoria, type Transaccion } from '@/lib/types'
+import { hoyEnArgentina, type Categoria } from '@/lib/types'
 
 /**
  * Exportación del libro completo a `.xlsx`.
@@ -57,6 +58,25 @@ export async function GET() {
   const hoy = hoyEnArgentina()
   const desdeElAnio = `${hoy.slice(0, 4)}-01-01`
 
+  // Las lecturas van adentro del try porque `Libro` LANZA en vez de devolver
+  // `{ error }`: la forma de reportar cambio al cruzar la interface, y dejar el
+  // chequeo viejo haria que un fallo se escape como un 500 sin mensaje.
+  let datos
+  try {
+    datos = await Promise.all([
+      cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
+      cargarInversiones(crearLibroRelacional(supabase), monedas),
+      cargarCompromisos(crearLibroRelacional(supabase), hoy),
+      cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
+      obtenerCotizacionDelDia(supabase),
+      movimientosDesde(crearLibroRelacional(supabase), desdeElAnio),
+      crearLibroRelacional(supabase).leer('categorias'),
+    ])
+  } catch (error) {
+    console.error('[export/excel]', error)
+    return Response.json({ error: 'No se pudieron leer los movimientos.' }, { status: 500 })
+  }
+
   const [
     { cuentas, patrimonio },
     { inversiones: activos, resumen: carteraDeInversiones },
@@ -65,24 +85,7 @@ export async function GET() {
     cotizacion,
     resMovimientos,
     resCategorias,
-  ] = await Promise.all([
-    cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarInversiones(crearLibroRelacional(supabase), monedas),
-    cargarCompromisos(crearLibroRelacional(supabase), hoy),
-    cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
-    obtenerCotizacionDelDia(supabase),
-    supabase
-      .from('transactions')
-      .select('*')
-      .gte('date', desdeElAnio)
-      .order('date', { ascending: false }),
-    supabase.from('categories').select('id, name'),
-  ])
-
-  if (resMovimientos.error) {
-    console.error('[export/excel]', resMovimientos.error.message)
-    return Response.json({ error: 'No se pudieron leer los movimientos.' }, { status: 500 })
-  }
+  ] = datos
 
   const { mapa } = await obtenerMapaDeCambio(supabase, monedas, cotizacion?.venta ?? null)
 
@@ -106,8 +109,8 @@ export async function GET() {
     inversiones: carteraDeInversiones,
     activos,
     cuentas,
-    movimientos: (resMovimientos.data ?? []) as Transaccion[],
-    categorias: (resCategorias.data ?? []) as Pick<Categoria, 'id' | 'name'>[],
+    movimientos: resMovimientos,
+    categorias: resCategorias as Pick<Categoria, 'id' | 'name'>[],
     flujoMensual,
     generadoEn,
   })

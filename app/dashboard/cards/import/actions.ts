@@ -13,6 +13,7 @@ import {
   type MovimientoExistente,
 } from '@/lib/reconciliation-service'
 import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import type { Transaccion } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 
 const consumoSchema = z.object({
@@ -60,13 +61,10 @@ export async function conciliarConsumos(
   const desde = correrFecha(fechas[0], -DIAS_DE_MARGEN)
   const hasta = correrFecha(fechas[fechas.length - 1], DIAS_DE_MARGEN)
 
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('id, date, description, amount, currency, installment_current, installment_total')
-    .gte('date', desde)
-    .lte('date', hasta)
-
-  if (error) {
+  let data
+  try {
+    data = await crearLibroRelacional(supabase).movimientos(desde, hasta)
+  } catch (error) {
     console.error('[conciliarConsumos]', error)
     return { ok: false, error: 'No se pudieron leer los movimientos existentes.' }
   }
@@ -106,13 +104,10 @@ export async function importarConsumos(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { data: cuenta, error: errorCuenta } = await supabase
-    .from('accounts')
-    .select('id, currency')
-    .eq('id', datos.data.accountId)
-    .single()
+  const libro = crearLibroRelacional(supabase, user.id)
 
-  if (errorCuenta || !cuenta) return { ok: false, error: 'No se encontró la tarjeta elegida.' }
+  const cuenta = (await libro.leer('cuentas')).find((c) => c.id === datos.data.accountId)
+  if (!cuenta) return { ok: false, error: 'No se encontró la tarjeta elegida.' }
 
   const monedaDeCuenta = cuenta.currency.trim()
   const incompatibles = datos.data.consumos.filter((c) => c.currency !== monedaDeCuenta)
@@ -133,25 +128,35 @@ export async function importarConsumos(
 
   const cotizacion = await obtenerCotizacionDelDia(supabase)
 
-  const filas = datos.data.consumos.map((consumo) => ({
+  const ahora = new Date().toISOString()
+
+  const movimientos: Transaccion[] = datos.data.consumos.map((consumo) => ({
+    id: crypto.randomUUID(),
     user_id: user.id,
     account_id: cuenta.id,
     category_id: categoriaId,
     amount: consumo.amount,
     currency: consumo.currency,
     amount_usd: calcularMontoUsd(consumo.amount, consumo.currency, cotizacion),
-    type: 'EXPENSE' as const,
+    type: 'EXPENSE',
     description: consumo.description,
     date: consumo.date,
+    created_at: ahora,
     // El resumen ya trae cada cuota como un renglón propio: se conserva la
-    // numeración pero no se genera el plan completo.
+    // numeración pero no se genera el plan completo, asi que ninguna apunta a
+    // una madre.
     installment_current: consumo.current_installment,
     installment_total: consumo.total_installments,
+    parent_transaction_id: null,
+    has_interest: false,
+    cash_price: null,
+    total_financed_amount: null,
+    installment_amount: null,
   }))
 
-  const { error } = await supabase.from('transactions').insert(filas)
-
-  if (error) {
+  try {
+    await libro.agregarMovimientos(movimientos)
+  } catch (error) {
     console.error('[importarConsumos]', error)
     return { ok: false, error: 'No se pudieron guardar los movimientos.' }
   }
@@ -159,5 +164,5 @@ export async function importarConsumos(
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/transactions')
   revalidatePath('/dashboard/commitments')
-  return { ok: true, importados: filas.length }
+  return { ok: true, importados: movimientos.length }
 }

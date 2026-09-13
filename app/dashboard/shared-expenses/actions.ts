@@ -13,6 +13,7 @@ import {
   faltaLaTabla,
   repartir,
 } from '@/lib/shared-expenses-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 
@@ -33,13 +34,16 @@ function porMigracion(codigo?: string): string | null {
  * de perfil, los gastos viejos siguen diciendo con quién se repartieron.
  */
 async function nombreVisible(supabase: SupabaseClient, user: User): Promise<string> {
-  const { data } = await supabase
-    .from('user_profiles')
-    .select('display_name')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // Nunca corta el alta: entrar a un grupo no puede fallar porque el perfil no
+  // se pudo leer. Sin nombre hay dos alternativas mas abajo.
+  let delPerfil: string | undefined
+  try {
+    delPerfil = (await crearLibroRelacional(supabase, user.id).leer('perfil'))
+      .display_name?.trim()
+  } catch {
+    delPerfil = undefined
+  }
 
-  const delPerfil = (data?.display_name as string | null)?.trim()
   if (delPerfil) return delPerfil.slice(0, 100)
 
   const deMetadata =
@@ -521,10 +525,6 @@ export async function borrarObjetivoDeGrupo(
 
 // --- Calculadora de salidas --------------------------------------------------
 
-/** 42703 = la columna no existe; PGRST204 = no está en el schema cache. */
-function faltaElVinculoAlGasto(codigo?: string): boolean {
-  return codigo === '42703' || codigo === 'PGRST204'
-}
 
 /** Corta un texto para que entre en su columna sin que Postgres lo rechace. */
 function recortar(texto: string, maximo: number): string {
@@ -655,7 +655,9 @@ export async function registrarSalida(
       // Sin el adelanto el saldo de la cuenta quedaría corto por el total de la
       // factura. Se deshace el gasto: es preferible no registrar nada a dejar
       // una mitad que el usuario no tiene forma de detectar.
-      if (gasto.id) await supabase.from('transactions').delete().eq('id', gasto.id)
+      if (gasto.id) {
+        await crearLibroRelacional(supabase, user.id).borrarMovimiento(gasto.id)
+      }
       return { ok: false, error: adelanto.error }
     }
   }
@@ -714,28 +716,33 @@ export async function registrarSalida(
     // Un insert vacío no tiene sentido y PostgREST lo trata como un error: sólo
     // puede pasar si el filtro de ceros se llevó todas las filas.
     if (sinVinculo.length > 0) {
-      let { error } = await supabase
-        .from('debts')
-        .insert(sinVinculo.map((f) => ({ ...f, source_transaction_id: gasto.id ?? null })))
+      const ahora = new Date().toISOString()
 
-      // Sin migrations/017 la columna del vínculo no existe. Se reintenta sin
-      // ella: perder la agrupación es aceptable, perder la deuda no.
-      if (error && faltaElVinculoAlGasto(error.code)) {
-        console.warn(
-          '[registrarSalida] Falta debts.source_transaction_id; se guarda sin el',
-          'vínculo al gasto. Ejecutá migrations/017_debts_source_transaction.sql.'
-        )
-        ;({ error } = await supabase.from('debts').insert(sinVinculo))
-      }
-
-      if (error) {
+      try {
+        await crearLibroRelacional(supabase, user.id).mutar('deudas', (deudas) => [
+          ...deudas,
+          ...sinVinculo.map((f) => ({
+            ...f,
+            id: crypto.randomUUID(),
+            created_at: ahora,
+            is_settled: false,
+            // Una cuenta por cobrar de una salida no tiene vencimiento: se
+            // cobra cuando se cobra.
+            due_date: null,
+            // El vinculo al gasto que las origino: es lo que permite ver las
+            // cuentas por cobrar de una salida como un grupo.
+            source_transaction_id: gasto.id ?? null,
+          })),
+        ])
+      } catch (error) {
         // Los movimientos ya quedaron registrados y el saldo de la cuenta
         // cierra. Avisar es más honesto que fingir que salió todo bien, y que
         // borrar el gasto dejando al usuario sin nada: la deuda se puede cargar
         // a mano desde Deudas.
+        const detalle = error instanceof Error ? error.message : 'Error desconocido.'
         return {
           ok: false,
-          error: `El gasto se registró, pero no se pudo crear la cuenta por cobrar: ${error.message}`,
+          error: `El gasto se registró, pero no se pudo crear la cuenta por cobrar: ${detalle}`,
         }
       }
     }
