@@ -24,7 +24,7 @@ function cuenta(p: Partial<CuentaGuardada>): CuentaGuardada {
 function categoria(p: Partial<CategoriaGuardada>): CategoriaGuardada {
   return {
     id: crypto.randomUUID(), user_id: 'u1', name: 'Comida', type: 'EXPENSE',
-    icon: 'circle', color: '#64748B', presupuestos: [], ...p,
+    icon: 'circle', color: '#64748B', is_custom: true, presupuestos: [], ...p,
   }
 }
 

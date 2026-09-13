@@ -38,7 +38,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizarModulos } from '../modules'
 import type { PresupuestoDeCategoria } from '../category-budgets-service'
-import type { Deuda, Transaccion } from '../types'
+import type { Objetivo } from '../goals-service'
+import type { Deuda, Inversion, Transaccion } from '../types'
 import type {
   CategoriaGuardada,
   Coleccion,
@@ -328,6 +329,9 @@ export function crearLibroRelacional(
       type: c.type as CategoriaGuardada['type'],
       icon: (c.icon as string) ?? 'circle',
       color: (c.color as string) ?? '#64748B',
+      // Sin la 008 la columna no existe y llega `undefined`: se trata como
+      // propia, que es lo que hacia la UI antes de que existiera la marca.
+      is_custom: c.is_custom !== false,
       presupuestos: porCategoria.get(c.id as string) ?? [],
     }))
   }
@@ -355,6 +359,55 @@ export function crearLibroRelacional(
       total_financed_amount: numONulo(t.total_financed_amount),
       installment_amount: numONulo(t.installment_amount),
     }
+  }
+
+  // --- inversiones y objetivos -----------------------------------------------
+
+  async function leerInversiones(): Promise<Inversion[]> {
+    const { data, error } = await supabase
+      .from('investments')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      if (esTablaFaltante(error.code)) return []
+      throw new ErrorDelAlmacen(error.message, error.code)
+    }
+
+    return ((data ?? []) as Fila[]).map((i) => ({
+      id: i.id as string,
+      user_id: i.user_id as string,
+      name: i.name as string,
+      asset_type: i.asset_type as Inversion['asset_type'],
+      currency: String(i.currency ?? 'ARS').trim(),
+      amount_invested: num(i.amount_invested),
+      current_value: num(i.current_value),
+      expected_tna: num(i.expected_tna),
+      liquidity_term: (i.liquidity_term as Inversion['liquidity_term']) ?? 'T0',
+      broker_entity: (i.broker_entity as string | null) ?? null,
+      created_at: (i.created_at as string) ?? '',
+    }))
+  }
+
+  async function leerObjetivos(): Promise<Objetivo[]> {
+    const { data, error } = await supabase.from('financial_goals').select('*')
+
+    if (error) {
+      if (esTablaFaltante(error.code)) return []
+      throw new ErrorDelAlmacen(error.message, error.code)
+    }
+
+    return ((data ?? []) as Fila[]).map((o) => ({
+      id: o.id as string,
+      type: o.type as Objetivo['type'],
+      target_value: num(o.target_value),
+      current_value: num(o.current_value),
+      period: (o.period as Objetivo['period']) ?? 'MONTHLY',
+      currency: String(o.currency ?? 'ARS').trim(),
+      category_id: (o.category_id as string | null) ?? null,
+      achieved_at: (o.achieved_at as string | null) ?? null,
+      is_active: o.is_active !== false,
+    }))
   }
 
   // --- Escritura de colecciones chicas ---------------------------------------
@@ -455,6 +508,38 @@ export function crearLibroRelacional(
     }
   }
 
+  /**
+   * Escribe una coleccion PLANA —sin hijos embebidos— diferenciando contra lo
+   * que habia. Sirve para deudas, inversiones y objetivos, que son tres tablas
+   * con la misma forma.
+   *
+   * `conUsuario` existe porque algunos tipos del dominio no llevan `user_id`
+   * —`Objetivo` nunca lo tuvo— pero la columna es NOT NULL. Se completa al
+   * escribir en vez de ensuciar el tipo con un campo que la UI no usa.
+   */
+  async function escribirPlana<T extends ConId>(
+    tabla: string,
+    antes: T[],
+    despues: T[],
+    conUsuario = false
+  ): Promise<void> {
+    const { aEscribir, aBorrar } = diferenciar(antes, despues)
+    const usuario = conUsuario ? await id() : undefined
+
+    if (aEscribir.length > 0) {
+      const filas = conUsuario
+        ? aEscribir.map((x) => ({ ...x, user_id: usuario }))
+        : aEscribir
+      const { error } = await supabase.from(tabla).upsert(filas, { onConflict: 'id' })
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
+    }
+
+    if (aBorrar.length > 0) {
+      const { error } = await supabase.from(tabla).delete().in('id', aBorrar)
+      if (error) throw new ErrorDelAlmacen(error.message, error.code)
+    }
+  }
+
   return {
     tipo: 'relacional',
 
@@ -468,6 +553,10 @@ export function crearLibroRelacional(
           return (await leerCategorias()) as Coleccion[C]
         case 'deudas':
           return (await leerDeudas()) as Coleccion[C]
+        case 'inversiones':
+          return (await leerInversiones()) as Coleccion[C]
+        case 'objetivos':
+          return (await leerObjetivos()) as Coleccion[C]
         default:
           return noPortado(coleccion)
       }
@@ -491,19 +580,29 @@ export function crearLibroRelacional(
 
       if (coleccion === 'deudas') {
         const antes = await leerDeudas()
-        const despues = cambio(antes as Coleccion[C]) as Deuda[]
-        const { aEscribir, aBorrar } = diferenciar(antes, despues)
+        await escribirPlana('debts', antes, cambio(antes as Coleccion[C]) as Deuda[])
+        return
+      }
 
-        if (aEscribir.length > 0) {
-          const { error } = await supabase
-            .from('debts')
-            .upsert(aEscribir, { onConflict: 'id' })
-          if (error) throw new ErrorDelAlmacen(error.message, error.code)
-        }
-        if (aBorrar.length > 0) {
-          const { error } = await supabase.from('debts').delete().in('id', aBorrar)
-          if (error) throw new ErrorDelAlmacen(error.message, error.code)
-        }
+      if (coleccion === 'inversiones') {
+        const antes = await leerInversiones()
+        await escribirPlana(
+          'investments',
+          antes,
+          cambio(antes as Coleccion[C]) as Inversion[]
+        )
+        return
+      }
+
+      if (coleccion === 'objetivos') {
+        const antes = await leerObjetivos()
+        // `Objetivo` no lleva `user_id` y la columna es NOT NULL.
+        await escribirPlana(
+          'financial_goals',
+          antes,
+          cambio(antes as Coleccion[C]) as Objetivo[],
+          true
+        )
         return
       }
 

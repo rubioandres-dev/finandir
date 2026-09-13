@@ -67,7 +67,7 @@ export async function GET() {
     resCategorias,
   ] = await Promise.all([
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarInversiones(supabase, monedas),
+    cargarInversiones(crearLibroRelacional(supabase), monedas),
     cargarCompromisos(crearLibroRelacional(supabase), hoy),
     cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
     obtenerCotizacionDelDia(supabase),

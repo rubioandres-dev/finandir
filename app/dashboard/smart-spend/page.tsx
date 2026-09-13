@@ -41,7 +41,7 @@ export default async function SmartSpendPage({
   const { monedas } = await cargarContextoDeMonedas()
   const [{ tarjetas, cuentas }, { inversiones, resumen }] = await Promise.all([
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarInversiones(supabase, monedas),
+    cargarInversiones(crearLibroRelacional(supabase), monedas),
   ])
 
   const deudaPorTarjeta = Object.fromEntries(

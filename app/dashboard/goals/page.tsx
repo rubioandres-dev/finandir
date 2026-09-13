@@ -45,8 +45,8 @@ export default async function GoalsPage() {
   const [datos, { patrimonio }, { resumen }, { objetivos, faltaMigracion }] = await Promise.all([
     cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, undefined, monedas),
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarInversiones(supabase, monedas),
-    cargarObjetivos(supabase),
+    cargarInversiones(crearLibroRelacional(supabase), monedas),
+    cargarObjetivos(crearLibroRelacional(supabase)),
   ])
 
   // Todo se mide en la divisa PRINCIPAL. Un objetivo de ahorro no puede

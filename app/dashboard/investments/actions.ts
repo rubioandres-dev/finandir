@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import type { ResultadoGuardado } from '@/app/dashboard/actions'
 import { FALTA_MIGRACION_INVERSIONES } from '@/lib/investments-service'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
 
 // Tiene que coincidir con el enum `public.asset_type`: TIME_DEPOSIT lo agrega
@@ -54,19 +56,7 @@ function faltaLaTabla(codigo?: string): boolean {
   return codigo === 'PGRST205' || codigo === 'PGRST204' || codigo === '42P01' || codigo === '42703'
 }
 
-type ErrorDeSupabase = {
-  code?: string
-  message?: string
-  details?: string | null
-  hint?: string | null
-}
 
-/** Mismo criterio que en `accounts/actions`: el motivo real se muestra tal cual. */
-function detalleDelError(error: ErrorDeSupabase): string {
-  const partes = [error.message, error.details, error.hint].filter(Boolean)
-  const cuerpo = partes.join(' · ') || 'error desconocido'
-  return error.code ? `${cuerpo} [${error.code}]` : cuerpo
-}
 
 function causaConocida(codigo?: string): string | null {
   if (faltaLaTabla(codigo)) return FALTA_MIGRACION_INVERSIONES
@@ -102,15 +92,26 @@ export async function guardarInversion(entrada: InversionAGuardar): Promise<Resu
     broker_entity: datos.data.broker_entity || null,
   }
 
-  const { error } = datos.data.id
-    ? await supabase.from('investments').update(fila).eq('id', datos.data.id)
-    : await supabase.from('investments').insert(fila)
+  const id = datos.data.id ?? crypto.randomUUID()
 
-  if (error) {
-    const causa = causaConocida(error.code)
-    if (causa) return { ok: false, error: `${causa} (${detalleDelError(error)})` }
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('inversiones', (inversiones) => {
+      const previa = inversiones.find((i) => i.id === id)
+      const guardada = {
+        ...fila,
+        id,
+        created_at: previa?.created_at ?? new Date().toISOString(),
+      }
+      return previa
+        ? inversiones.map((i) => (i.id === id ? guardada : i))
+        : [guardada, ...inversiones]
+    })
+  } catch (error) {
+    const causa = causaConocida(codigoDeError(error))
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    if (causa) return { ok: false, error: `${causa} (${detalle})` }
     console.error('[guardarInversion]', error)
-    return { ok: false, error: `No se pudo guardar la inversión: ${detalleDelError(error)}` }
+    return { ok: false, error: `No se pudo guardar la inversión: ${detalle}` }
   }
 
   revalidatePath('/dashboard/investments')
@@ -126,10 +127,14 @@ export async function borrarInversion(id: string): Promise<ResultadoGuardado> {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase.from('investments').delete().eq('id', id)
-  if (error) {
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('inversiones', (inversiones) =>
+      inversiones.filter((i) => i.id !== id)
+    )
+  } catch (error) {
     console.error('[borrarInversion]', error)
-    return { ok: false, error: `No se pudo borrar la inversión: ${detalleDelError(error)}` }
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo borrar la inversión: ${detalle}` }
   }
 
   revalidatePath('/dashboard/investments')

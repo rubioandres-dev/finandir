@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
+import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
+
+/** Senal interna: ya hay una categoria con ese nombre y tipo. */
+const DUPLICADA = 'categoria-duplicada'
 
 export type ResultadoDeCategoria = { ok: true } | { ok: false; error: string }
 
@@ -44,26 +49,45 @@ export async function crearCategoria(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase.from('categories').insert({
-    user_id: user.id,
-    name: datos.data.nombre,
-    type: datos.data.tipo,
-    icon: datos.data.icono,
-    color: datos.data.color,
-    is_custom: true,
-  })
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) => {
+      // El duplicado se chequea ADENTRO: era el 23505 que se atrapaba despues
+      // del insert, y ahora lo cubre el lazo de reintentos si otro dispositivo
+      // crea la misma categoria en el medio.
+      const repetida = categorias.some(
+        (c) =>
+          c.user_id === user.id &&
+          c.type === datos.data.tipo &&
+          c.name.trim().toLowerCase() === datos.data.nombre.trim().toLowerCase()
+      )
+      if (repetida) throw new Error(DUPLICADA)
 
-  if (error) {
-    if (error.code === '23505') {
+      return [
+        ...categorias,
+        {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          name: datos.data.nombre,
+          type: datos.data.tipo,
+          icon: datos.data.icono,
+          color: datos.data.color,
+          is_custom: true,
+          presupuestos: [],
+        },
+      ]
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === DUPLICADA) {
       return { ok: false, error: `Ya tenés una categoría "${datos.data.nombre}" de ese tipo.` }
     }
-    if (faltaLaMigracion(error.code)) {
+    if (faltaLaMigracion(codigoDeError(error))) {
       return {
         ok: false,
         error: 'Falta correr migrations/008_custom_categories.sql en el SQL Editor de Supabase.',
       }
     }
-    return { ok: false, error: `No se pudo crear: ${error.message}` }
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo crear: ${detalle}` }
   }
 
   revalidatePath('/dashboard', 'layout')
@@ -84,24 +108,37 @@ export async function actualizarCategoria(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase
-    .from('categories')
-    .update({
-      name: datos.data.nombre,
-      type: datos.data.tipo,
-      icon: datos.data.icono,
-      color: datos.data.color,
-    })
-    .eq('id', id)
-    // Redundante con RLS, pero explícito: sin esto un id ajeno devolvería
-    // "0 filas actualizadas" sin decir por qué.
-    .eq('user_id', user.id)
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) => {
+      const repetida = categorias.some(
+        (c) =>
+          c.id !== id &&
+          c.user_id === user.id &&
+          c.type === datos.data.tipo &&
+          c.name.trim().toLowerCase() === datos.data.nombre.trim().toLowerCase()
+      )
+      if (repetida) throw new Error(DUPLICADA)
 
-  if (error) {
-    if (error.code === '23505') {
+      return categorias.map((c) =>
+        // La comparacion de dueno es explicita: una categoria del sistema no se
+        // edita, y sin esto el cambio pasaria en silencio.
+        c.id === id && c.user_id === user.id
+          ? {
+              ...c,
+              name: datos.data.nombre,
+              type: datos.data.tipo,
+              icon: datos.data.icono,
+              color: datos.data.color,
+            }
+          : c
+      )
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === DUPLICADA) {
       return { ok: false, error: `Ya tenés una categoría "${datos.data.nombre}" de ese tipo.` }
     }
-    return { ok: false, error: `No se pudo guardar: ${error.message}` }
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo guardar: ${detalle}` }
   }
 
   revalidatePath('/dashboard', 'layout')
@@ -122,13 +159,14 @@ export async function borrarCategoria(id: string): Promise<ResultadoDeCategoria>
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase
-    .from('categories')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id)
-
-  if (error) return { ok: false, error: `No se pudo borrar: ${error.message}` }
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('categorias', (categorias) =>
+      categorias.filter((c) => !(c.id === id && c.user_id === user.id))
+    )
+  } catch (error) {
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo borrar: ${detalle}` }
+  }
 
   revalidatePath('/dashboard', 'layout')
   return { ok: true }

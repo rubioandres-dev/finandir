@@ -58,8 +58,20 @@ export type CuentaGuardada = Omit<Cuenta, 'balance'> & {
   detalle: DetalleTarjeta | null
 }
 
-/** Categoría con sus presupuestos por moneda embebidos. */
+/**
+ * Categoria con sus presupuestos por moneda embebidos.
+ *
+ * `is_custom` esta aca y no en `Categoria` porque el tipo de dominio nunca
+ * siguio a la columna que agrego la 008, y la UI SI la lee: el modal separa las
+ * que vinieron con la app —que no se pueden editar— de las que se armo el
+ * usuario. Guardar la categoria "tal cual" perderia esa distincion y volveria
+ * editables las siete del sistema.
+ *
+ * Es el tercer campo con la misma historia, despues de `active_modules` en el
+ * perfil y el `user_id` de los presupuestos.
+ */
 export type CategoriaGuardada = Categoria & {
+  is_custom: boolean
   presupuestos: PresupuestoDeCategoria[]
 }
 

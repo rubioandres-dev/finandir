@@ -162,6 +162,7 @@ export async function migrarDesdeSupabase(
     type: c.type as CategoriaGuardada['type'],
     icon: (c.icon as string) ?? 'circle',
     color: (c.color as string) ?? '#64748B',
+    is_custom: c.is_custom !== false,
     presupuestos: presupuestosPorCategoria.get(c.id as string) ?? [],
   }))
 

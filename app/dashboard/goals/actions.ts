@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import {
-  CLAVE_UNICA_DE_OBJETIVO,
   FALTA_MIGRACION_OBJETIVOS,
   FALTA_RESTRICCION_UNICA,
   TIPOS_DE_OBJETIVO,
@@ -16,6 +15,7 @@ import {
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { guardarPerfil } from '@/lib/profile-service'
+import { codigoDeError } from '@/lib/almacen/tipos'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -42,14 +42,10 @@ const objetivoSchema = z.object({
 
 export type ObjetivoAGuardar = z.infer<typeof objetivoSchema>
 
-/** Las columnas que se leen de vuelta: las mismas que arma `Objetivo`. */
-const COLUMNAS_DE_OBJETIVO =
-  'id, type, target_value, current_value, period, currency, category_id, achieved_at, is_active'
-
 /**
  * Crea o actualiza un objetivo.
  *
- * ES UN SOLO UPSERT PARA LOS CINCO TIPOS
+ * ES UNA SOLA MUTACION PARA LOS CINCO TIPOS
  *
  * Antes el `onConflict` se elegía según el tipo —`user_id,category_id` para
  * presupuestos y `user_id,type` para el resto— porque la 010 había creado dos
@@ -82,49 +78,56 @@ export async function guardarObjetivo(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { data, error } = await supabase
-    .from('financial_goals')
-    .upsert(
-      {
-        user_id: user.id,
+  let guardado: Objetivo | null = null
+
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) => {
+      // El upsert por la clave unica (user_id, type, category_id) se vuelve
+      // "buscar por tipo y reemplazar". La busqueda va ADENTRO: si otro
+      // dispositivo creo el mismo objetivo en el medio, el reintento lo
+      // encuentra y lo pisa en vez de chocar contra la restriccion.
+      const previo = objetivos.find(
+        (o) => o.type === datos.data.tipo && o.category_id === null
+      )
+
+      const objetivo: Objetivo = {
+        id: previo?.id ?? crypto.randomUUID(),
         type: datos.data.tipo,
         target_value: datos.data.valor,
+        current_value: previo?.current_value ?? 0,
+        period: previo?.period ?? 'MONTHLY',
         currency: datos.data.moneda,
         // Desde la 013 ningún tipo vigente usa categoría: los presupuestos
-        // viven en `category_budgets`. Se manda explícito para que la clave
-        // única (user_id, type, category_id) siga siendo, en los hechos,
-        // (user_id, type) — que es lo que la regla del producto quiere decir.
+        // viven en `category_budgets`.
         category_id: null,
+        achieved_at: previo?.achieved_at ?? null,
         is_active: true,
-      },
-      { onConflict: CLAVE_UNICA_DE_OBJETIVO, ignoreDuplicates: false }
-    )
-    .select(COLUMNAS_DE_OBJETIVO)
-    .single()
+      }
 
-  if (error) {
-    if (faltaLaTabla(error.code)) return { ok: false, error: FALTA_MIGRACION_OBJETIVOS }
-    // El error que traía a esta función acá. Se nombra la migración en vez de
-    // devolver el mensaje crudo de Postgres, que no le dice nada a nadie.
-    if (faltaLaRestriccionUnica(error.code)) {
+      guardado = objetivo
+
+      return previo
+        ? objetivos.map((o) => (o.id === previo.id ? objetivo : o))
+        : [...objetivos, objetivo]
+    })
+  } catch (error) {
+    const codigo = codigoDeError(error)
+    if (faltaLaTabla(codigo)) return { ok: false, error: FALTA_MIGRACION_OBJETIVOS }
+    if (faltaLaRestriccionUnica(codigo)) {
       return { ok: false, error: FALTA_RESTRICCION_UNICA }
     }
-    return { ok: false, error: `No se pudo guardar: ${error.message}` }
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo guardar: ${detalle}` }
   }
+
+  if (!guardado) return { ok: false, error: 'No se pudo guardar el objetivo.' }
 
   revalidatePath('/dashboard/goals')
   // Los presupuestos del Home salen de estos objetivos: sin esto, la meta
   // nueva no aparece hasta la próxima navegación completa.
   revalidatePath('/dashboard')
 
-  return {
-    ok: true,
-    objetivo: {
-      ...data,
-      target_value: Number(data.target_value),
-      current_value: Number(data.current_value),
-    } as Objetivo,
-  }
+  return { ok: true, objetivo: guardado }
 }
 
 export async function borrarObjetivo(id: string): Promise<ResultadoSimple> {
@@ -134,13 +137,14 @@ export async function borrarObjetivo(id: string): Promise<ResultadoSimple> {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase
-    .from('financial_goals')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id)
-
-  if (error) return { ok: false, error: `No se pudo borrar: ${error.message}` }
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) =>
+      objetivos.filter((o) => o.id !== id)
+    )
+  } catch (error) {
+    const detalle = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo borrar: ${detalle}` }
+  }
 
   revalidatePath('/dashboard/goals')
   return { ok: true }
@@ -168,28 +172,30 @@ export async function registrarLogros(
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Solo los que todavía no tienen fecha de logro.
-  const { data: nuevos, error: errorLectura } = await supabase
-    .from('financial_goals')
-    .select('id')
-    .in('id', idsCumplidos)
-    .eq('user_id', user.id)
-    .is('achieved_at', null)
+  const pedidos = new Set(idsCumplidos)
+  let marcados = 0
 
-  if (errorLectura || !nuevos || nuevos.length === 0) return null
+  try {
+    await crearLibroRelacional(supabase, user.id).mutar('objetivos', (objetivos) => {
+      // Solo los que TODAVIA no tienen fecha de logro, decidido adentro: la
+      // funcion es idempotente y la corre cada render, asi que preguntar afuera
+      // marcaria dos veces el mismo logro si dos pestañas renderizan a la vez.
+      const nuevos = objetivos.filter((o) => pedidos.has(o.id) && o.achieved_at === null)
+      marcados = nuevos.length
+      if (marcados === 0) return objetivos
 
-  const ids = nuevos.map((f) => f.id as string)
-
-  const { error: errorMarca } = await supabase
-    .from('financial_goals')
-    .update({ achieved_at: new Date().toISOString() })
-    .in('id', ids)
-    .eq('user_id', user.id)
-
-  if (errorMarca) {
-    console.error('[goals] no se pudo marcar el logro', errorMarca.message)
+      const ahora = new Date().toISOString()
+      return objetivos.map((o) =>
+        pedidos.has(o.id) && o.achieved_at === null ? { ...o, achieved_at: ahora } : o
+      )
+    })
+  } catch (error) {
+    console.error('[goals] no se pudo marcar el logro', error)
     return null
   }
+
+  if (marcados === 0) return null
+
 
   const { data: perfil } = await supabase
     .from('user_profiles')
@@ -197,7 +203,7 @@ export async function registrarLogros(
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const xpSumado = ids.length * XP_POR_LOGRO
+  const xpSumado = marcados * XP_POR_LOGRO
   const xpTotal = Number(perfil?.aurem_xp ?? 0) + xpSumado
   const tier = tierPara(xpTotal)
 

@@ -193,6 +193,7 @@ export async function obtenerOCrearCategoria(
         type: tipo,
         icon: 'circle',
         color: '#64748B',
+        is_custom: true,
         presupuestos: [],
       }
       elegida = nueva.id

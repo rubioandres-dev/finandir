@@ -67,7 +67,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     obtenerCotizacionesDelMercado(),
-    cargarInversiones(supabase, monedas),
+    cargarInversiones(crearLibroRelacional(supabase), monedas),
     cargarCompromisos(crearLibroRelacional(supabase), hoy),
     cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
   ])

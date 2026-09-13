@@ -191,7 +191,7 @@ export default async function ConsolidatedPage() {
   const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
     await Promise.all([
       cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-      cargarInversiones(supabase, monedas),
+      cargarInversiones(crearLibroRelacional(supabase), monedas),
       obtenerCotizacionDelDia(supabase),
     ])
 

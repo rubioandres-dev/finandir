@@ -1,5 +1,6 @@
 // Solo para el servidor: se usa desde Server Components y Server Actions.
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
+import { codigoDeError } from './almacen/tipos'
 import type { Moneda } from './types'
 
 /**
@@ -213,22 +214,25 @@ export function faltaLaRestriccionUnica(codigo?: string): boolean {
   return codigo === '42P10'
 }
 
-export async function cargarObjetivos(supabase: SupabaseClient): Promise<{
+export async function cargarObjetivos(libro: Libro): Promise<{
   objetivos: Objetivo[]
   error: string | null
   faltaMigracion: boolean
 }> {
-  const { data, error } = await supabase
-    .from('financial_goals')
-    .select('id, type, target_value, current_value, period, currency, category_id, achieved_at, is_active')
-    .eq('is_active', true)
-    .order('created_at')
-
-  if (error) {
-    const falta = faltaLaTabla(error.code)
+  let data
+  try {
+    // El filtro por `is_active` pasa a ser un `.filter()`: el libro devuelve la
+    // coleccion y el recorte es de quien la consume.
+    data = (await libro.leer('objetivos')).filter((o) => o.is_active)
+  } catch (error) {
+    const falta = faltaLaTabla(codigoDeError(error))
     return {
       objetivos: [],
-      error: falta ? FALTA_MIGRACION_OBJETIVOS : error.message,
+      error: falta
+        ? FALTA_MIGRACION_OBJETIVOS
+        : error instanceof Error
+          ? error.message
+          : 'No se pudieron leer los objetivos.',
       faltaMigracion: falta,
     }
   }

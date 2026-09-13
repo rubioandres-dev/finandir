@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
+import { codigoDeError } from './almacen/tipos'
 import { MONEDAS_POR_DEFECTO, normalizarMoneda, type TotalPorMoneda } from './monedas'
 import {
   PLAZOS_LIQUIDOS,
@@ -235,23 +236,25 @@ export const FALTA_MIGRACION_INVERSIONES =
 
 /** Inversiones del usuario, de la más reciente a la más vieja. */
 export async function cargarInversiones(
-  supabase: SupabaseClient,
+  libro: Libro,
   monedas: Moneda[] = MONEDAS_POR_DEFECTO
 ): Promise<{
   inversiones: Inversion[]
   resumen: ResumenDeInversiones
   error: string | null
 }> {
-  const { data, error } = await supabase
-    .from('investments')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  const inversiones = (data ?? []) as Inversion[]
-
-  return {
-    inversiones,
-    resumen: resumirInversiones(inversiones, monedas),
-    error: error ? (faltaLaTabla(error.code) ? FALTA_MIGRACION_INVERSIONES : error.message) : null,
+  try {
+    const inversiones = await libro.leer('inversiones')
+    return { inversiones, resumen: resumirInversiones(inversiones, monedas), error: null }
+  } catch (error) {
+    return {
+      inversiones: [],
+      resumen: resumirInversiones([], monedas),
+      error: faltaLaTabla(codigoDeError(error))
+        ? FALTA_MIGRACION_INVERSIONES
+        : error instanceof Error
+          ? error.message
+          : 'No se pudieron leer las inversiones.',
+    }
   }
 }
