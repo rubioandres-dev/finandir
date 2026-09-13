@@ -1,19 +1,18 @@
-import {
-  COLUMNAS_PRESUPUESTO,
-  faltaLaTabla,
-  normalizarPresupuesto,
-  TABLA_PRESUPUESTOS,
-  type PresupuestoDeCategoria,
-} from './category-budgets-service'
+import type { PresupuestoDeCategoria } from './category-budgets-service'
+import { movimientosDesde, ultimosMovimientos } from './almacen/consultas'
+import type { CategoriaGuardada } from './almacen/documentos'
+import type { Libro } from './almacen/libro'
 import { esDeLaMoneda } from './currency-mode'
 import { obtenerCuentasPorMoneda, type Moneda } from './finanzas'
 import { MONEDAS_POR_DEFECTO, totalizarPorMoneda } from './monedas'
 import { obtenerCotizacionDelDia } from './rates'
-import { createClient } from './supabase/server'
+
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   inicioDeLaVentanaDeDatos,
   rangoDelMesActual,
   type Categoria,
+  type Cuenta,
   type Transaccion,
 } from './types'
 
@@ -50,54 +49,62 @@ export type Presupuesto = PresupuestoDeCategoria
  * aparezca en cero en vez de no aparecer.
  */
 export async function cargarDatosDelDashboard(
+  libro: Libro,
+  supabase: SupabaseClient,
   moneda?: Moneda,
   monedasDelPerfil: Moneda[] = MONEDAS_POR_DEFECTO
 ) {
-  const supabase = await createClient()
-
   const { desde, hasta } = rangoDelMesActual()
   const desdeVentana = inicioDeLaVentanaDeDatos()
 
-  const [resCuentas, resCategorias, resRecientes, resVentana, resPresupuestos] = await Promise.all([
-    obtenerCuentasPorMoneda(supabase),
-    supabase.from('categories').select('*').order('name'),
-    supabase
-      .from('transactions')
-      .select('*')
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(100),
-    supabase
-      .from('transactions')
-      .select('amount, currency, amount_usd, type, date, category_id')
-      .gte('date', desdeVentana),
-    supabase.from(TABLA_PRESUPUESTOS).select(COLUMNAS_PRESUPUESTO),
-  ])
+  let resCuentas: { cuentas: Record<string, Cuenta>; error: string | null } = {
+    cuentas: {},
+    error: null,
+  }
+  let guardadas: CategoriaGuardada[] = []
+  let recientes: Transaccion[] = []
+  let deLaVentana: MovimientoDeVentana[] = []
+  let errorCarga: string | null = null
 
-  // Desde la 013 los presupuestos salen de `category_budgets`, no de `budgets`
-  // ni de los objetivos CATEGORY_BUDGET. `faltaMigracion` ahora señala a la 013.
-  const faltaMigracion = faltaLaTabla(resPresupuestos.error?.code)
+  try {
+    ;[resCuentas, guardadas, recientes, deLaVentana] = await Promise.all([
+      obtenerCuentasPorMoneda(libro),
+      libro.leer('categorias'),
+      // Los cien ultimos: `ultimosMovimientos` recorre los anios de atras para
+      // adelante y corta al llegar al tope, en vez de bajar toda la historia.
+      ultimosMovimientos(libro, 100),
+      // Sin tope superior a proposito: la ventana incluye las cuotas futuras.
+      movimientosDesde(libro, desdeVentana) as Promise<MovimientoDeVentana[]>,
+    ])
+    errorCarga = resCuentas.error
+  } catch (error) {
+    errorCarga = error instanceof Error ? error.message : 'No se pudieron leer los datos.'
+  }
 
-  const errorCarga =
-    resCuentas.error ??
-    resCategorias.error?.message ??
-    resRecientes.error?.message ??
-    resVentana.error?.message ??
-    (faltaMigracion ? null : (resPresupuestos.error?.message ?? null))
+  /**
+   * Desde la 013 los presupuestos salen de `category_budgets`, y ahora viajan
+   * EMBEBIDOS en su categoria — asi que ya no hay una lectura propia que pueda
+   * fallar con "falta la tabla".
+   *
+   * Queda siempre en false y el aviso de migracion pendiente desaparece. Es una
+   * perdida chica y deliberada: la alternativa era filtrar un concepto
+   * relacional ("esta sub-tabla no existe") hacia una interface que tambien
+   * sirve a un almacen cifrado, donde no significa nada.
+   */
+  const faltaMigracion = false
 
   const cotizacion = await obtenerCotizacionDelDia(supabase)
 
-  const categorias = (resCategorias.data ?? []) as Categoria[]
+  const categorias = guardadas as Categoria[]
 
   // El modo del header recorta todo desde acá.
   const deLaMoneda = <T extends { currency?: string | null }>(filas: T[]) =>
     moneda ? filas.filter((fila) => esDeLaMoneda(fila, moneda)) : filas
 
-  const movimientos = deLaMoneda((resRecientes.data ?? []) as Transaccion[])
-  const ventana = deLaMoneda((resVentana.data ?? []) as MovimientoDeVentana[])
-  const presupuestos = deLaMoneda(
-    (resPresupuestos.data ?? []).map(normalizarPresupuesto)
-  )
+  const movimientos = deLaMoneda(recientes)
+  const ventana = deLaMoneda(deLaVentana)
+  // Vienen adentro de cada categoria: una sola lectura en vez de dos.
+  const presupuestos = deLaMoneda(guardadas.flatMap((c) => c.presupuestos))
 
   const delMes = ventana.filter((t) => t.date >= desde && t.date <= hasta)
 

@@ -43,7 +43,7 @@ export default async function GoalsPage() {
   const t = crearTraductor(idioma)
 
   const [datos, { patrimonio }, { resumen }, { objetivos, faltaMigracion }] = await Promise.all([
-    cargarDatosDelDashboard(undefined, monedas),
+    cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, undefined, monedas),
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarInversiones(supabase, monedas),
     cargarObjetivos(supabase),

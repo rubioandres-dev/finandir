@@ -9,6 +9,7 @@ import { totalizarPorMoneda } from '@/lib/monedas'
 import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { rangoDelPeriodo } from '@/lib/types'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 
 export const metadata: Metadata = { title: 'FIRE' }
 
@@ -26,7 +27,7 @@ export default async function FirePage() {
   // usuario tenga, porque el capital objetivo de una no dice nada de la otra.
   const { monedas , idioma } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
-  const { delMes, ventana } = await cargarDatosDelDashboard(undefined, monedas)
+  const { delMes, ventana } = await cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, undefined, monedas)
 
   const gastoDelMes = totalizarPorMoneda(
     delMes.filter((t) => t.type === 'EXPENSE'),

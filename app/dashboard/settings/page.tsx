@@ -14,6 +14,7 @@ import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 
 export const metadata: Metadata = { title: 'Ajustes' }
 
@@ -37,7 +38,7 @@ export default async function SettingsPage() {
   const tr = crearTraductor(idioma)
 
   const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
-    await cargarDatosDelDashboard(undefined, monedas)
+    await cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, undefined, monedas)
   const { desde } = rangoDelMesActual()
 
   const gastado = new Map<string, number>()

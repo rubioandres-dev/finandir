@@ -31,7 +31,7 @@ export default async function TransactionsPage() {
   // `cargarDatosDelDashboard` sigue usándose solo por las categorías y la
   // cotización; los movimientos ahora vienen del feed, partido por período.
   const [{ categorias, cotizacion, errorCarga }, { cuentas }, feed] = await Promise.all([
-    cargarDatosDelDashboard(modo, monedas),
+    cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, modo, monedas),
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarFeedDeMovimientos(crearLibroRelacional(supabase), modo),
   ])

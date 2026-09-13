@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     ingresosDelMes,
     gastosDelMes,
     errorCarga,
-  } = await cargarDatosDelDashboard(modo, monedas)
+  } = await cargarDatosDelDashboard(crearLibroRelacional(supabase), supabase, modo, monedas)
 
   const hoy = hoyEnArgentina()
 

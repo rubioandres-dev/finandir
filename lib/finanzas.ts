@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
 import { MONEDAS_POR_DEFECTO, nombreDeMoneda } from './monedas'
-import type { Cuenta, Moneda, TipoCategoria } from './types'
+import { hoyEnArgentina, type Cuenta, type Moneda, type TipoCategoria } from './types'
 
 // Este módulo tenía su propio `Moneda = 'ARS' | 'USD'`. Ahora reexporta el
 // compartido: dos definiciones del mismo concepto es exactamente lo que hace
@@ -106,16 +107,44 @@ async function elegirCuentaPorDefecto(
   }
 }
 
-/** Todas las cuentas del usuario, indexadas por moneda. */
+/**
+ * Todas las cuentas del usuario, indexadas por moneda.
+ *
+ * El saldo sale de `libro.saldos()`: en relacional sigue siendo la columna que
+ * mantiene el trigger, y en modo cifrado es un numero derivado de los
+ * movimientos. Quien llama no nota la diferencia.
+ */
 export async function obtenerCuentasPorMoneda(
-  supabase: SupabaseClient
+  libro: Libro
 ): Promise<{ cuentas: Record<string, Cuenta>; error: string | null }> {
-  const { data, error } = await supabase.from('accounts').select('*')
-  if (error) return { cuentas: {}, error: error.message }
+  try {
+    const [guardadas, saldos] = await Promise.all([
+      libro.leer('cuentas'),
+      libro.saldos(hoyEnArgentina()),
+    ])
 
-  const cuentas: Record<string, Cuenta> = {}
-  for (const fila of (data ?? []) as Cuenta[]) cuentas[fila.currency] = fila
-  return { cuentas, error: null }
+    const cuentas: Record<string, Cuenta> = {}
+    for (const c of guardadas) {
+      // Se indexa por moneda y la ultima gana, igual que antes: el modelo
+      // asume una cuenta liquida por divisa.
+      cuentas[c.currency] = {
+        id: c.id,
+        user_id: c.user_id,
+        name: c.name,
+        type: c.type,
+        currency: c.currency,
+        is_liquid: c.is_liquid,
+        created_at: c.created_at,
+        balance: saldos[c.id] ?? 0,
+      }
+    }
+    return { cuentas, error: null }
+  } catch (error) {
+    return {
+      cuentas: {},
+      error: error instanceof Error ? error.message : 'No se pudieron leer las cuentas.',
+    }
+  }
 }
 
 /**

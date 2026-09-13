@@ -25,7 +25,7 @@ export default async function CommitmentsPage() {
   const [{ curva, planes, error }, { cuentas }, { monedas, locale, idioma, oculto }] =
     await Promise.all([
       cargarCompromisos(crearLibroRelacional(supabase), hoy),
-      obtenerCuentasPorMoneda(supabase),
+      obtenerCuentasPorMoneda(crearLibroRelacional(supabase)),
       cargarContextoDeMonedas(),
     ])
 
