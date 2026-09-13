@@ -131,6 +131,43 @@ export interface Libro {
   /** Los años que tienen shard, ascendente. */
   aniosConMovimientos(): Promise<number[]>
 
+  // --- Escritura de movimientos: metodos ANGOSTOS ----------------------------
+  //
+  // `mutar()` recibe la coleccion entera y devuelve la coleccion entera. Para
+  // el almacen de documentos es el modelo natural: el shard ya esta en memoria.
+  // Sobre una tabla relacional es inviable —habria que diferenciar contra lo que
+  // habia, o sea bajar y subir miles de filas por cada gasto nuevo—, y durante
+  // toda la transicion los dos backends tienen que funcionar.
+  //
+  // Estos cuatro metodos existen para eso: cada backend los resuelve como mejor
+  // sabe. Relacional los mapea a INSERT/UPDATE/DELETE directo; documentos, a una
+  // mutacion del shard.
+
+  /** Un movimiento por id, o `null` si no existe. */
+  movimiento(id: string): Promise<Transaccion | null>
+
+  /**
+   * Agrega o reemplaza por id. Es un upsert a proposito: asi agregar es
+   * idempotente y un reintento no duplica un plan de cuotas.
+   */
+  agregarMovimientos(movimientos: Transaccion[]): Promise<void>
+
+  /**
+   * Reemplaza un movimiento entero. Si le cambio el año a la fecha, se muda de
+   * shard solo — eso en relacional es un UPDATE cualquiera y en documentos son
+   * dos escrituras.
+   */
+  editarMovimiento(movimiento: Transaccion): Promise<void>
+
+  /**
+   * Borra el movimiento Y, si es la madre de un plan, todas sus cuotas.
+   *
+   * Replica el `on delete cascade` de `parent_transaction_id` (migracion 003).
+   * En relacional lo hace Postgres; en documentos hay que hacerlo a mano, y
+   * olvidarse dejaria cuotas huerfanas apuntando a un id que ya no existe.
+   */
+  borrarMovimiento(id: string): Promise<void>
+
   manifiesto(): Promise<Manifiesto>
   mutarManifiesto(cambio: (actual: Manifiesto) => Manifiesto): Promise<void>
 
@@ -363,6 +400,69 @@ export function crearLibro(almacen: Almacen): Libro {
 
     async aniosConMovimientos() {
       return (await leerManifiesto()).shards
+    },
+
+    async movimiento(id) {
+      for (const anio of (await leerManifiesto()).shards) {
+        const encontrado = (await leerShard(anio)).movimientos.find((m) => m.id === id)
+        if (encontrado) return encontrado
+      }
+      return null
+    },
+
+    async agregarMovimientos(movimientos) {
+      const porAnio = new Map<number, Transaccion[]>()
+      for (const m of movimientos) {
+        const anio = shardDeFecha(m.date)
+        porAnio.set(anio, [...(porAnio.get(anio) ?? []), m])
+      }
+
+      // Ascendente: los shards nuevos nacen en orden y heredan bien la apertura
+      // del anterior.
+      for (const anio of [...porAnio.keys()].sort((a, b) => a - b)) {
+        const delAnio = porAnio.get(anio) ?? []
+        const ids = new Set(delAnio.map((m) => m.id))
+        await libro.mutarMovimientos(anio, (shard) => ({
+          ...shard,
+          // Se sacan los que vienen y se vuelven a poner: reemplazar por id es
+          // lo que hace idempotente al agregado.
+          movimientos: [...shard.movimientos.filter((m) => !ids.has(m.id)), ...delAnio],
+        }))
+      }
+    },
+
+    async editarMovimiento(movimiento) {
+      const anterior = await libro.movimiento(movimiento.id)
+      const anioNuevo = shardDeFecha(movimiento.date)
+
+      await libro.agregarMovimientos([movimiento])
+
+      // Si la fecha cambio de año, la version vieja quedo en el shard anterior.
+      if (anterior && shardDeFecha(anterior.date) !== anioNuevo) {
+        await libro.mutarMovimientos(shardDeFecha(anterior.date), (shard) => ({
+          ...shard,
+          movimientos: shard.movimientos.filter((m) => m.id !== movimiento.id),
+        }))
+      }
+    },
+
+    async borrarMovimiento(id) {
+      // Las cuotas ANTES que la madre: un corte en el medio deja un plan con
+      // menos cuotas, que se arregla repitiendo. Al reves dejaria cuotas
+      // apuntando a una madre que ya no existe, que es corrupcion de verdad.
+      for (const anio of (await leerManifiesto()).shards) {
+        await libro.mutarMovimientos(anio, (shard) => ({
+          ...shard,
+          movimientos: shard.movimientos.filter((m) => m.parent_transaction_id !== id),
+        }))
+      }
+
+      for (const anio of (await leerManifiesto()).shards) {
+        await libro.mutarMovimientos(anio, (shard) => ({
+          ...shard,
+          movimientos: shard.movimientos.filter((m) => m.id !== id),
+        }))
+      }
     },
 
     manifiesto: leerManifiesto,

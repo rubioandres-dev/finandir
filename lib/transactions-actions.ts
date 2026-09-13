@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { guardarTransaccion, type ResultadoGuardado } from '@/app/dashboard/actions'
 import { obtenerOCrearCategoria } from '@/lib/finanzas'
 import { calcularMontoUsd, obtenerCotizacionDelDia } from '@/lib/rates'
+import { crearLibroRelacional } from '@/lib/almacen/relacional'
 import { createClient } from '@/lib/supabase/server'
 import type { Moneda } from '@/lib/types'
 
@@ -100,13 +101,10 @@ export async function updateTransaction(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { data: fila, error: errorLectura } = await supabase
-    .from('transactions')
-    .select('id, account_id, currency, type, installment_total, installment_current, parent_transaction_id')
-    .eq('id', id)
-    .single()
+  const libro = crearLibroRelacional(supabase, user.id)
 
-  if (errorLectura || !fila) return { ok: false, error: 'No se encontró el movimiento.' }
+  const fila = await libro.movimiento(id)
+  if (!fila) return { ok: false, error: 'No se encontró el movimiento.' }
 
   const existente = fila as FilaExistente
   const forma = formaDe(existente)
@@ -153,9 +151,12 @@ export async function updateTransaction(
 
   const cotizacion = await obtenerCotizacionDelDia(supabase)
 
-  const { error } = await supabase
-    .from('transactions')
-    .update({
+  try {
+    // Se manda el movimiento ENTERO y no un parche de columnas: es lo que pide
+    // `editarMovimiento`, porque del lado de documentos una fila no se
+    // actualiza campo por campo — se reemplaza adentro de su shard.
+    await libro.editarMovimiento({
+      ...fila,
       amount: datos.data.amount,
       amount_usd: calcularMontoUsd(datos.data.amount, moneda, cotizacion),
       date: datos.data.date,
@@ -163,15 +164,12 @@ export async function updateTransaction(
       category_id: categoriaId,
       account_id: cuentaId,
     })
-    .eq('id', id)
-
-  if (error) {
+  } catch (error) {
     console.error('[updateTransaction]', error)
-    // 23514 = la guarda de moneda del trigger de migrations/002.
-    if (error.code === '23514' && error.message?.includes('moneda')) {
-      return { ok: false, error: error.message }
-    }
-    return { ok: false, error: `No se pudo guardar el cambio: ${error.message}` }
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
+    // La guarda de moneda del trigger de migrations/002 llega como texto.
+    if (mensaje.includes('moneda')) return { ok: false, error: mensaje }
+    return { ok: false, error: `No se pudo guardar el cambio: ${mensaje}` }
   }
 
   revalidarTodo()
@@ -211,18 +209,24 @@ async function rehacerPlan(
   }
 
   const supabase = await createClient()
-  // La madre es la que arrastra al resto; si esto era una fila suelta, es ella
-  // misma.
-  const raiz = existente.parent_transaction_id ?? id
-  const { error } = await supabase.from('transactions').delete().eq('id', raiz)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (error) {
+  // La madre es la que arrastra al resto; si esto era una fila suelta, es ella
+  // misma. `borrarMovimiento` se lleva las cuotas en los dos backends.
+  const raiz = existente.parent_transaction_id ?? id
+
+  try {
+    await crearLibroRelacional(supabase, user?.id).borrarMovimiento(raiz)
+  } catch (error) {
     console.error('[rehacerPlan:borrado]', error)
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
     return {
       ok: false,
       error:
         'Se guardó el movimiento nuevo pero no se pudo borrar el anterior: ' +
-        `quedaron los dos. Borrá el viejo a mano. (${error.message})`,
+        `quedaron los dos. Borrá el viejo a mano. (${mensaje})`,
     }
   }
 
@@ -245,12 +249,12 @@ export async function deleteTransaction(id: string): Promise<ResultadoGuardado> 
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  // El RLS ya limita el borrado a las filas propias; el .eq es defensa extra.
-  const { error } = await supabase.from('transactions').delete().eq('id', id)
-
-  if (error) {
+  try {
+    await crearLibroRelacional(supabase, user.id).borrarMovimiento(id)
+  } catch (error) {
     console.error('[deleteTransaction]', error)
-    return { ok: false, error: `No se pudo borrar el movimiento: ${error.message}` }
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
+    return { ok: false, error: `No se pudo borrar el movimiento: ${mensaje}` }
   }
 
   revalidarTodo()

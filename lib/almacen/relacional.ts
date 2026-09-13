@@ -417,8 +417,50 @@ export function crearLibroRelacional(
       return ((data ?? []) as Fila[]).map(aMovimiento)
     },
 
+    async movimiento(id: string): Promise<Transaccion | null> {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (error) throw new Error(error.message)
+      return data ? aMovimiento(data as Fila) : null
+    },
+
+    async agregarMovimientos(movimientos: Transaccion[]): Promise<void> {
+      if (movimientos.length === 0) return
+
+      // `upsert` y no `insert` para que agregar sea idempotente igual que del
+      // otro lado: un reintento no duplica un plan de cuotas.
+      const { error } = await supabase
+        .from('transactions')
+        .upsert(movimientos, { onConflict: 'id' })
+
+      if (error) throw new Error(error.message)
+    },
+
+    async editarMovimiento(movimiento: Transaccion): Promise<void> {
+      // Un UPDATE cualquiera: en relacional cambiar el año de la fecha no mueve
+      // nada de lugar. La mudanza de shard solo existe del lado de documentos.
+      const { error } = await supabase
+        .from('transactions')
+        .update(movimiento)
+        .eq('id', movimiento.id)
+
+      if (error) throw new Error(error.message)
+    },
+
+    async borrarMovimiento(id: string): Promise<void> {
+      // Las cuotas se van solas: `parent_transaction_id` tiene
+      // `on delete cascade` desde la migracion 003. Del lado de documentos hay
+      // que hacerlo a mano, y por eso el metodo existe en la interface.
+      const { error } = await supabase.from('transactions').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+
     /**
-     * La ESCRITURA de movimientos NO esta portada, y es deliberado.
+     * `mutarMovimientos` —la version ANCHA— sigue sin portarse, y es deliberado.
      *
      * `mutarMovimientos` recibe la coleccion entera y devuelve la coleccion
      * entera. Sobre una tabla relacional eso obliga a diferenciar contra lo que
