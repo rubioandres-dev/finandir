@@ -468,6 +468,9 @@ const ES_AR = {
   'escaner.altPrevia': 'Comprobante a analizar',
   'escaner.leyendo': 'Leyendo el comprobante…',
   'escaner.demora': 'Suele tardar unos segundos.',
+  'escaner.avisoPrivacidad':
+    'Para leerlo, el comprobante se envía a nuestro servidor y al servicio de IA de Google. '
+    + 'No se guarda: se descarta apenas termina la lectura.',
   'escaner.errorLectura': 'No se pudo leer el comprobante.',
   'escaner.errorConexion': 'No se pudo contactar al servidor. Revisá tu conexión.',
   'escaner.errorImporte': 'El importe tiene que ser un número mayor a cero.',
@@ -852,6 +855,9 @@ const ES_NEUTRO: Parcial = {
 }
 
 const EN: Parcial = {
+  'escaner.avisoPrivacidad':
+    'To read it, the receipt is sent to our server and to the Google AI service. '
+    + 'It is not stored: it is discarded as soon as the reading finishes.',
   'nav.inicio': 'Home',
   'nav.cuentas': 'Accounts',
   'nav.movimientos': 'Transactions',

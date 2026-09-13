@@ -252,6 +252,22 @@ const gastoSchema = z.object({
   /** Id del MIEMBRO que pagó, no del usuario: puede ser un invitado sin cuenta. */
   pagadoPor: z.uuid(),
   categoriaId: z.uuid().nullable().optional(),
+  /**
+   * Foto de la categoria, desde la 019. La manda el CLIENTE y no se resuelve
+   * en el servidor a proposito: en modo cifrado las categorias del usuario
+   * viven en un bloque que el servidor no puede leer, asi que un lookup contra
+   * `categories` funcionaria hoy y devolveria null manana.
+   *
+   * Es un rotulo propio del usuario, no un dato de autoridad: que venga del
+   * cliente no habilita nada que el usuario no pueda escribir igual.
+   */
+  categoriaNombre: z.string().trim().min(1).max(60).nullable().optional(),
+  categoriaIcono: z.string().trim().max(40).nullable().optional(),
+  categoriaColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color invalido.')
+    .nullable()
+    .optional(),
   tipoDeReparto: z.enum(['EQUAL', 'PERCENTAGE', 'EXACT']).default('EQUAL'),
   monto: z.number().positive('El importe tiene que ser mayor a cero.'),
   descripcion: z.string().trim().min(1, 'Escribí una descripción.').max(120),
@@ -285,6 +301,9 @@ export async function crearGastoCompartido(
       space_id: datos.data.spaceId,
       paid_by_member_id: datos.data.pagadoPor,
       category_id: datos.data.categoriaId ?? null,
+      category_name: datos.data.categoriaNombre ?? null,
+      category_icon: datos.data.categoriaIcono ?? null,
+      category_color: datos.data.categoriaColor ?? null,
       split_type: datos.data.tipoDeReparto,
       amount: datos.data.monto,
       description: datos.data.descripcion,
@@ -404,6 +423,22 @@ const objetivoSchema = z
     titulo: z.string().trim().min(1, 'Poné un título.').max(100, 'El título es muy largo.'),
     tipo: z.enum(['CATEGORY_BUDGET', 'GROUP_SAVINGS']),
     categoriaId: z.uuid().nullable().optional(),
+  /**
+     * Foto de la categoria, desde la 019. La manda el CLIENTE y no se resuelve
+     * en el servidor a proposito: en modo cifrado las categorias del usuario
+     * viven en un bloque que el servidor no puede leer, asi que un lookup contra
+     * `categories` funcionaria hoy y devolveria null manana.
+     *
+     * Es un rotulo propio del usuario, no un dato de autoridad: que venga del
+     * cliente no habilita nada que el usuario no pueda escribir igual.
+     */
+    categoriaNombre: z.string().trim().min(1).max(60).nullable().optional(),
+    categoriaIcono: z.string().trim().max(40).nullable().optional(),
+    categoriaColor: z
+      .string()
+      .regex(/^#[0-9A-Fa-f]{6}$/, 'Color invalido.')
+      .nullable()
+      .optional(),
     monto: z.number().positive('La meta tiene que ser mayor a cero.'),
     aporteMensual: z.number().min(0).nullable().optional(),
     fechaObjetivo: z
@@ -413,7 +448,10 @@ const objetivoSchema = z
       .optional(),
     moneda: z.enum(CODIGOS_DE_MONEDA),
   })
-  .refine((d) => d.tipo !== 'CATEGORY_BUDGET' || !!d.categoriaId, {
+  // El nombre va junto al id: es lo unico que el resto del grupo puede leer, y
+  // desde la 019 es lo que exige el CHECK de la base. Validarlo aca hace que el
+  // error salga en el formulario y no como un 23514 sin traducir.
+  .refine((d) => d.tipo !== 'CATEGORY_BUDGET' || (!!d.categoriaId && !!d.categoriaNombre), {
     message: 'Elegí la categoría del presupuesto.',
     path: ['categoriaId'],
   })
@@ -439,11 +477,18 @@ export async function guardarObjetivoDeGrupo(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
+  const esDeCategoria = datos.data.tipo === 'CATEGORY_BUDGET'
+
   const { error } = await supabase.from('shared_goals').insert({
     space_id: datos.data.spaceId,
     title: datos.data.titulo,
     type: datos.data.tipo,
     category_id: datos.data.tipo === 'CATEGORY_BUDGET' ? datos.data.categoriaId : null,
+    // El CHECK `shared_goals_category_required` de la 019 mira el NOMBRE, no el
+    // id: es lo unico que el resto del grupo puede leer.
+    category_name: esDeCategoria ? (datos.data.categoriaNombre ?? null) : null,
+    category_icon: esDeCategoria ? (datos.data.categoriaIcono ?? null) : null,
+    category_color: esDeCategoria ? (datos.data.categoriaColor ?? null) : null,
     target_amount: datos.data.monto,
     monthly_contribution: datos.data.aporteMensual ?? null,
     target_date: datos.data.fechaObjetivo ?? null,

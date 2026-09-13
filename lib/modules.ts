@@ -49,6 +49,45 @@ export function moduloActivo(estado: EstadoDeModulos, modulo: Modulo): boolean {
   return estado[modulo] !== false
 }
 
+/**
+ * Dónde guarda sus datos el usuario. Espeja el enum `storage_backend` de
+ * migrations/018.
+ */
+export type Backend = 'SUPABASE' | 'NUBE' | 'DRIVE'
+
+/**
+ * Módulos que NO pueden funcionar sin un servidor que varias cuentas puedan
+ * leer y escribir.
+ *
+ * Gastos compartidos es el caso entero: un espacio compartido necesita filas
+ * que la otra persona pueda ver. Ni el `appDataFolder` de Drive —privado por
+ * usuario y por app— ni un bloque cifrado extremo a extremo pueden servir eso,
+ * y no es un límite de implementación: es lo que significan esos modos.
+ */
+export const MODULOS_QUE_NECESITAN_SERVIDOR: Modulo[] = ['shared_expenses']
+
+/**
+ * Si el backend del usuario puede sostener ese módulo.
+ *
+ * Es una capa APARTE de `moduloActivo`: aquello es lo que el usuario eligió
+ * apagar, esto es lo que su modo de guardado directamente no puede hacer. Un
+ * usuario que vuelve al modo nube tiene que reencontrar su switch como lo
+ * había dejado, así que esto no escribe nada en `active_modules`.
+ */
+export function backendSoportaModulo(backend: Backend, modulo: Modulo): boolean {
+  if (!MODULOS_QUE_NECESITAN_SERVIDOR.includes(modulo)) return true
+  return backend === 'NUBE'
+}
+
+/** Lo que la UI tiene que preguntar: activo Y soportado por el backend. */
+export function moduloDisponible(
+  estado: EstadoDeModulos,
+  backend: Backend,
+  modulo: Modulo
+): boolean {
+  return backendSoportaModulo(backend, modulo) && moduloActivo(estado, modulo)
+}
+
 /** Normaliza lo que venga del JSONB: descarta claves que no son módulos. */
 export function normalizarModulos(valor: unknown): EstadoDeModulos {
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return {}

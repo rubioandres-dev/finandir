@@ -51,11 +51,33 @@ export type Reparto = {
   is_settled: boolean
 }
 
+/**
+ * La categoria, copiada adentro de la fila compartida (migracion 019).
+ *
+ * Es una FOTO y no un vinculo: renombrar una categoria propia no cambia los
+ * gastos compartidos ya cargados. Mismo criterio que `amount_owed`, que congela
+ * el reparto en vez de recalcularlo.
+ *
+ * Existe por dos razones. La que empuja: con el modo cifrado las categorias se
+ * van a un bloque que el servidor no puede leer, asi que la FK a `categories`
+ * no puede seguir existiendo. La que ya estaba: cada miembro tiene SUS propias
+ * categorias, y la RLS impedia que los demas leyeran la del que cargo el gasto.
+ * El nombre nunca se podia mostrar del otro lado.
+ */
+export type FotoDeCategoria = {
+  nombre: string
+  icono: string | null
+  color: string | null
+}
+
 export type GastoCompartido = {
   id: string
   space_id: string
   paid_by_member_id: string
+  /** Clave de agrupacion opaca. Solo su dueno puede resolverla. */
   category_id: string | null
+  /** `null` en gastos anteriores a la 019 cuya categoria ya no existia. */
+  categoria: FotoDeCategoria | null
   split_type: TipoDeReparto
   amount: number
   description: string
@@ -79,6 +101,7 @@ export type ObjetivoDeGrupo = {
   title: string
   type: 'CATEGORY_BUDGET' | 'GROUP_SAVINGS'
   category_id: string | null
+  categoria: FotoDeCategoria | null
   target_amount: number
   monthly_contribution: number | null
   target_date: string | null
@@ -89,7 +112,23 @@ export const FALTA_MIGRACION_COMPARTIDOS =
   'Falta el esquema de gastos compartidos. Ejecutá migrations/011_shared_expenses_and_modules.sql.'
 
 export const FALTA_MIGRACION_MIEMBROS =
-  'Falta actualizar gastos compartidos. Ejecutá migrations/015_shared_members_and_settlements.sql en el SQL Editor de Supabase.'
+  'Falta actualizar gastos compartidos. Ejecutá migrations/015_shared_members_and_settlements.sql ' +
+  'y migrations/019_shared_categoria_desnormalizada.sql en el SQL Editor de Supabase.'
+
+/**
+ * Arma la foto de categoria desde la fila. Devuelve `null` cuando no hay nombre:
+ * el backfill de la 019 no pudo completar las filas cuya categoria ya habia sido
+ * borrada, y eso es un dato ausente, no una categoria llamada "".
+ */
+function leerFotoDeCategoria(fila: Record<string, unknown>): FotoDeCategoria | null {
+  const nombre = fila.category_name as string | null | undefined
+  if (!nombre) return null
+  return {
+    nombre,
+    icono: (fila.category_icon as string | null) ?? null,
+    color: (fila.category_color as string | null) ?? null,
+  }
+}
 
 export function faltaLaTabla(codigo?: string): boolean {
   return codigo === 'PGRST205' || codigo === 'PGRST204' || codigo === '42P01'
@@ -388,7 +427,7 @@ export async function cargarEspacio(
     supabase
       .from('shared_transactions')
       .select(
-        'id, space_id, paid_by_member_id, category_id, split_type, amount, description, date, shared_splits(member_id, percentage, amount_owed, is_settled)'
+        'id, space_id, paid_by_member_id, category_id, category_name, category_icon, category_color, split_type, amount, description, date, shared_splits(member_id, percentage, amount_owed, is_settled)'
       )
       .eq('space_id', spaceId)
       .order('date', { ascending: false }),
@@ -400,7 +439,7 @@ export async function cargarEspacio(
     supabase
       .from('shared_goals')
       .select(
-        'id, title, type, category_id, target_amount, monthly_contribution, target_date, currency'
+        'id, title, type, category_id, category_name, category_icon, category_color, target_amount, monthly_contribution, target_date, currency'
       )
       .eq('space_id', spaceId)
       .order('created_at'),
@@ -438,6 +477,7 @@ export async function cargarEspacio(
         space_id: fila.space_id as string,
         paid_by_member_id: fila.paid_by_member_id as string,
         category_id: (fila.category_id as string | null) ?? null,
+        categoria: leerFotoDeCategoria(fila),
         split_type: (fila.split_type as TipoDeReparto) ?? 'EQUAL',
         amount: Number(fila.amount),
         description: fila.description as string,
@@ -469,6 +509,7 @@ export async function cargarEspacio(
         title: fila.title as string,
         type: fila.type as ObjetivoDeGrupo['type'],
         category_id: (fila.category_id as string | null) ?? null,
+        categoria: leerFotoDeCategoria(fila),
         target_amount: Number(fila.target_amount),
         monthly_contribution:
           fila.monthly_contribution === null ? null : Number(fila.monthly_contribution),

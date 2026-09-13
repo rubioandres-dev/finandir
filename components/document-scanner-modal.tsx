@@ -262,6 +262,15 @@ export function DocumentScannerModal({
             <p className="text-xs text-on-surface-variant">{t('escaner.leyendo')}</p>
             <p className="text-[11px] text-subtle">{t('escaner.demora')}</p>
 
+            {/* El comprobante sale del dispositivo para poder leerlo, y eso hay
+                que decirlo donde pasa —no enterrado en unos terminos—, porque
+                un resumen de tarjeta es de lo mas sensible que carga la app.
+                Va en el estado de lectura y no en el de resultado: cuando ya
+                salio, avisar llega tarde. */}
+            <p className="max-w-[22rem] text-balance text-center text-[11px] leading-snug text-subtle">
+              {t('escaner.avisoPrivacidad')}
+            </p>
+
             {/* Se dice ANTES de que cierre, no después: es la única forma de
                 que el toque afuera deje de sentirse como una cancelación. */}
             <p className="max-w-[22rem] text-balance text-center text-[11px] leading-snug text-subtle">

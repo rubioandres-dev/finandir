@@ -28,6 +28,16 @@ export type FallaDeEscaneo = { clave: Clave } | { texto: string }
 export type Escaneo = {
   /** Distingue dos escaneos seguidos; una respuesta vieja no pisa a la nueva. */
   id: number
+  /**
+   * El comprobante en si. Vive SOLO en esta pestania y en este store: el
+   * servidor no lo guarda en ningun lado —lo reenvia a la IA y lo suelta con la
+   * request— y `descartarEscaneo()` tira esta referencia apenas el escaneo se
+   * guarda o se cierra, que es cuando el File se va con el recolector.
+   *
+   * No se suelta antes, al llegar la respuesta, porque la vista previa del
+   * modal lo necesita mientras el usuario revisa los datos leidos. Soltarlo ahi
+   * dejaria al usuario confirmando importes contra una previa en blanco.
+   */
   archivo: File
   fase: 'analizando' | 'listo' | 'error'
   datos: ComprobanteParseado | null
