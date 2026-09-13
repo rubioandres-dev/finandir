@@ -72,6 +72,15 @@ export interface Libro {
   /**
    * Los movimientos de un rango de fechas, resolviendo los shards que haga
    * falta. Reemplaza al `.gte('date', x)` de PostgREST.
+   *
+   * ORDEN GARANTIZADO: por fecha descendente y, a igual fecha, por
+   * `created_at` descendente. Lo mas nuevo primero.
+   *
+   * La garantia esta en la interface y no en cada implementacion porque sin
+   * ella se cuela un bug silencioso: el backend relacional ordena en SQL y el
+   * de documentos devolveria el orden de insercion del shard. Las dos listas
+   * tienen los mismos elementos y se ven distintas, asi que cualquier service
+   * que muestre "los ultimos" andaria bien en un modo y mal en el otro.
    */
   movimientos(desde: string, hasta: string): Promise<Transaccion[]>
 
@@ -311,6 +320,7 @@ export function crearLibro(almacen: Almacen): Libro {
       return shards
         .flatMap((shard) => shard.movimientos)
         .filter((m) => m.date >= desde && m.date <= hasta)
+        .sort(porFechaDescendente)
     },
 
     async saldos(alDia) {
@@ -477,6 +487,15 @@ export async function abrirLibro(
   }
 
   return libro
+}
+
+/**
+ * Lo mas nuevo primero. `created_at` desempata: dos gastos del mismo dia se
+ * muestran en el orden en que se cargaron, y no al azar.
+ */
+function porFechaDescendente(a: Transaccion, b: Transaccion): number {
+  if (a.date !== b.date) return a.date < b.date ? 1 : -1
+  return a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0
 }
 
 /** El valor de una colección que todavía no tiene bloque. */

@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     tipo: c.type as 'INCOME' | 'EXPENSE',
   }))
 
-  const { nivel, avisos } = await cargarDatosDeCabecera(supabase, tarjetas, hoyEnArgentina())
+  const { nivel, avisos } = await cargarDatosDeCabecera(crearLibroRelacional(supabase), tarjetas, hoyEnArgentina())
 
   const nombreDeMetadata =
     typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name

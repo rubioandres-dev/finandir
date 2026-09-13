@@ -68,8 +68,8 @@ export async function GET() {
   ] = await Promise.all([
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     cargarInversiones(supabase, monedas),
-    cargarCompromisos(supabase, hoy),
-    cargarFlujoMensual(supabase, modo, hoy),
+    cargarCompromisos(crearLibroRelacional(supabase), hoy),
+    cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
     obtenerCotizacionDelDia(supabase),
     supabase
       .from('transactions')

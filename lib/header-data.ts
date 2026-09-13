@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
 import { normalizarMoneda } from './monedas'
 import { rangoDelMesActual, type Moneda, type Tarjeta } from './types'
 
@@ -156,20 +156,23 @@ export function calcularTasaDeAhorro(
 
 /** Nivel y avisos que consume el header. Una sola query extra por request. */
 export async function cargarDatosDeCabecera(
-  supabase: SupabaseClient,
+  libro: Libro,
   tarjetas: Tarjeta[],
   hoy: string
 ): Promise<{ nivel: NivelAurem; avisos: Aviso[] }> {
   const { desde, hasta } = rangoDelMesActual()
 
-  const { data } = await supabase
-    .from('transactions')
-    .select('amount, currency, type')
-    .gte('date', desde)
-    .lte('date', hasta)
+  // Los avisos de tarjeta no dependen de los movimientos, asi que una falla de
+  // lectura baja el nivel a cero pero NO deja al header sin avisos.
+  let movimientos: { amount: number; currency: string | null; type: string }[] = []
+  try {
+    movimientos = await libro.movimientos(desde, hasta)
+  } catch (error) {
+    console.error('[header-data]', error)
+  }
 
   return {
-    nivel: nivelPara(calcularTasaDeAhorro(data ?? [])),
+    nivel: nivelPara(calcularTasaDeAhorro(movimientos)),
     avisos: construirAvisos(tarjetas, hoy),
   }
 }

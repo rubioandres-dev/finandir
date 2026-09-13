@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
 import { esDeLaMoneda } from './currency-mode'
 import type { Moneda } from './types'
 
@@ -98,7 +98,7 @@ export function construirFlujoMensual(
  * dibuja vacío. Un error de esta sección no puede tumbar el Home entero.
  */
 export async function cargarFlujoMensual(
-  supabase: SupabaseClient,
+  libro: Libro,
   moneda: Moneda,
   hoy: string,
   meses = 12
@@ -106,18 +106,16 @@ export async function cargarFlujoMensual(
   const hastaPeriodo = hoy.slice(0, 7)
   const desde = `${correrPeriodo(hastaPeriodo, -(meses - 1))}-01`
 
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('amount, currency, type, date')
-    .gte('date', desde)
-    .lte('date', hoy)
-
-  if (error) {
-    console.error('[monthly-flow]', error.message)
-    return { serie: construirFlujoMensual([], hastaPeriodo, meses), error: error.message }
+  let crudos
+  try {
+    crudos = await libro.movimientos(desde, hoy)
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
+    console.error('[monthly-flow]', mensaje)
+    return { serie: construirFlujoMensual([], hastaPeriodo, meses), error: mensaje }
   }
 
-  const movimientos = (data ?? []).filter((fila) =>
+  const movimientos = crudos.filter((fila) =>
     esDeLaMoneda(fila as { currency?: string | null }, moneda)
   ) as MovimientoDelFlujo[]
 

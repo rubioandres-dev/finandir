@@ -37,8 +37,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizarModulos } from '../modules'
+import type { PresupuestoDeCategoria } from '../category-budgets-service'
 import type { Deuda, Transaccion } from '../types'
 import type {
+  CategoriaGuardada,
   Coleccion,
   CuentaGuardada,
   Manifiesto,
@@ -292,6 +294,68 @@ export function crearLibroRelacional(
     }))
   }
 
+  // --- categorias ------------------------------------------------------------
+
+  async function leerCategorias(): Promise<CategoriaGuardada[]> {
+    const [resCategorias, resPresupuestos] = await Promise.all([
+      supabase.from('categories').select('*').order('name'),
+      supabase.from('category_budgets').select('id, category_id, amount, currency'),
+    ])
+
+    if (resCategorias.error) throw new Error(resCategorias.error.message)
+
+    // Sin la 013 no hay presupuestos, y una categoria sin presupuesto sigue
+    // siendo una categoria: el error no corta.
+    const porCategoria = new Map<string, PresupuestoDeCategoria[]>()
+    for (const p of (resPresupuestos.data ?? []) as Fila[]) {
+      const id = p.category_id as string
+      porCategoria.set(id, [
+        ...(porCategoria.get(id) ?? []),
+        {
+          id: p.id as string,
+          category_id: id,
+          amount: num(p.amount),
+          currency: String(p.currency ?? 'ARS').trim(),
+        },
+      ])
+    }
+
+    return ((resCategorias.data ?? []) as Fila[]).map((c) => ({
+      id: c.id as string,
+      user_id: c.user_id as string,
+      name: String(c.name),
+      type: c.type as CategoriaGuardada['type'],
+      icon: (c.icon as string) ?? 'circle',
+      color: (c.color as string) ?? '#64748B',
+      presupuestos: porCategoria.get(c.id as string) ?? [],
+    }))
+  }
+
+  // --- movimientos -----------------------------------------------------------
+
+  function aMovimiento(t: Fila): Transaccion {
+    return {
+      id: t.id as string,
+      user_id: t.user_id as string,
+      account_id: t.account_id as string,
+      category_id: (t.category_id as string | null) ?? null,
+      amount: num(t.amount),
+      currency: String(t.currency ?? 'ARS').trim(),
+      amount_usd: numONulo(t.amount_usd),
+      type: t.type as Transaccion['type'],
+      description: (t.description as string | null) ?? null,
+      date: t.date as string,
+      created_at: (t.created_at as string) ?? '',
+      installment_current: numONulo(t.installment_current),
+      installment_total: numONulo(t.installment_total),
+      parent_transaction_id: (t.parent_transaction_id as string | null) ?? null,
+      has_interest: t.has_interest === true,
+      cash_price: numONulo(t.cash_price),
+      total_financed_amount: numONulo(t.total_financed_amount),
+      installment_amount: numONulo(t.installment_amount),
+    }
+  }
+
   return {
     tipo: 'relacional',
 
@@ -301,6 +365,8 @@ export function crearLibroRelacional(
           return (await leerPerfil()) as Coleccion[C]
         case 'cuentas':
           return (await leerCuentas()) as Coleccion[C]
+        case 'categorias':
+          return (await leerCategorias()) as Coleccion[C]
         case 'deudas':
           return (await leerDeudas()) as Coleccion[C]
         default:
@@ -338,16 +404,55 @@ export function crearLibroRelacional(
       return saldos
     },
 
-    movimientos(): Promise<Transaccion[]> {
-      return noPortado('movimientos')
+    async movimientos(desde: string, hasta: string): Promise<Transaccion[]> {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .gte('date', desde)
+        .lte('date', hasta)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (error) throw new Error(error.message)
+      return ((data ?? []) as Fila[]).map(aMovimiento)
     },
 
+    /**
+     * La ESCRITURA de movimientos NO esta portada, y es deliberado.
+     *
+     * `mutarMovimientos` recibe la coleccion entera y devuelve la coleccion
+     * entera. Sobre una tabla relacional eso obliga a diferenciar contra lo que
+     * habia para saber que insertar, actualizar y borrar: para un anio con
+     * miles de filas, es bajarlas todas y subirlas todas por cada gasto nuevo.
+     *
+     * Las escrituras siguen yendo por su camino viejo hasta que se porten de
+     * verdad, contra el almacen de documentos donde el modelo de "reemplazar la
+     * coleccion" si es el natural.
+     */
     mutarMovimientos(): Promise<void> {
-      return noPortado('movimientos')
+      return noPortado('escritura de movimientos')
     },
 
     async aniosConMovimientos(): Promise<number[]> {
-      return noPortado('movimientos')
+      // `min`/`max` y no un distinct: son dos filas en vez de una por anio, y
+      // el rango completo es lo unico que necesita quien pregunta.
+      const [masViejo, masNuevo] = await Promise.all([
+        supabase.from('transactions').select('date').order('date').limit(1).maybeSingle(),
+        supabase
+          .from('transactions')
+          .select('date')
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      const desde = (masViejo.data as { date?: string } | null)?.date
+      const hasta = (masNuevo.data as { date?: string } | null)?.date
+      if (!desde || !hasta) return []
+
+      const primero = Number(desde.slice(0, 4))
+      const ultimo = Number(hasta.slice(0, 4))
+      return Array.from({ length: ultimo - primero + 1 }, (_, i) => primero + i)
     },
 
     async manifiesto(): Promise<Manifiesto> {

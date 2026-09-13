@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Libro } from './almacen/libro'
 import type { Moneda, Tarjeta } from './types'
 
 /**
@@ -169,7 +169,7 @@ export function agruparPorDia(eventos: EventoFinanciero[]): Map<number, EventoFi
  * más de un mes por vez.
  */
 export async function cargarEventosDelMes(
-  supabase: SupabaseClient,
+  libro: Libro,
   tarjetas: Tarjeta[],
   anio: number,
   mes: number
@@ -177,21 +177,21 @@ export async function cargarEventosDelMes(
   const desde = fecha(anio, mes, 1)
   const hasta = fecha(anio, mes, 31)
 
-  // Sin las columnas de migrations/004 la query sigue siendo válida: las de
-  // cuotas son de migrations/003, que ya existe.
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('date, amount, currency, type, description, installment_current, installment_total')
-    .gte('date', desde)
-    .lte('date', hasta)
-
-  const movimientos = (data ?? []) as MovimientoDeCalendario[]
+  // Los vencimientos de tarjeta se calculan sin tocar la base, asi que si la
+  // lectura falla el calendario sigue mostrandolos en vez de quedar vacio.
+  let movimientos: MovimientoDeCalendario[] = []
+  let error: string | null = null
+  try {
+    movimientos = (await libro.movimientos(desde, hasta)) as MovimientoDeCalendario[]
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'No se pudieron leer los movimientos.'
+  }
 
   return {
     eventos: [
       ...eventosDeTarjetas(tarjetas, anio, mes),
       ...eventosDeMovimientos(movimientos),
     ].sort((a, b) => a.fecha.localeCompare(b.fecha)),
-    error: error?.message ?? null,
+    error,
   }
 }

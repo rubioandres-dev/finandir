@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { movimientosDesde, ultimosMovimientos } from './almacen/consultas'
+import type { Libro } from './almacen/libro'
 import { esDeLaMoneda } from './currency-mode'
 import { rangoDelMesActual, type Moneda, type Transaccion } from './types'
 
@@ -41,6 +42,15 @@ export type FeedDeMovimientos = {
 /** Cuántos movimientos viejos se traen. Más que eso ya es un export, no un feed. */
 const TOPE_ANTERIORES = 100
 
+/** Un dia antes / despues, sobre `YYYY-MM-DD`. Para los bordes del rango. */
+function correrDia(fecha: string, dias: number): string {
+  const d = new Date(`${fecha}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + dias)
+  return d.toISOString().slice(0, 10)
+}
+const diaSiguiente = (f: string) => correrDia(f, 1)
+const diaAnterior = (f: string) => correrDia(f, -1)
+
 /**
  * "2026-09" -> "septiembre 2026".
  *
@@ -74,50 +84,45 @@ export function agruparPorMes(movimientos: Transaccion[]): MesDeVencimientos[] {
 }
 
 export async function cargarFeedDeMovimientos(
-  supabase: SupabaseClient,
+  libro: Libro,
   moneda: Moneda
 ): Promise<FeedDeMovimientos> {
   const { desde, hasta } = rangoDelMesActual()
 
-  const [resMes, resFuturas, resAnteriores] = await Promise.all([
-    supabase
-      .from('transactions')
-      .select('*')
-      .gte('date', desde)
-      .lte('date', hasta)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false }),
-    // Todo lo que vence después de este mes, no solo las cuotas: si alguna vez
-    // entra un movimiento suelto con fecha futura, tiene que poder verse en
-    // algún lado en vez de desaparecer de las tres pestañas.
-    supabase
-      .from('transactions')
-      .select('*')
-      .gt('date', hasta)
-      .order('date', { ascending: true }),
-    supabase
-      .from('transactions')
-      .select('*')
-      .lt('date', desde)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(TOPE_ANTERIORES),
-  ])
+  let delMes: Transaccion[] = []
+  let despues: Transaccion[] = []
+  let antes: Transaccion[] = []
+  let error: string | null = null
 
-  const error =
-    resMes.error?.message ?? resFuturas.error?.message ?? resAnteriores.error?.message ?? null
+  try {
+    ;[delMes, despues, antes] = await Promise.all([
+      libro.movimientos(desde, hasta),
+      // Todo lo que vence después de este mes, no solo las cuotas: si alguna vez
+      // entra un movimiento suelto con fecha futura, tiene que poder verse en
+      // algún lado en vez de desaparecer de las tres pestañas.
+      movimientosDesde(libro, diaSiguiente(hasta)),
+      // `ultimosMovimientos` recorre los anios de atras para adelante y corta
+      // al llegar al tope, asi que no baja diez anios de historia para mostrar
+      // cien filas.
+      ultimosMovimientos(libro, TOPE_ANTERIORES, diaAnterior(desde)),
+    ])
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'No se pudieron leer los movimientos.'
+  }
 
   // El modo global de moneda recorta las tres listas por igual.
-  const filtrar = (filas: Transaccion[] | null) =>
-    (filas ?? []).filter((fila) => esDeLaMoneda(fila, moneda))
+  const filtrar = (filas: Transaccion[]) =>
+    filas.filter((fila) => esDeLaMoneda(fila, moneda))
 
-  const futuras = filtrar(resFuturas.data as Transaccion[] | null)
+  // Las futuras se muestran de la mas cercana a la mas lejana; `movimientos()`
+  // garantiza lo contrario, asi que acá se da vuelta.
+  const futuras = filtrar(despues).reverse()
 
   return {
-    delMes: filtrar(resMes.data as Transaccion[] | null),
+    delMes: filtrar(delMes),
     futuras: agruparPorMes(futuras),
     totalFuturas: futuras.length,
-    anteriores: filtrar(resAnteriores.data as Transaccion[] | null),
+    anteriores: filtrar(antes),
     error,
   }
 }

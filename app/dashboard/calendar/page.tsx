@@ -35,7 +35,7 @@ export default async function CalendarPage({
   const [anio, mes] = mesPedido((await searchParams).m, hoy)
 
   const { tarjetas } = await cargarCuentasYDeudas(crearLibroRelacional(supabase))
-  const { eventos, error } = await cargarEventosDelMes(supabase, tarjetas, anio, mes)
+  const { eventos, error } = await cargarEventosDelMes(crearLibroRelacional(supabase), tarjetas, anio, mes)
 
   return (
     <div className="flex flex-col gap-5">

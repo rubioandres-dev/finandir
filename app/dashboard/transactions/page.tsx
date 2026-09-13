@@ -33,7 +33,7 @@ export default async function TransactionsPage() {
   const [{ categorias, cotizacion, errorCarga }, { cuentas }, feed] = await Promise.all([
     cargarDatosDelDashboard(modo, monedas),
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
-    cargarFeedDeMovimientos(supabase, modo),
+    cargarFeedDeMovimientos(crearLibroRelacional(supabase), modo),
   ])
 
   // Para el editor: solo cuentas de la moneda activa, que son las únicas a las

@@ -257,7 +257,48 @@ describe('movimientos por rango', () => {
 
     const resultado = await libro.movimientos('2025-12-01', '2026-01-31')
 
-    expect(resultado.map((m) => m.id)).toEqual(['dic25', 'ene26'])
+    // Lo mas nuevo primero: es la garantia de orden de la interface, no el
+    // orden en que quedaron guardados en los shards.
+    expect(resultado.map((m) => m.id)).toEqual(['ene26', 'dic25'])
+  })
+
+  it('ordena lo mas nuevo primero, sin importar como quedo guardado', async () => {
+    // Sin esta garantia el backend relacional ordenaria en SQL y el de
+    // documentos devolveria el orden de insercion: las mismas filas, distinto
+    // orden, y cualquier pantalla de "los ultimos" andaria bien en un modo y
+    // mal en el otro.
+    const almacen = crearAlmacenEnMemoria()
+    almacen.sembrar(
+      claveDeShard(2026),
+      shard({
+        movimientos: [
+          mov({ id: 'medio', date: '2026-06-15' }),
+          mov({ id: 'viejo', date: '2026-01-02' }),
+          mov({ id: 'nuevo', date: '2026-12-20' }),
+        ],
+      })
+    )
+    const libro = crearLibro(almacen)
+
+    const r = await libro.movimientos('2026-01-01', '2026-12-31')
+    expect(r.map((m) => m.id)).toEqual(['nuevo', 'medio', 'viejo'])
+  })
+
+  it('a igual fecha desempata por cuando se cargo', async () => {
+    const almacen = crearAlmacenEnMemoria()
+    almacen.sembrar(
+      claveDeShard(2026),
+      shard({
+        movimientos: [
+          mov({ id: 'primero', date: '2026-03-01', created_at: '2026-03-01T09:00:00Z' }),
+          mov({ id: 'segundo', date: '2026-03-01', created_at: '2026-03-01T18:00:00Z' }),
+        ],
+      })
+    )
+    const libro = crearLibro(almacen)
+
+    const r = await libro.movimientos('2026-03-01', '2026-03-01')
+    expect(r.map((m) => m.id)).toEqual(['segundo', 'primero'])
   })
 
   it('un rango sin shards no explota', async () => {

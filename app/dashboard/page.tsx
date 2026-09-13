@@ -68,8 +68,8 @@ export default async function DashboardPage() {
     cargarCuentasYDeudas(crearLibroRelacional(supabase), monedas),
     obtenerCotizacionesDelMercado(),
     cargarInversiones(supabase, monedas),
-    cargarCompromisos(supabase, hoy),
-    cargarFlujoMensual(supabase, modo, hoy),
+    cargarCompromisos(crearLibroRelacional(supabase), hoy),
+    cargarFlujoMensual(crearLibroRelacional(supabase), modo, hoy),
   ])
 
   // El mapa va después: reusa el MEP que `cargarDatosDelDashboard` ya resolvió

@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { todosLosMovimientos } from './almacen/consultas'
+import type { Libro } from './almacen/libro'
 import { MONEDAS_POR_DEFECTO, normalizarMoneda } from './monedas'
 import type { Moneda } from './types'
 
@@ -162,7 +163,7 @@ export function primerMesLibre(curva: PuntoDeCurva[]): string | null {
  * cuántas ya se pagaron para mostrar el progreso.
  */
 export async function cargarCompromisos(
-  supabase: SupabaseClient,
+  libro: Libro,
   hoy: string
 ): Promise<{
   cuotas: CuotaFutura[]
@@ -170,24 +171,22 @@ export async function cargarCompromisos(
   planes: PlanActivo[]
   error: string | null
 }> {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select(
-      'id, date, amount, currency, description, account_id, installment_current, installment_total, parent_transaction_id, has_interest, cash_price, total_financed_amount'
-    )
-    .not('installment_total', 'is', null)
-    .order('date')
-
-  if (error) {
-    // 42703 = faltan las columnas de migrations/004.
-    const falta = error.code === '42703'
+  // Los planes pueden haber empezado hace anios y seguir vigentes, asi que esta
+  // es de las pocas preguntas que necesitan la historia completa. Es cara y
+  // esta bien que se note: quien la llame deberia saberlo.
+  let data
+  try {
+    const todos = await todosLosMovimientos(libro)
+    data = todos.filter((m) => m.installment_total !== null)
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido.'
     return {
       cuotas: [],
       curva: construirCurva([], hoy.slice(0, 7)),
       planes: [],
-      error: falta
+      error: mensaje.includes('42703')
         ? 'Faltan las columnas de intereses. Ejecutá migrations/004_installments_and_interest.sql.'
-        : error.message,
+        : mensaje,
     }
   }
 
