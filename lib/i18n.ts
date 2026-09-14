@@ -476,14 +476,42 @@ const ES_AR = {
   'guardado.pasarABoveda': 'Pasar a modo Bóveda',
   'guardado.pasarAEstandar': 'Volver a modo Estándar',
 
+  'guardado.enUso': 'En uso',
+  'guardado.comparacion': 'En qué se diferencian',
+  'guardado.comparacionPie':
+    'Cambiar de modo no borra nada: tus datos se mueven de un lado al otro y podés volver cuando quieras.',
+
+  'guardado.difLeer': '¿Quién puede leer tus finanzas?',
+  'guardado.difLeerEstandar': 'Vos y nuestros servidores.',
+  'guardado.difLeerBoveda': 'Sólo vos, en tus dispositivos.',
+
+  'guardado.difOlvido': 'Si olvidás tu contraseña',
+  'guardado.difOlvidoEstandar': 'La recuperás por mail y seguís donde estabas.',
+  'guardado.difOlvidoBoveda':
+    'Sólo tu código de recuperación abre tus datos. Nosotros no podemos: no tenemos la clave.',
+
+  'guardado.difCompartidos': 'Gastos compartidos',
+  'guardado.difCompartidosEstandar': 'No disponibles.',
+  'guardado.difCompartidosBoveda':
+    'Disponibles. Cada grupo tiene su propia llave, que sólo tienen sus integrantes.',
+
+  'guardado.difDispositivo': 'Entrar en un dispositivo nuevo',
+  'guardado.difDispositivoEstandar': 'Iniciás sesión y ya está.',
+  'guardado.difDispositivoBoveda':
+    'Te pedimos la contraseña una vez por dispositivo: la clave se calcula ahí y nunca viaja.',
+
+  'guardado.difSoporte': 'Si algo se rompe',
+  'guardado.difSoporteEstandar': 'Podemos mirar tus datos para ayudarte.',
+  'guardado.difSoporteBoveda': 'Vemos códigos de error, nunca tus datos.',
+
   'guardado.riesgoOlvido':
     'Si olvidás tu contraseña, sólo tu código de recuperación puede abrir tus datos. Nosotros no podemos: no tenemos la clave.',
   'guardado.riesgoCompartidos':
-    'Los gastos compartidos siguen funcionando, pero se guardan sin cifrar: la otra persona los tiene que poder leer.',
+    'Se habilitan los gastos compartidos: cada grupo se cifra con una llave propia que sólo tienen sus integrantes. Al sacar a alguien, la llave se renueva y deja de ver hasta lo viejo.',
   'guardado.riesgoDemora':
     'La app va a tardar un segundo más en abrir en cada dispositivo nuevo: la clave se calcula ahí y nunca viaja.',
   'guardado.riesgoVolver':
-    'Volver a Estándar pone tus finanzas de nuevo en tablas que nuestros servidores pueden leer. Tus datos no se pierden.',
+    'Volver a Estándar pone tus finanzas de nuevo en tablas que nuestros servidores pueden leer, y los gastos compartidos dejan de estar disponibles: necesitan la llave personal que sólo existe en Bóveda. No se pierde nada — tus grupos vuelven a aparecer si reactivás la Bóveda.',
 
   'guardado.pedirContrasena': 'Confirmá con tu contraseña',
   'guardado.cancelar': 'Cancelar',
@@ -922,14 +950,42 @@ const EN: Parcial = {
   'guardado.pasarABoveda': 'Switch to Vault mode',
   'guardado.pasarAEstandar': 'Back to Standard mode',
 
+  'guardado.enUso': 'In use',
+  'guardado.comparacion': 'How they differ',
+  'guardado.comparacionPie':
+    'Switching modes deletes nothing: your data moves from one side to the other, and you can switch back whenever you want.',
+
+  'guardado.difLeer': 'Who can read your finances?',
+  'guardado.difLeerEstandar': 'You and our servers.',
+  'guardado.difLeerBoveda': 'Only you, on your devices.',
+
+  'guardado.difOlvido': 'If you forget your password',
+  'guardado.difOlvidoEstandar': 'You reset it by email and carry on.',
+  'guardado.difOlvidoBoveda':
+    'Only your recovery code opens your data. We cannot: we do not have the key.',
+
+  'guardado.difCompartidos': 'Shared expenses',
+  'guardado.difCompartidosEstandar': 'Not available.',
+  'guardado.difCompartidosBoveda':
+    'Available. Each group has its own key, held only by its members.',
+
+  'guardado.difDispositivo': 'Signing in on a new device',
+  'guardado.difDispositivoEstandar': 'You sign in and that is it.',
+  'guardado.difDispositivoBoveda':
+    'We ask for your password once per device: the key is derived there and never travels.',
+
+  'guardado.difSoporte': 'If something breaks',
+  'guardado.difSoporteEstandar': 'We can look at your data to help you.',
+  'guardado.difSoporteBoveda': 'We see error codes, never your data.',
+
   'guardado.riesgoOlvido':
     'If you forget your password, only your recovery code can open your data. We cannot: we do not have the key.',
   'guardado.riesgoCompartidos':
-    'Shared expenses keep working, but they are stored unencrypted: the other person has to be able to read them.',
+    'Shared expenses become available: each group is encrypted with its own key, held only by its members. Remove someone and the key is rotated — they stop seeing even the old entries.',
   'guardado.riesgoDemora':
     'The app will take a second longer to open on each new device: the key is computed there and never travels.',
   'guardado.riesgoVolver':
-    'Going back to Standard puts your finances in tables our servers can read again. Your data is not lost.',
+    'Going back to Standard puts your finances in tables our servers can read again, and shared expenses stop being available: they need the personal key that only exists in Vault mode. Nothing is lost — your groups come back if you turn the Vault on again.',
 
   'guardado.pedirContrasena': 'Confirm with your password',
   'guardado.cancelar': 'Cancel',

@@ -278,19 +278,78 @@ export function StorageSettings({ backend }: { backend: Backend }) {
   )
 }
 
+/**
+ * Los dos modos, uno al lado del otro.
+ *
+ * Antes esto mostraba SÓLO el modo activo y un botón para cambiar. Es la
+ * información justa para quien ya entendió la diferencia, y ninguna para quien
+ * está parado acá decidiendo — que es todo el mundo la primera vez. "Pasar a
+ * modo Bóveda" no dice qué gana ni qué pierde, y la pregunta que el usuario
+ * tiene es exactamente esa.
+ *
+ * Las cinco filas son las cinco cosas que de verdad cambian y que no se pueden
+ * deducir del nombre. Dos de ellas son peores en Bóveda —olvidar la contraseña,
+ * y el paso extra en cada dispositivo— y están con el mismo tamaño y el mismo
+ * tono que las otras tres. Una comparación que sólo muestra las ventajas del
+ * lado al que queremos empujar no es una comparación.
+ */
 function Info({ enBoveda, onCambiar }: { enBoveda: boolean; onCambiar: () => void }) {
   const { t } = useTraduccion()
 
+  const filas = [
+    ['guardado.difLeer', 'guardado.difLeerEstandar', 'guardado.difLeerBoveda'],
+    ['guardado.difOlvido', 'guardado.difOlvidoEstandar', 'guardado.difOlvidoBoveda'],
+    [
+      'guardado.difCompartidos',
+      'guardado.difCompartidosEstandar',
+      'guardado.difCompartidosBoveda',
+    ],
+    [
+      'guardado.difDispositivo',
+      'guardado.difDispositivoEstandar',
+      'guardado.difDispositivoBoveda',
+    ],
+    ['guardado.difSoporte', 'guardado.difSoporteEstandar', 'guardado.difSoporteBoveda'],
+  ] as const
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-on-background">
-          {enBoveda ? t('guardado.modoBoveda') : t('guardado.modoEstandar')}
-        </span>
-        <span className="text-[11px] leading-snug text-on-surface-variant">
-          {enBoveda ? t('guardado.modoBovedaDetalle') : t('guardado.modoEstandarDetalle')}
-        </span>
+    <div className="flex flex-col gap-4">
+      {/* Los dos encabezados, con el activo marcado. Es lo que ancla las dos
+          columnas de abajo: sin esto son dos textos sueltos por fila. */}
+      <div className="grid grid-cols-2 gap-2">
+        <Encabezado
+          Icono={ShieldCheck}
+          titulo={t('guardado.modoEstandar')}
+          detalle={t('guardado.modoEstandarDetalle')}
+          activo={!enBoveda}
+          etiqueta={t('guardado.enUso')}
+        />
+        <Encabezado
+          Icono={Lock}
+          titulo={t('guardado.modoBoveda')}
+          detalle={t('guardado.modoBovedaDetalle')}
+          activo={enBoveda}
+          etiqueta={t('guardado.enUso')}
+        />
       </div>
+
+      <div className="flex flex-col gap-2.5">
+        <span className="aurem-caps text-[9px] text-on-surface-variant/70">
+          {t('guardado.comparacion')}
+        </span>
+
+        {filas.map(([pregunta, estandar, boveda]) => (
+          <div key={pregunta} className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-on-background">{t(pregunta)}</span>
+            <div className="grid grid-cols-2 gap-2">
+              <Celda texto={t(estandar)} activo={!enBoveda} />
+              <Celda texto={t(boveda)} activo={enBoveda} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[11px] leading-snug text-subtle">{t('guardado.comparacionPie')}</p>
 
       <button
         type="button"
@@ -300,6 +359,54 @@ function Info({ enBoveda, onCambiar }: { enBoveda: boolean; onCambiar: () => voi
         {enBoveda ? t('guardado.pasarAEstandar') : t('guardado.pasarABoveda')}
       </button>
     </div>
+  )
+}
+
+function Encabezado({
+  Icono,
+  titulo,
+  detalle,
+  activo,
+  etiqueta,
+}: {
+  Icono: typeof Lock
+  titulo: string
+  detalle: string
+  activo: boolean
+  etiqueta: string
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-1 rounded-lg border p-2.5 ${
+        activo ? 'border-gold-leaf/40 bg-gold-leaf/5' : 'border-glass-stroke/50'
+      }`}
+    >
+      <div className="flex items-center gap-1.5">
+        <Icono
+          className={`size-3.5 shrink-0 ${activo ? 'text-gold-leaf' : 'text-on-surface-variant'}`}
+          aria-hidden
+        />
+        <span className="min-w-0 text-xs font-medium text-on-background">{titulo}</span>
+      </div>
+      {activo && (
+        <span className="aurem-caps self-start text-[9px] text-gold-leaf">{etiqueta}</span>
+      )}
+      <span className="text-[10px] leading-snug text-subtle">{detalle}</span>
+    </div>
+  )
+}
+
+function Celda({ texto, activo }: { texto: string; activo: boolean }) {
+  return (
+    <span
+      className={`rounded-lg px-2 py-1.5 text-[10px] leading-snug ${
+        activo
+          ? 'bg-gold-leaf/5 text-on-surface-variant'
+          : 'text-on-surface-variant/70'
+      }`}
+    >
+      {texto}
+    </span>
   )
 }
 

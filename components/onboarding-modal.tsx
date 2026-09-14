@@ -215,8 +215,9 @@ export function OnboardingModal({
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium">Estándar</span>
                   <span className="text-[11px] leading-snug text-subtle">
-                    Tus datos se guardan en Aurem. Si algo falla, te podemos ayudar a
-                    recuperarlo. Es con lo que arrancás.
+                    Tus datos se guardan en Aurem y nuestros servidores pueden leerlos. A cambio,
+                    si olvidás la contraseña la recuperás por mail, y si algo falla te podemos
+                    ayudar mirando tus datos. Es con lo que arrancás.
                   </span>
                 </div>
               </div>
@@ -226,10 +227,10 @@ export function OnboardingModal({
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium">Bóveda</span>
                   <span className="text-[11px] leading-snug text-subtle">
-                    Se guardan cifrados con tu contraseña. Ni nosotros podemos leerlos — y eso
+                    Se guardan cifrados con tu contraseña: ni nosotros podemos leerlos. Eso
                     también significa que si la olvidás, sólo tu código de recuperación abre tus
-                    datos. Los gastos compartidos siguen sin cifrar, porque la otra persona los
-                    tiene que poder leer.
+                    datos, y que te vamos a pedir la contraseña una vez en cada dispositivo. Los
+                    gastos compartidos existen sólo acá: cada grupo lleva su propia llave.
                   </span>
                 </div>
               </div>
