@@ -115,12 +115,33 @@ export type SobreDeClaves = {
   version: 1
   porContrasena: Envoltura
   porRecuperacion: Envoltura
+  /**
+   * El par de claves del usuario, para los grupos compartidos.
+   *
+   * La privada va envuelta por la DEK —asi que se abre con lo mismo que los
+   * datos— y la publica viaja en claro porque no es secreta: es lo que otro
+   * miembro necesita para envolverle la clave de un grupo.
+   *
+   * OPCIONAL porque los sobres creados antes de que existieran los grupos no lo
+   * tienen. `asegurarParDeClaves` lo agrega la primera vez que hace falta, en
+   * vez de obligar a una migracion que el usuario no pidio.
+   */
+  par?: {
+    publica: JsonWebKey
+    privadaEnvuelta: string
+  }
   creado: string
 }
 
-/** La DEK ya abierta. Vive en memoria y no es extraíble. */
+/**
+ * Las claves abiertas del usuario. Viven en memoria y no son extraibles.
+ *
+ * `privada` es opcional por lo mismo que `par`: un sobre viejo no la tiene, y
+ * quien la necesite tiene que pedir que se la agreguen en vez de asumirla.
+ */
 export type Claves = {
   dek: CryptoKey
+  privada?: CryptoKey
 }
 
 export class SecretoIncorrecto extends Error {
