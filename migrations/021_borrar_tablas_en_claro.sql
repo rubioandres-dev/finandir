@@ -18,6 +18,16 @@
 -- La promesa de cifrado NO es real el día que alguien activa el modo. Es real
 -- el día que se corre esto.
 --
+-- ESTA NO ES LA QUE VAS A CORRER PRIMERO
+--
+-- Borra las TABLAS, asi que necesita que TODOS los usuarios hayan migrado. Y
+-- como la clave de cada uno se deriva de su contrasenia —que nunca llega al
+-- servidor— nadie puede migrar a nadie: solo cada usuario puede activar su
+-- Boveda. Eso hace que esta migracion dependa del ultimo que se decida.
+--
+-- Para no esperar a nadie esta la 022, que borra las filas de QUIEN YA MIGRO.
+-- Esta queda para el final, cuando no quede ninguno en modo Estandar.
+--
 -- LA GUARDA
 --
 -- Aborta si queda UN solo usuario en modo SUPABASE. Borrarle las tablas a
