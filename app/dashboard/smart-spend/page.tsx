@@ -1,13 +1,10 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import {
-  deudaPorTarjetaDe,
-  GastoInteligenteEnCliente,
-  VistaGastoInteligente,
-  type DatosDelGastoInteligente,
-} from '@/components/vistas/vista-gasto-inteligente'
+import { PiggyBank } from 'lucide-react'
+import { SmartSpendCalculator } from '@/components/smart-spend-calculator'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarInversiones } from '@/lib/investments-service'
 import { createClient } from '@/lib/supabase/server'
@@ -39,41 +36,53 @@ export default async function SmartSpendPage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // El contexto se resuelve acá una sola vez; la calculadora recalcula sola en
+  // el cliente con cada tecla, sin volver al servidor.
   const { monedas } = await cargarContextoDeMonedas()
+  const [{ tarjetas, cuentas }, { inversiones, resumen }] = await Promise.all([
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
+    cargarInversiones(await libroDelServidor(supabase), monedas),
+  ])
 
-  let datos: DatosDelGastoInteligente | null = null
+  const deudaPorTarjeta = Object.fromEntries(
+    cuentas
+      .filter((c) => c.type === 'CREDIT_CARD')
+      .map((c) => [c.id, Math.max(0, -Number(c.balance ?? 0))])
+  )
 
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    const [{ tarjetas, cuentas }, { inversiones, resumen }] = await Promise.all([
-      cargarCuentasYDeudas(libro, monedas),
-      cargarInversiones(libro, monedas),
-    ])
-    datos = {
-      tarjetas,
-      deudaPorTarjeta: deudaPorTarjetaDe(cuentas),
-      tnaLiquida: resumen.tnaLiquida,
-      inversiones,
-    }
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-lg font-bold tracking-tight text-on-background">
+          ¿Cómo conviene pagar?
+        </h1>
+        <p className="text-xs leading-snug text-subtle">
+          Descubrí si te conviene pagar de contado o financiar en cuotas poniendo a rendir tu
+          dinero mes a mes.
+        </p>
+      </div>
 
-  if (!datos) {
-    return (
-      <GastoInteligenteEnCliente
-        monedas={monedas}
+      <SmartSpendCalculator
+        tarjetas={tarjetas}
+        deudaPorTarjeta={deudaPorTarjeta}
+        tnaLiquida={resumen.tnaLiquida}
+        inversiones={inversiones}
         precioInicial={precioInicial}
         monedaInicial={monedaInicial}
       />
-    )
-  }
 
-  return (
-    <VistaGastoInteligente
-      datos={datos}
-      precioInicial={precioInicial}
-      monedaInicial={monedaInicial}
-    />
+      {inversiones.length === 0 && (
+        <Link
+          href="/dashboard/investments"
+          className="flex items-center gap-2.5 rounded-2xl border border-dashed border-border p-3.5 transition hover:border-primary/40"
+        >
+          <PiggyBank className="size-4 shrink-0 text-gold-leaf" aria-hidden />
+          <span className="min-w-0 flex-1 text-sm font-medium tracking-tight">
+            Cargá tus inversiones
+          </span>
+          <span className="shrink-0 text-[11px] text-subtle">para usar tu tasa real</span>
+        </Link>
+      )}
+    </div>
   )
 }

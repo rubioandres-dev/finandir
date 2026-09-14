@@ -33,10 +33,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PresupuestoDeCategoria } from '../category-budgets-service'
 import type { Objetivo } from '../goals-service'
 import type { Inversion, Transaccion } from '../types'
+import { normalizarModulos } from '../modules'
 import type {
   CategoriaGuardada,
   CuentaGuardada,
   DeudaGuardada,
+  PerfilGuardado,
 } from './documentos'
 import type { Libro } from './libro'
 import { recalcularAperturas } from './operaciones'
@@ -102,6 +104,7 @@ export async function migrarDesdeSupabase(
     deudasCrudas,
     inversionesCrudas,
     objetivosCrudos,
+    perfiles,
   ] = await Promise.all([
     leerTabla(supabase, 'accounts'),
     leerTabla(supabase, 'credit_card_details'),
@@ -111,6 +114,7 @@ export async function migrarDesdeSupabase(
     leerTabla(supabase, 'debts'),
     leerTabla(supabase, 'investments'),
     leerTabla(supabase, 'financial_goals'),
+    leerTabla(supabase, 'user_profiles'),
   ])
 
   // --- Cuentas, con el detalle de tarjeta adentro ----------------------------
@@ -197,11 +201,10 @@ export async function migrarDesdeSupabase(
   }
 
   // --- Escritura -------------------------------------------------------------
-  //
-  // EL PERFIL NO SE COPIA, y es deliberado: las preferencias se quedan en
-  // Supabase en todos los modos (ver `libroDePreferencias`). Copiarlas aca
-  // dejaria el mismo dato en dos lados, que es como empiezan las divergencias
-  // que despues nadie puede explicar.
+  const perfil = perfiles[0]
+  if (perfil) {
+    await libro.mutar('perfil', () => aPerfil(perfil))
+  }
 
   await libro.mutar('cuentas', () => cuentas)
   await libro.mutar('categorias', () => categorias)
@@ -306,6 +309,24 @@ async function verificar(
 
 // --- Mapeos sueltos -----------------------------------------------------------
 
+function aPerfil(p: Fila): PerfilGuardado {
+  return {
+    // Sin esto, migrar le prende al usuario todos los modulos que habia
+    // apagado. Es el tipo de perdida que no tira ningun error.
+    active_modules: normalizarModulos(p.active_modules),
+    user_id: p.user_id as string,
+    display_name: (p.display_name as string | null) ?? null,
+    selected_currencies: Array.isArray(p.selected_currencies)
+      ? (p.selected_currencies as string[])
+      : ['ARS'],
+    locale: (p.locale as string) ?? 'es-AR',
+    language: (p.language as string) ?? 'es-AR',
+    aurem_xp: num(p.aurem_xp),
+    aurem_tier: (p.aurem_tier as string) ?? 'BRONZE',
+    onboarding_completed: p.onboarding_completed === true,
+    updated_at: (p.updated_at as string | null) ?? null,
+  }
+}
 
 function aDeuda(d: Fila): DeudaGuardada {
   return {

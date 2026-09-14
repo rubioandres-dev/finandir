@@ -131,33 +131,6 @@ function backendDeEsteRequest(
 }
 
 /**
- * El libro de las PREFERENCIAS. Siempre relacional, en todos los modos.
- *
- * POR QUE EL PERFIL NO SE CIFRA
- *
- * Nombre visible, idioma, formato regional, divisas elegidas y modulos
- * apagados. Nada de eso es un dato financiero: son las preferencias con las que
- * se dibuja la app.
- *
- * Y son justo las que hacen falta ANTES de poder dibujar nada. El layout, el
- * header, la navegacion y el traductor las leen en el servidor; cifrarlas
- * obligaria a renderizar la cascara entera en el cliente —nav, i18n, modo de
- * moneda— para ganar que el servidor no sepa que alguien eligio mostrar euros.
- *
- * El limite es "el dato concreto de las finanzas", y esto no lo es. Que quede
- * escrito acá y no en la cabeza de nadie.
- *
- * Fuente UNICA: el almacen cifrado no guarda perfil. Tener el mismo dato en dos
- * lados es como empiezan las divergencias que despues nadie puede explicar.
- */
-export function libroDePreferencias(
-  supabase: SupabaseClient,
-  userId?: string
-): Libro {
-  return crearLibroRelacional(supabase, userId)
-}
-
-/**
  * El libro para el navegador, en modo Bóveda.
  *
  * ACÁ SÍ se pasa por `abrirLibro()`, y es donde importa: corre las migraciones

@@ -464,50 +464,6 @@ const ES_AR = {
   'smart.descartar': 'Descartar',
 
   // --- Escáner de comprobantes ----------------------------------------------
-  'guardado.titulo': 'Dónde se guardan tus datos',
-
-  'guardado.modoEstandar': 'Modo Estándar',
-  'guardado.modoEstandarDetalle':
-    'Tus datos se guardan en AUREM. Si algo falla, te podemos ayudar a recuperarlo.',
-  'guardado.modoBoveda': 'Modo Bóveda',
-  'guardado.modoBovedaDetalle':
-    'Tus datos se guardan cifrados con tu contraseña. Ni nosotros podemos leerlos.',
-
-  'guardado.pasarABoveda': 'Pasar a modo Bóveda',
-  'guardado.pasarAEstandar': 'Volver a modo Estándar',
-
-  'guardado.riesgoOlvido':
-    'Si olvidás tu contraseña, sólo tu código de recuperación puede abrir tus datos. Nosotros no podemos: no tenemos la clave.',
-  'guardado.riesgoCompartidos':
-    'Los gastos compartidos siguen funcionando, pero se guardan sin cifrar: la otra persona los tiene que poder leer.',
-  'guardado.riesgoDemora':
-    'La app va a tardar un segundo más en abrir en cada dispositivo nuevo: la clave se calcula ahí y nunca viaja.',
-  'guardado.riesgoVolver':
-    'Volver a Estándar pone tus finanzas de nuevo en tablas que nuestros servidores pueden leer. Tus datos no se pierden.',
-
-  'guardado.pedirContrasena': 'Confirmá con tu contraseña',
-  'guardado.cancelar': 'Cancelar',
-  'guardado.activar': 'Activar',
-  'guardado.volver': 'Volver a Estándar',
-
-  'guardado.trabajando': 'Moviendo tus datos…',
-  'guardado.trabajandoDemora': 'Puede tardar un rato si tenés varios años de historia.',
-
-  'guardado.listoTitulo': 'Listo: tus datos están cifrados',
-  'guardado.listoDetalle': 'Se copiaron y verificaron {movimientos} movimientos.',
-  'guardado.codigoTitulo': 'Tu código de recuperación',
-  'guardado.codigoAdvertencia':
-    'Anotalo en papel y guardalo en otro lado. Es lo único que abre tus datos si olvidás la contraseña, y no lo vas a volver a ver.',
-  'guardado.copiar': 'Copiar',
-  'guardado.copiado': 'Copiado',
-  'guardado.loAnote': 'Lo anoté en un lugar seguro',
-  'guardado.terminar': 'Terminar',
-
-  'guardado.volverAlInicio': 'Volver',
-  'guardado.sesionVencida': 'Tu sesión expiró. Volvé a iniciar sesión.',
-  'guardado.sinSobre': 'Esta cuenta no tiene el modo cifrado activado.',
-  'guardado.fallaGenerica': 'No se pudo completar el cambio.',
-
   'boveda.titulo': 'Tu bóveda está cerrada',
   'boveda.explicacion':
     'Tus datos están cifrados con tu contraseña. Ni AUREM puede abrirlos: hace falta que los abras vos, en este dispositivo.',
@@ -910,50 +866,6 @@ const ES_NEUTRO: Parcial = {
 }
 
 const EN: Parcial = {
-  'guardado.titulo': 'Where your data is stored',
-
-  'guardado.modoEstandar': 'Standard mode',
-  'guardado.modoEstandarDetalle':
-    'Your data is stored in AUREM. If something breaks, we can help you recover it.',
-  'guardado.modoBoveda': 'Vault mode',
-  'guardado.modoBovedaDetalle':
-    'Your data is encrypted with your password. Not even we can read it.',
-
-  'guardado.pasarABoveda': 'Switch to Vault mode',
-  'guardado.pasarAEstandar': 'Back to Standard mode',
-
-  'guardado.riesgoOlvido':
-    'If you forget your password, only your recovery code can open your data. We cannot: we do not have the key.',
-  'guardado.riesgoCompartidos':
-    'Shared expenses keep working, but they are stored unencrypted: the other person has to be able to read them.',
-  'guardado.riesgoDemora':
-    'The app will take a second longer to open on each new device: the key is computed there and never travels.',
-  'guardado.riesgoVolver':
-    'Going back to Standard puts your finances in tables our servers can read again. Your data is not lost.',
-
-  'guardado.pedirContrasena': 'Confirm with your password',
-  'guardado.cancelar': 'Cancel',
-  'guardado.activar': 'Activate',
-  'guardado.volver': 'Back to Standard',
-
-  'guardado.trabajando': 'Moving your data…',
-  'guardado.trabajandoDemora': 'It may take a while if you have several years of history.',
-
-  'guardado.listoTitulo': 'Done: your data is encrypted',
-  'guardado.listoDetalle': '{movimientos} transactions were copied and verified.',
-  'guardado.codigoTitulo': 'Your recovery code',
-  'guardado.codigoAdvertencia':
-    'Write it down on paper and keep it somewhere else. It is the only thing that opens your data if you forget your password, and you will not see it again.',
-  'guardado.copiar': 'Copy',
-  'guardado.copiado': 'Copied',
-  'guardado.loAnote': 'I wrote it down somewhere safe',
-  'guardado.terminar': 'Finish',
-
-  'guardado.volverAlInicio': 'Back',
-  'guardado.sesionVencida': 'Your session expired. Please sign in again.',
-  'guardado.sinSobre': 'This account does not have encrypted mode enabled.',
-  'guardado.fallaGenerica': 'The change could not be completed.',
-
   'boveda.titulo': 'Your vault is locked',
   'boveda.explicacion':
     'Your data is encrypted with your password. Not even AUREM can open it: you have to unlock it yourself, on this device.',

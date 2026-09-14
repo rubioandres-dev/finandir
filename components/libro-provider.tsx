@@ -127,17 +127,6 @@ export function ProveedorDeLibro({ children }: { children: React.ReactNode }) {
   )
 }
 
-/**
- * El estado, o `null` si no hay provider arriba.
- *
- * En modo Estandar el provider NO se monta —no hay libro que armar—, asi que
- * cualquier componente que viva en el layout y quiera saber si hay boveda
- * tiene que poder preguntarlo sin explotar.
- */
-export function useEstadoDelLibroOpcional(): Contexto | null {
-  return useContext(ContextoDelLibro)
-}
-
 /** Todo el estado, incluidos "cargando" y "bloqueado". */
 export function useEstadoDelLibro(): Contexto {
   const contexto = useContext(ContextoDelLibro)

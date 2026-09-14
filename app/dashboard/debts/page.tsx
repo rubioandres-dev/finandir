@@ -1,27 +1,18 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { DeudasEnCliente } from '@/components/vistas/deudas-en-cliente'
-import { VistaDeudas } from '@/components/vistas/vista-deudas'
+import { DebtManager } from '@/components/debt-manager'
+import { Card, CardLabel } from '@/components/ui/card'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import { libroDelServidor } from '@/lib/almacen/acceso'
+import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
+import { crearFormateadores } from '@/lib/formatters'
+import type { Moneda } from '@/lib/types'
 
 export const metadata: Metadata = { title: 'Deudas' }
 
-/**
- * LAS DOS RUTAS DE LA MISMA PANTALLA
- * =============================================================================
- *
- * En modo Estándar el servidor lee y manda la página ya dibujada, que es más
- * rápido y funciona sin JavaScript. En modo Bóveda no puede: la clave vive en
- * el dispositivo del usuario, así que se manda la cáscara y el navegador lee.
- *
- * `ModoCifradoEnServidor` NO es un error para mostrar. Es la respuesta correcta
- * a "¿podés leer esto?", y la página la usa para decidir por dónde ir.
- *
- * Es el patrón que van a seguir las otras pantallas con datos.
- */
 export default async function DebtsPage() {
   const supabase = await createClient()
   const {
@@ -29,23 +20,54 @@ export default async function DebtsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Las preferencias no se cifran, así que esto anda en los dos modos y el
-  // cargador del navegador no tiene que volver a leerlas.
-  const { monedas } = await cargarContextoDeMonedas()
+  const { modo, monedas, locale , idioma, oculto } = await cargarContextoDeMonedas()
+  const tr = crearTraductor(idioma)
+  const { formatearMonto } = crearFormateadores(locale, oculto)
+  const { deudas, patrimonio, error } = await cargarCuentasYDeudas(await libroDelServidor(supabase), monedas)
 
-  // El try envuelve SOLO la lectura y no el JSX: construir elementos adentro de
-  // un try se traga los errores de render de los hijos, que es como se pierde
-  // un bug de la vista haciendolo pasar por "modo cifrado".
-  let datos: Awaited<ReturnType<typeof cargarCuentasYDeudas>> | null = null
+  // Solo el libro activo, igual que en cuentas y movimientos.
+  const deudasVisibles = deudas.filter((d) => esDeLaMoneda(d, modo))
+  const soloModo = (totales: { moneda: Moneda; valor: number }[]) =>
+    totales.filter((total) => total.moneda === modo)
 
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    datos = await cargarCuentasYDeudas(libro, monedas)
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">{tr('deudas.titulo')}</h1>
 
-  if (!datos) return <DeudasEnCliente monedas={monedas} />
+      {error && (
+        <p
+          role="alert"
+          className="rounded-2xl border border-expense/30 bg-expense/10 px-4 py-3 text-sm text-expense"
+        >
+          {error}
+        </p>
+      )}
 
-  return <VistaDeudas deudas={datos.deudas} patrimonio={datos.patrimonio} error={datos.error} />
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="p-4">
+          <CardLabel>{tr('deudas.meDeben')}</CardLabel>
+          <div className="mt-2 flex flex-col gap-0.5">
+            {soloModo(patrimonio.porCobrar).map((t) => (
+              <span key={t.moneda} className="text-base font-semibold tabular-nums text-income">
+                {formatearMonto(t.valor, t.moneda)}
+              </span>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <CardLabel>{tr('deudas.debo')}</CardLabel>
+          <div className="mt-2 flex flex-col gap-0.5">
+            {soloModo(patrimonio.deudaPersonal).map((t) => (
+              <span key={t.moneda} className="text-base font-semibold tabular-nums text-expense">
+                {formatearMonto(t.valor, t.moneda)}
+              </span>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <DebtManager deudas={deudasVisibles} />
+    </div>
+  )
 }

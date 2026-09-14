@@ -40,7 +40,7 @@ export type Aviso = {
 /** A partir de este ahorro mensual el nivel es Gold. */
 const AHORRO_GOLD = 0.3
 
-export function nivelPara(tasa: number | null): NivelAurem {
+function nivelPara(tasa: number | null): NivelAurem {
   if (tasa === null) {
     return { nombre: 'Aurem', progreso: 0, tasaDeAhorro: null, esGold: false }
   }

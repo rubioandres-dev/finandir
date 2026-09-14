@@ -1,12 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  CalendarioEnCliente,
-  VistaCalendario,
-  type DatosDelCalendario,
-} from '@/components/vistas/vista-calendario'
+import { CalendarDays } from 'lucide-react'
+import { FinancialCalendar } from '@/components/financial-calendar'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarEventosDelMes } from '@/lib/calendar-service'
 import { createClient } from '@/lib/supabase/server'
 import { hoyEnArgentina } from '@/lib/types'
@@ -37,18 +34,37 @@ export default async function CalendarPage({
   const hoy = hoyEnArgentina()
   const [anio, mes] = mesPedido((await searchParams).m, hoy)
 
-  let datos: DatosDelCalendario | null = null
+  const { tarjetas } = await cargarCuentasYDeudas(await libroDelServidor(supabase))
+  const { eventos, error } = await cargarEventosDelMes(await libroDelServidor(supabase), tarjetas, anio, mes)
 
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    const { tarjetas } = await cargarCuentasYDeudas(libro)
-    const { eventos, error } = await cargarEventosDelMes(libro, tarjetas, anio, mes)
-    datos = { eventos, sinTarjetas: tarjetas.length === 0, error }
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-on-background">
+          <CalendarDays className="size-5 text-gold-leaf" aria-hidden />
+          Calendario financiero
+        </h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Cuándo cierra cada tarjeta, cuándo vence cada resumen y cuándo entra la plata.
+        </p>
+      </div>
 
-  if (!datos) return <CalendarioEnCliente anio={anio} mes={mes} hoy={hoy} />
+      {error && (
+        <p
+          role="alert"
+          className="rounded-2xl border border-error-rose/30 bg-error-rose/10 px-4 py-3 text-sm text-error-rose"
+        >
+          Hubo un problema al cargar los movimientos del mes: {error}
+        </p>
+      )}
 
-  return <VistaCalendario anio={anio} mes={mes} hoy={hoy} datos={datos} />
+      {tarjetas.length === 0 && (
+        <p className="rounded-2xl border border-budget-warn/30 bg-budget-warn/10 px-4 py-3 text-sm text-budget-warn">
+          Cargá los días de cierre y vencimiento de tus tarjetas en Cuentas para verlos acá.
+        </p>
+      )}
+
+      <FinancialCalendar anio={anio} mes={mes} hoy={hoy} eventos={eventos} />
+    </div>
+  )
 }

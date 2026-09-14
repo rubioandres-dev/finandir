@@ -1,14 +1,13 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDeLaCalculadora,
-  CalculadoraEnCliente,
-  VistaCalculadora,
-  type DatosDeLaCalculadora,
-} from '@/components/vistas/vista-calculadora'
+import { ArrowLeft } from 'lucide-react'
+import { NightOutCalculator } from '@/components/night-out-calculator'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import { libroDelServidor } from '@/lib/almacen/acceso'
+import { esDeLaMoneda } from '@/lib/currency-mode'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
+import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Calculadora de salidas' }
@@ -20,25 +19,49 @@ export default async function CalculatorPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { modo, monedas } = await cargarContextoDeMonedas()
+  const { modo, monedas, idioma } = await cargarContextoDeMonedas()
+  const t = crearTraductor(idioma)
 
   // La imputación del gasto necesita una categoría y una cuenta REALES: sin
   // esto la calculadora sólo podría mandar todo a la categoría por defecto y a
   // la cuenta de la moneda, que es justo lo que el usuario viene a elegir.
-  let datos: DatosDeLaCalculadora | null = null
+  const [resCategorias, { cuentas }] = await Promise.all([
+    (await libroDelServidor(supabase)).leer('categorias'),
+    cargarCuentasYDeudas(await libroDelServidor(supabase), monedas),
+  ])
 
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    const [categorias, { cuentas }] = await Promise.all([
-      libro.leer('categorias'),
-      cargarCuentasYDeudas(libro, monedas),
-    ])
-    datos = armarDatosDeLaCalculadora(categorias, cuentas, modo)
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  // Solo las de la moneda activa: `guardarTransaccion` rechaza una cuenta cuya
+  // divisa no coincide con la del movimiento, así que ofrecer las demás sería
+  // ofrecer un error.
+  const cuentasDeLaMoneda = cuentas
+    .filter((c) => esDeLaMoneda(c, modo))
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))
 
-  if (!datos) return <CalculadoraEnCliente monedas={monedas} />
+  // La calculadora solo ofrece categorias de gasto: el recorte que antes hacia
+  // el `.eq('type','EXPENSE')` de la query ahora es un filtro.
+  const categorias = resCategorias
+    .filter((c) => c.type === 'EXPENSE')
+    .map((c) => ({ nombre: c.name }))
 
-  return <VistaCalculadora datos={datos} />
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Link
+          href="/dashboard/shared-expenses"
+          aria-label="Volver"
+          className="grid size-8 shrink-0 place-items-center rounded-lg border border-glass-stroke/50 text-on-surface-variant transition hover:border-gold-leaf/60 hover:text-gold-leaf"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+        </Link>
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate font-display text-lg font-bold tracking-tight text-on-background">
+            {t('calculadora.titulo')}
+          </h1>
+          <p className="text-[11px] leading-snug text-subtle">{t('calculadora.bajada')}</p>
+        </div>
+      </div>
+
+      <NightOutCalculator categorias={categorias} cuentas={cuentasDeLaMoneda} />
+    </div>
+  )
 }

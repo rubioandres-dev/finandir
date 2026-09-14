@@ -3,16 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Coins,
-  Globe,
-  Loader2,
-  Lock,
-  ShieldCheck,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowLeft, ArrowRight, Coins, Globe, Loader2, Sparkles } from 'lucide-react'
 import { completarOnboarding } from '@/app/dashboard/settings/actions'
 import { CurrencyPicker } from '@/components/currency-picker'
 import { RegionPicker } from '@/components/region-picker'
@@ -25,15 +16,7 @@ const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-4 py-3 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
 
 /**
- * Onboarding de cuatro pasos: nombre, divisas, región y dónde se guardan los
- * datos.
- *
- * EL CUARTO PASO NO ACTIVA NADA
- *
- * Explica los dos modos y, si el usuario quiere el cifrado, lo manda a Ajustes
- * en vez de pedirle una contraseña acá. Duplicar el flujo de activación en el
- * onboarding seria tener dos caminos que hacen lo mismo con los datos mas
- * delicados de la app: el dia que uno se arregle, el otro queda viejo.
+ * Onboarding de tres pasos: nombre, divisas y región.
  *
  * NO SE PUEDE CERRAR SIN COMPLETARLO, y es a propósito: sin divisas elegidas
  * la app no sabe qué filtrar, y el default silencioso (ARS + USD) es
@@ -59,7 +42,7 @@ export function OnboardingModal({
   localeInicial?: Locale
 }) {
   const router = useRouter()
-  const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1)
+  const [paso, setPaso] = useState<1 | 2 | 3>(1)
   const [nombre, setNombre] = useState(nombreInicial ?? '')
   const [monedas, setMonedas] = useState<Moneda[]>([...monedasIniciales])
   const [locale, setLocale] = useState<Locale>(localeInicial)
@@ -72,21 +55,13 @@ export function OnboardingModal({
 
   const nombreValido = nombre.trim().length > 0
 
-  function guardar(irACifrar = false) {
+  function guardar() {
     setError(null)
     iniciar(async () => {
       const resultado = await completarOnboarding({ nombre: nombre.trim(), monedas, locale })
 
       if (resultado.error) {
         setError(resultado.error)
-        return
-      }
-
-      // El perfil se guarda IGUAL antes de irse a Ajustes: si el usuario
-      // abandona la activacion a mitad de camino, no vuelve a encontrarse el
-      // onboarding desde cero.
-      if (irACifrar) {
-        router.push('/dashboard/settings#guardado')
         return
       }
 
@@ -117,17 +92,11 @@ export function OnboardingModal({
             id="onboarding-titulo"
             className="font-display text-xl font-bold tracking-tight text-on-background"
           >
-            {paso === 1
-              ? 'Bienvenido a Aurem'
-              : paso === 2
-                ? 'Tus divisas'
-                : paso === 3
-                  ? 'Tu región'
-                  : 'Dónde se guardan tus datos'}
+            {paso === 1 ? 'Bienvenido a Aurem' : paso === 2 ? 'Tus divisas' : 'Tu región'}
           </h2>
 
           <div className="flex items-center gap-1.5" aria-hidden>
-            {[1, 2, 3, 4].map((n) => (
+            {[1, 2, 3].map((n) => (
               <span
                 key={n}
                 className={`h-1 flex-1 rounded-full transition-colors ${
@@ -136,7 +105,7 @@ export function OnboardingModal({
               />
             ))}
           </div>
-          <p className="aurem-caps text-[9px] text-on-surface-variant/70">Paso {paso} de 4</p>
+          <p className="aurem-caps text-[9px] text-on-surface-variant/70">Paso {paso} de 3</p>
         </div>
 
         {/* --- Paso 1: nombre ---------------------------------------------- */}
@@ -184,7 +153,7 @@ export function OnboardingModal({
               deshabilitado={guardando}
             />
           </div>
-        ) : paso === 3 ? (
+        ) : (
           /* --- Paso 3: región -------------------------------------------- */
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -202,39 +171,6 @@ export function OnboardingModal({
               deshabilitado={guardando}
             />
           </div>
-        ) : (
-          /* --- Paso 4: dónde se guardan los datos ------------------------- */
-          <div className="flex flex-col gap-3">
-            <p className="text-[11px] leading-snug text-subtle">
-              Podés cambiarlo cuando quieras desde Ajustes. Estos son los dos modos:
-            </p>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2 rounded-lg border border-glass-stroke/50 p-3">
-                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-gold-leaf" aria-hidden />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">Estándar</span>
-                  <span className="text-[11px] leading-snug text-subtle">
-                    Tus datos se guardan en Aurem. Si algo falla, te podemos ayudar a
-                    recuperarlo. Es con lo que arrancás.
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 rounded-lg border border-gold-leaf/40 bg-gold-leaf/5 p-3">
-                <Lock className="mt-0.5 size-4 shrink-0 text-gold-leaf" aria-hidden />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">Bóveda</span>
-                  <span className="text-[11px] leading-snug text-subtle">
-                    Se guardan cifrados con tu contraseña. Ni nosotros podemos leerlos — y eso
-                    también significa que si la olvidás, sólo tu código de recuperación abre tus
-                    datos. Los gastos compartidos siguen sin cifrar, porque la otra persona los
-                    tiene que poder leer.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         )}
 
         {error && (
@@ -251,9 +187,7 @@ export function OnboardingModal({
           {paso > 1 && (
             <button
               type="button"
-              onClick={() =>
-                setPaso((previo) => (previo === 4 ? 3 : previo === 3 ? 2 : 1))
-              }
+              onClick={() => setPaso((previo) => (previo === 3 ? 2 : 1))}
               disabled={guardando}
               className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-glass-stroke/50 px-3 py-2.5 text-sm font-medium text-on-surface-variant transition active:scale-95 hover:border-gold-leaf/60 hover:text-gold-leaf disabled:opacity-60"
             >
@@ -264,14 +198,12 @@ export function OnboardingModal({
 
           <button
             type="button"
-            onClick={() =>
-              paso === 4 ? guardar() : setPaso(paso === 1 ? 2 : paso === 2 ? 3 : 4)
-            }
+            onClick={() => (paso === 3 ? guardar() : setPaso(paso === 1 ? 2 : 3))}
             disabled={guardando || (paso === 1 && !nombreValido)}
             className="fire-gradient glow-gold flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-midnight-navy transition active:scale-95 disabled:opacity-60"
           >
             {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            {paso < 4 ? (
+            {paso < 3 ? (
               <>
                 Seguir
                 <ArrowRight className="size-4" aria-hidden />
@@ -279,22 +211,10 @@ export function OnboardingModal({
             ) : guardando ? (
               'Guardando…'
             ) : (
-              'Empezar en Estándar'
+              'Guardar y comenzar'
             )}
           </button>
         </div>
-
-        {paso === 4 && (
-          <button
-            type="button"
-            onClick={() => guardar(true)}
-            disabled={guardando}
-            className="flex cursor-pointer items-center justify-center gap-1.5 text-[11px] text-gold-leaf underline underline-offset-2 transition disabled:opacity-60"
-          >
-            <Lock className="size-3" aria-hidden />
-            Quiero activar la Bóveda ahora
-          </button>
-        )}
       </div>
     </div>,
     document.body

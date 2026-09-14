@@ -6,14 +6,9 @@ import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { UrlActionHandler } from '@/components/url-action-handler'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import {
-  backendDelUsuario,
-  libroDelServidor,
-  ModoCifradoEnServidor,
-} from '@/lib/almacen/acceso'
-import { ProveedorDeLibro } from '@/components/libro-provider'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
-import { cargarDatosDeCabecera, nivelPara } from '@/lib/header-data'
+import { cargarDatosDeCabecera } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
 import { hoyEnArgentina } from '@/lib/types'
@@ -30,61 +25,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // el HTML ya viene filtrado y el cliente arranca con el mismo valor: sin
   // parpadeo ni mismatch. `cargarContextoDeMonedas` está memoizado por
   // request, así que las páginas de abajo lo vuelven a pedir sin costo.
-  // Las preferencias no se cifran, asi que el contexto anda en los dos modos.
-  const [cotizacion, contexto] = await Promise.all([
+  const [cotizacion, { tarjetas, cuentas }, contexto, resCategorias] = await Promise.all([
     obtenerCotizacionDelDia(supabase),
+    cargarCuentasYDeudas(await libroDelServidor(supabase)),
     cargarContextoDeMonedas(),
-  ])
-
-  /**
-   * EL LAYOUT NO PUEDE CAERSE, NUNCA.
-   *
-   * Envuelve a TODO el dashboard, Ajustes incluido — que es donde vive el
-   * interruptor para volver a modo Estandar. Si se cayera porque el servidor no
-   * puede leer los datos, un usuario en Boveda no tendria por donde salir y el
-   * modo seria exactamente la trampa que dijimos que no iba a ser.
-   *
-   * Asi que degrada: sin tarjetas el header no muestra avisos de vencimiento y
-   * el FAB ofrece menos categorias, pero la navegacion, el idioma y Ajustes
-   * siguen en pie.
-   */
-  let tarjetas: Awaited<ReturnType<typeof cargarCuentasYDeudas>>['tarjetas'] = []
-  let cuentas: Awaited<ReturnType<typeof cargarCuentasYDeudas>>['cuentas'] = []
-  let categoriasDelFab: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[] = []
-  const backend = await backendDelUsuario(supabase, user.id)
-  let cabecera: Awaited<ReturnType<typeof cargarDatosDeCabecera>> = {
-    // `null` y no `0`: no sabemos la tasa de ahorro, que no es lo mismo que
-    // decir que es cero.
-    nivel: nivelPara(null),
-    avisos: [],
-  }
-
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    const deCuentas = await cargarCuentasYDeudas(libro)
-    tarjetas = deCuentas.tarjetas
-    cuentas = deCuentas.cuentas
-
     // Nombre y tipo: es lo que necesitan los dos modales del FAB. El escáner
     // usa los nombres para que la IA elija de las categorías reales del
     // usuario, y la carga rápida necesita el tipo para filtrar el select
     // según sea gasto o ingreso.
-    categoriasDelFab = (await libro.leer('categorias')).map((c) => ({
-      nombre: c.name,
-      tipo: c.type,
-    }))
+    (await libroDelServidor(supabase)).leer('categorias'),
+  ])
 
-    // ADENTRO del try a propósito. Pasarle el libro relacional cuando el
-    // cifrado no se puede leer resolvería el nivel y los avisos leyendo las
-    // tablas viejas, que para un usuario en Bóveda TODAVÍA tienen sus datos
-    // —no se borran hasta la limpieza final—. Sería exactamente la fuga que el
-    // modo existe para evitar, y de las que no se notan mirando la pantalla.
-    cabecera = await cargarDatosDeCabecera(libro, tarjetas, hoyEnArgentina())
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  const categoriasDelFab = resCategorias.map((c) => ({
+    nombre: c.name as string,
+    tipo: c.type as 'INCOME' | 'EXPENSE',
+  }))
 
-  const { nivel, avisos } = cabecera
+  const { nivel, avisos } = await cargarDatosDeCabecera(await libroDelServidor(supabase), tarjetas, hoyEnArgentina())
 
   const nombreDeMetadata =
     typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name
@@ -96,20 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const mostrarOnboarding =
     !contexto.faltaMigracion && contexto.perfil?.onboarding_completed !== true
 
-  /**
-   * UN SOLO PROVEEDOR PARA TODA LA APP.
-   *
-   * Antes lo montaba cada pantalla, y eso significaba un libro por pantalla:
-   * cada navegacion tiraba el cache y volvia a bajar los mismos bloques. Aca
-   * arriba el libro sobrevive a moverse entre secciones.
-   *
-   * En modo Estandar no se monta: no hay clave que recuperar ni sobre que
-   * leer, y montarlo seria pagar dos consultas por nada.
-   */
-  const conLibro = (hijos: React.ReactNode) =>
-    backend === 'SUPABASE' ? hijos : <ProveedorDeLibro>{hijos}</ProveedorDeLibro>
-
-  return conLibro(
+  return (
     <CurrencyProvider
       modoInicial={contexto.modo}
       monedas={contexto.monedas}

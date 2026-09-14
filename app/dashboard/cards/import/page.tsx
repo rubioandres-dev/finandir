@@ -1,14 +1,10 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  ImportarEnCliente,
-  tarjetasDe,
-  VistaImportar,
-} from '@/components/vistas/vista-importar'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import { FileScan } from 'lucide-react'
+import { StatementImporter } from '@/components/statement-importer'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
 import { createClient } from '@/lib/supabase/server'
-import type { CuentaElegible } from '@/lib/types'
+import { libroDelServidor } from '@/lib/almacen/acceso'
 
 export const metadata: Metadata = { title: 'Importar resumen' }
 
@@ -19,16 +15,31 @@ export default async function ImportStatementPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  let tarjetas: CuentaElegible[] | null = null
+  const { cuentas } = await obtenerCuentasPorMoneda(await libroDelServidor(supabase))
+  const tarjetas = Object.values(cuentas)
+    .filter((c) => c.type === 'CREDIT_CARD')
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, currency: c.currency }))
 
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    tarjetas = tarjetasDe((await obtenerCuentasPorMoneda(libro)).cuentas)
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-on-background">
+          <FileScan className="size-5 text-gold-leaf" aria-hidden />
+          Importar resumen
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Subí el PDF de tu tarjeta y la IA extrae los consumos. Los que ya tenés cargados se
+          detectan solos y no se duplican.
+        </p>
+      </div>
 
-  if (!tarjetas) return <ImportarEnCliente />
+      {tarjetas.length === 0 && (
+        <p className="rounded-2xl border border-budget-warn/30 bg-budget-warn/10 px-4 py-3 text-sm text-budget-warn">
+          Primero cargá una tarjeta de crédito en Cuentas para poder importar su resumen.
+        </p>
+      )}
 
-  return <VistaImportar tarjetas={tarjetas} />
+      <StatementImporter tarjetas={tarjetas} />
+    </div>
+  )
 }

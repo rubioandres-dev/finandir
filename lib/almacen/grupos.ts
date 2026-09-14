@@ -38,7 +38,7 @@
  */
 
 import { aBase64, desdeBase64 } from './base64'
-import type { Claves, SobreDeClaves } from './cripto'
+import type { Claves } from './cripto'
 
 const LARGO_IV = 12
 const VERSION_DE_FORMATO = 1
@@ -256,38 +256,4 @@ export async function rotarClaveDeGrupo(
   )
 
   return { generacion, gek, sobres }
-}
-
-// --- El par, dentro del sobre -------------------------------------------------
-
-/**
- * Devuelve el sobre con su par de claves, creandolo si no lo tenia.
- *
- * Los sobres anteriores a los grupos no lo traen. En vez de una migracion que
- * el usuario no pidio —y que le pediria la contrasenia sin motivo aparente—, el
- * par nace la primera vez que hace falta de verdad: al entrar a un grupo.
- *
- * Devuelve tambien si HUBO que crearlo, porque en ese caso quien llame tiene
- * que guardar el sobre nuevo. Devolverlo sin avisar dejaria un par que se
- * regenera en cada sesion y sobres de grupo que dejan de abrir.
- */
-export async function asegurarParDeClaves(
-  sobre: SobreDeClaves,
-  claves: Claves
-): Promise<{ sobre: SobreDeClaves; claves: Claves; creado: boolean }> {
-  if (sobre.par) {
-    return {
-      sobre,
-      claves: { ...claves, privada: await abrirParDeClaves(sobre.par.privadaEnvuelta, claves) },
-      creado: false,
-    }
-  }
-
-  const par = await crearParDeClaves(claves)
-
-  return {
-    sobre: { ...sobre, par },
-    claves: { ...claves, privada: await abrirParDeClaves(par.privadaEnvuelta, claves) },
-    creado: true,
-  }
 }

@@ -10,7 +10,6 @@ import { crearSobre } from './cripto'
 import {
   abrirClaveDeGrupo,
   abrirParDeClaves,
-  asegurarParDeClaves,
   cifrarDelGrupo,
   crearClaveDeGrupo,
   crearParDeClaves,
@@ -146,57 +145,5 @@ describe('expulsar a alguien', () => {
 
     const suGek = await abrirClaveDeGrupo(carlaG1, carla.privada)
     expect(await descifrarDelGrupo(suGek, gastoViejo)).toEqual({ monto: 300 })
-  })
-})
-
-// --- El par dentro del sobre --------------------------------------------------
-
-describe('el par de claves dentro del sobre', () => {
-  it('lo crea cuando el sobre no lo tenia', async () => {
-    const { sobre, claves } = await crearSobre('x', RAPIDO)
-    expect(sobre.par).toBeUndefined()
-
-    const r = await asegurarParDeClaves(sobre, claves)
-
-    expect(r.creado).toBe(true)
-    expect(r.sobre.par?.publica.kty).toBe('RSA')
-    expect(r.claves.privada).toBeDefined()
-  })
-
-  it('lo reusa cuando ya estaba, sin crear otro', async () => {
-    const { sobre, claves } = await crearSobre('x', RAPIDO)
-    const primera = await asegurarParDeClaves(sobre, claves)
-    const segunda = await asegurarParDeClaves(primera.sobre, claves)
-
-    expect(segunda.creado).toBe(false)
-    // Misma publica: si cambiara, los sobres de grupo ya repartidos dejarian de
-    // abrir y el usuario perderia el acceso a sus grupos sin ningun aviso.
-    expect(segunda.sobre.par?.publica).toEqual(primera.sobre.par?.publica)
-  })
-
-  it('la privada del sobre abre lo que se envolvio con su publica', async () => {
-    const { sobre, claves } = await crearSobre('x', RAPIDO)
-    const { sobre: conPar, claves: abiertas } = await asegurarParDeClaves(sobre, claves)
-
-    const gek = await crearClaveDeGrupo()
-    const sobreDeGrupo = await envolverParaMiembro(
-      gek,
-      await importarPublica(conPar.par!.publica),
-      1
-    )
-
-    const suGek = await abrirClaveDeGrupo(sobreDeGrupo, abiertas.privada!)
-    const gasto = await cifrarDelGrupo(gek, { monto: 42 })
-    expect(await descifrarDelGrupo(suGek, gasto)).toEqual({ monto: 42 })
-  })
-
-  it('la privada NO se abre con la DEK de otro usuario', async () => {
-    const { sobre, claves } = await crearSobre('mia', RAPIDO)
-    const { sobre: conPar } = await asegurarParDeClaves(sobre, claves)
-    const { claves: ajenas } = await crearSobre('ajena', RAPIDO)
-
-    await expect(
-      abrirParDeClaves(conPar.par!.privadaEnvuelta, ajenas)
-    ).rejects.toThrow()
   })
 })
