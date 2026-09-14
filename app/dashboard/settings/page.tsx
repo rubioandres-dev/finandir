@@ -5,6 +5,7 @@ import { CurrencySettings } from '@/components/currency-settings'
 import { LanguageSettings } from '@/components/language-settings'
 import { ModuleSettings } from '@/components/module-settings'
 import { PrivacySettings } from '@/components/privacy-settings'
+import { StorageSettings } from '@/components/storage-settings'
 import { ProfileForm } from '@/components/profile-form'
 import { RegionSettings } from '@/components/region-settings'
 import { SettingsDraftProvider } from '@/components/settings-draft'
@@ -14,7 +15,11 @@ import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { crearTraductor } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
-import { libroDelServidor } from '@/lib/almacen/acceso'
+import {
+  backendDelUsuario,
+  libroDelServidor,
+  ModoCifradoEnServidor,
+} from '@/lib/almacen/acceso'
 
 export const metadata: Metadata = { title: 'Ajustes' }
 
@@ -37,8 +42,31 @@ export default async function SettingsPage() {
   } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
 
-  const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } =
-    await cargarDatosDelDashboard(await libroDelServidor(supabase), supabase, undefined, monedas)
+  const backend = await backendDelUsuario(supabase, user.id)
+
+  /**
+   * Ajustes TIENE que abrir aunque el servidor no pueda leer los datos.
+   *
+   * Es la pantalla donde vive el interruptor para volver a modo Estandar: si se
+   * cayera con el resto, un usuario en Boveda no tendria por donde salir. Los
+   * presupuestos se ocultan, todo lo demas sigue.
+   */
+  let datos: Awaited<ReturnType<typeof cargarDatosDelDashboard>> | null = null
+
+  try {
+    const libro = await libroDelServidor(supabase, user.id)
+    datos = await cargarDatosDelDashboard(libro, supabase, undefined, monedas)
+  } catch (error) {
+    if (!(error instanceof ModoCifradoEnServidor)) throw error
+  }
+
+  const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } = datos ?? {
+    categorias: [],
+    delMes: [],
+    presupuestos: [],
+    cotizacion: null,
+    faltaMigracion: false,
+  }
   const { desde } = rangoDelMesActual()
 
   const gastado = new Map<string, number>()
@@ -98,6 +126,10 @@ export default async function SettingsPage() {
       {/* Fuera del borrador a propósito: vive en una cookie de este
           dispositivo, no en el perfil, y guarda al toque. */}
       <PrivacySettings />
+
+      {/* Corre entero en el navegador: la contraseña deriva la clave, y esa
+          clave es de lo que el modo protege al servidor. */}
+      <StorageSettings backend={backend} />
 
       <Card>
         <CardContent className="flex flex-col gap-3">
