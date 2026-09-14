@@ -248,6 +248,48 @@ describe('expulsar de un grupo cifrado', () => {
   })
 })
 
+describe('cuando el borrado no surte efecto', () => {
+  /**
+   * El caso que encontró el test contra la base real: la policy de la 015 no
+   * dejaba a un admin sacar a alguien con cuenta, y PostgREST devuelve éxito al
+   * borrar cero filas.
+   *
+   * Si eso pasa en silencio, la expulsión se DESHACE SOLA: queda un miembro sin
+   * llave de la generación vigente, y el reparto automático se la da la próxima
+   * vez que un admin abre el grupo.
+   */
+  it('falla fuerte en vez de rotar y dejar al expulsado adentro', async () => {
+    const { fake, ana, beto } = await grupoConDos()
+
+    // Una base que acepta el DELETE y no borra nada, como la RLS vieja.
+    const real = fake.cliente.from.bind(fake.cliente)
+    ;(fake.cliente as unknown as { from: (n: string) => unknown }).from = (nombre: string) => {
+      const tabla = real(nombre)
+      if (nombre !== 'shared_space_members') return tabla
+      return { ...tabla, delete: () => ({ eq: async () => ({ error: null }) }) }
+    }
+
+    const llaves = await clavesDelEspacio(fake.cliente, 'e1', 'm1', ana.privada)
+
+    await expect(
+      expulsarDelGrupo(fake.cliente, {
+        spaceId: 'e1',
+        memberIdExpulsado: 'm2',
+        generacionActual: 1,
+        llaves,
+        quedan: [{ memberId: 'm1', publica: ana.publica }],
+      })
+    ).rejects.toThrow(/administrador|024/)
+
+    // Y sobre todo: NO rotó. Beto sigue leyendo, que es la verdad — echarlo no
+    // funcionó. Lo grave habría sido decir que sí.
+    const deBeto = await clavesDelEspacio(fake.cliente, 'e1', 'm2', beto.privada)
+    const { crudo } = await cargarEspacioCrudo(fake.cliente, 'e1')
+    expect((await abrirEspacio(crudo, deBeto)).gastos).toHaveLength(1)
+    expect(fake.tablas.shared_spaces[0].generacion).toBe(1)
+  })
+})
+
 describe('el legado en claro', () => {
   it('al expulsar, un gasto que estaba legible queda cifrado y sin copia', async () => {
     const { fake, ana, beto } = await grupoConDos()

@@ -249,9 +249,27 @@ export type ResultadoDeExpulsion = {
 /**
  * Saca a alguien del grupo y rota la clave.
  *
- * EL ORDEN IMPORTA: primero se reparte la generación nueva a los que quedan,
- * después se borra al que se va. Al revés, un corte en el medio dejaría al
- * grupo sin nadie con llave vigente.
+ * EL ORDEN: PRIMERO SE VA, DESPUÉS SE ROTA
+ *
+ * Acá decía lo contrario, con el argumento de que un corte en el medio dejaría
+ * al grupo sin nadie con llave vigente. Era falso: los que quedan conservan la
+ * llave de la generación actual, y los gastos siguen escritos con esa misma
+ * generación hasta que alguien los re-cifre. Rotar primero no protege a nadie.
+ *
+ * Y costaba caro. Si el borrado no surtía efecto —la policy de la 015 no dejaba
+ * a un admin sacar a alguien con cuenta, y PostgREST devuelve éxito al borrar
+ * cero filas— quedaba un "miembro sin llave de la generación vigente", que es
+ * exactamente el estado que el reparto automático corrige dándole la llave
+ * nueva. La expulsión se deshacía sola y sin un error a la vista.
+ *
+ * Al revés, un corte después del borrado deja al expulsado afuera y al grupo
+ * andando con la llave vieja: se reintenta y listo.
+ *
+ * SE VERIFICA QUE HAYA SALIDO
+ *
+ * No alcanza con que el DELETE no tire error: hay que mirar que la fila no
+ * esté. Un borrado que la RLS descarta en silencio es la forma más cara de
+ * fallar que tiene esta función.
  *
  * LO QUE ESTO **NO** HACE: re-cifrar los gastos que ya existen. Quien llame
  * tiene que hacerlo con la GEK que devuelve, o el expulsado sigue pudiendo leer
@@ -265,6 +283,28 @@ export async function expulsarYRotar(
   quedan: MiembroConClave[],
   memberIdExpulsado: string
 ): Promise<ResultadoDeExpulsion> {
+  // Borrar al miembro se lleva sus sobres por la FK en cascada.
+  const { error: errorMiembro } = await supabase
+    .from('shared_space_members')
+    .delete()
+    .eq('id', memberIdExpulsado)
+  if (errorMiembro) fallar(errorMiembro)
+
+  const { data: sigue, error: errorLectura } = await supabase
+    .from('shared_space_members')
+    .select('id')
+    .eq('id', memberIdExpulsado)
+    .maybeSingle<{ id: string }>()
+  if (errorLectura) fallar(errorLectura)
+
+  if (sigue) {
+    throw new ErrorDelAlmacen(
+      'No se pudo sacar del grupo: hace falta ser administrador. ' +
+        'Si sos admin y sigue pasando, corré migrations/024_expulsar_de_verdad.sql.',
+      'NO_SE_PUDO_EXPULSAR'
+    )
+  }
+
   const rotacion = await rotarClaveDeGrupo(generacionActual, quedan)
 
   const { error: errorClaves } = await supabase.from('shared_space_claves').insert(
@@ -282,13 +322,6 @@ export async function expulsarYRotar(
     .update({ generacion: rotacion.generacion })
     .eq('id', spaceId)
   if (errorEspacio) fallar(errorEspacio)
-
-  // Último: borrar al miembro se lleva sus sobres por la FK en cascada.
-  const { error: errorMiembro } = await supabase
-    .from('shared_space_members')
-    .delete()
-    .eq('id', memberIdExpulsado)
-  if (errorMiembro) fallar(errorMiembro)
 
   return { generacion: rotacion.generacion, gek: rotacion.gek }
 }
