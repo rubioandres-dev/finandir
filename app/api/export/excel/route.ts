@@ -1,6 +1,6 @@
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { movimientosDesde } from '@/lib/almacen/consultas'
-import { libroDelServidor } from '@/lib/almacen/acceso'
+import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { resumirBalance } from '@/lib/balance-overview'
 import { cargarCompromisos } from '@/lib/commitments-service'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
@@ -73,6 +73,20 @@ export async function GET() {
       (await libroDelServidor(supabase)).leer('categorias'),
     ])
   } catch (error) {
+    // El export se arma en el SERVIDOR, que en modo Boveda no puede descifrar
+    // nada. Se dice con todas las letras en vez de devolver una planilla vacia,
+    // que es lo que el usuario guardaria creyendo que tiene su historial.
+    if (error instanceof ModoCifradoEnServidor) {
+      return Response.json(
+        {
+          error:
+            'El export a Excel todavia no funciona en modo Boveda: se arma en el ' +
+            'servidor y tus datos estan cifrados. Es lo proximo que falta portar.',
+        },
+        { status: 501 }
+      )
+    }
+
     console.error('[export/excel]', error)
     return Response.json({ error: 'No se pudieron leer los movimientos.' }, { status: 500 })
   }
