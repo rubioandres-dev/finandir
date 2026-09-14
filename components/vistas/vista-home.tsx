@@ -12,7 +12,6 @@ import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { MonthlyFlowChart } from '@/components/monthly-flow-chart'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import {
   useModoMoneda,
   useModuloActivo,
@@ -310,13 +309,11 @@ export function HomeEnCliente({ monedas }: { monedas: Moneda[] }) {
   const hoy = hoyEnArgentina()
 
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => armarDatosDelHome(libro, createClient(), modo, monedas, hoy)}
-          ver={(datos) => <VistaHome datos={datos} monedas={monedas} hoy={hoy} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => armarDatosDelHome(libro, createClient(), modo, monedas, hoy)}
+        ver={(datos) => <VistaHome datos={datos} monedas={monedas} hoy={hoy} />}
+      />
+    </GuardianDeBoveda>
   )
 }

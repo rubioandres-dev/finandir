@@ -4,7 +4,6 @@ import { CalendarClock, CreditCard, PartyPopper, TrendingDown } from 'lucide-rea
 import { DebtCurveChart } from '@/components/debt-curve-chart'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
@@ -258,13 +257,11 @@ export function CompromisosEnCliente({
   hoy: string
 }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => armarDatosDeCompromisos(libro, hoy)}
-          ver={(datos) => <VistaCompromisos datos={datos} monedas={monedas} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => armarDatosDeCompromisos(libro, hoy)}
+        ver={(datos) => <VistaCompromisos datos={datos} monedas={monedas} />}
+      />
+    </GuardianDeBoveda>
   )
 }

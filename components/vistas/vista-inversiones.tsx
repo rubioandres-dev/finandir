@@ -7,7 +7,6 @@ import { InvestmentManager } from '@/components/investment-manager'
 import { InvestmentsTourButton } from '@/components/investments-tour'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import {
   useFormatoRegional,
   useModoMoneda,
@@ -164,13 +163,11 @@ export function VistaInversiones({ datos }: { datos: DatosDeInversiones }) {
 
 export function InversionesEnCliente({ monedas }: { monedas: Moneda[] }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => cargarInversiones(libro, monedas)}
-          ver={(datos) => <VistaInversiones datos={datos} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => cargarInversiones(libro, monedas)}
+        ver={(datos) => <VistaInversiones datos={datos} />}
+      />
+    </GuardianDeBoveda>
   )
 }

@@ -2,7 +2,6 @@
 
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { VistaDeudas } from '@/components/vistas/vista-deudas'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import type { Moneda } from '@/lib/types'
@@ -11,9 +10,9 @@ import type { Moneda } from '@/lib/types'
  * Deudas, leídas en el navegador. Lo monta el `page.tsx` cuando el servidor no
  * puede leer los datos de esta cuenta.
  *
- * Las tres capas van juntas y en este orden:
+ * El libro lo arma el layout, una sola vez para toda la app. Acá quedan las
+ * dos capas de la pantalla:
  *
- *     ProveedorDeLibro   arma el libro con la clave del dispositivo
  *     GuardianDeBoveda   pide la contraseña si hace falta
  *     CargadorEnCliente  lee y le pasa los datos a la vista
  *
@@ -22,19 +21,17 @@ import type { Moneda } from '@/lib/types'
  */
 export function DeudasEnCliente({ monedas }: { monedas: Moneda[] }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => cargarCuentasYDeudas(libro, monedas)}
-          ver={(datos) => (
-            <VistaDeudas
-              deudas={datos.deudas}
-              patrimonio={datos.patrimonio}
-              error={datos.error}
-            />
-          )}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => cargarCuentasYDeudas(libro, monedas)}
+        ver={(datos) => (
+          <VistaDeudas
+            deudas={datos.deudas}
+            patrimonio={datos.patrimonio}
+            error={datos.error}
+          />
+        )}
+      />
+    </GuardianDeBoveda>
   )
 }

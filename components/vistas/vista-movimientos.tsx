@@ -4,7 +4,6 @@ import { CategoriesManagerButton } from '@/components/categories-manager-modal'
 import { TransactionFeedTabs } from '@/components/transaction-feed-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import {
   useFormatoRegional,
   useModoMoneda,
@@ -130,10 +129,9 @@ export function MovimientosEnCliente({ monedas }: { monedas: Moneda[] }) {
   const { modo } = useModoMoneda()
 
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro): Promise<DatosDeMovimientos> => {
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro): Promise<DatosDeMovimientos> => {
             const supabase = createClient()
             const [dashboard, { cuentas }, feed] = await Promise.all([
               cargarDatosDelDashboard(libro, supabase, modo, monedas),
@@ -148,9 +146,8 @@ export function MovimientosEnCliente({ monedas }: { monedas: Moneda[] }) {
               feed,
             }
           }}
-          ver={(datos) => <VistaMovimientos datos={datos} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+        ver={(datos) => <VistaMovimientos datos={datos} />}
+      />
+    </GuardianDeBoveda>
   )
 }

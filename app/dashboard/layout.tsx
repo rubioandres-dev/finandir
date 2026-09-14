@@ -6,7 +6,12 @@ import { AppShell } from '@/components/layout/app-shell'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { UrlActionHandler } from '@/components/url-action-handler'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
+import {
+  backendDelUsuario,
+  libroDelServidor,
+  ModoCifradoEnServidor,
+} from '@/lib/almacen/acceso'
+import { ProveedorDeLibro } from '@/components/libro-provider'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDeCabecera, nivelPara } from '@/lib/header-data'
 import { obtenerCotizacionDelDia } from '@/lib/rates'
@@ -46,6 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let tarjetas: Awaited<ReturnType<typeof cargarCuentasYDeudas>>['tarjetas'] = []
   let cuentas: Awaited<ReturnType<typeof cargarCuentasYDeudas>>['cuentas'] = []
   let categoriasDelFab: { nombre: string; tipo: 'INCOME' | 'EXPENSE' }[] = []
+  const backend = await backendDelUsuario(supabase, user.id)
   let cabecera: Awaited<ReturnType<typeof cargarDatosDeCabecera>> = {
     // `null` y no `0`: no sabemos la tasa de ahorro, que no es lo mismo que
     // decir que es cero.
@@ -90,7 +96,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const mostrarOnboarding =
     !contexto.faltaMigracion && contexto.perfil?.onboarding_completed !== true
 
-  return (
+  /**
+   * UN SOLO PROVEEDOR PARA TODA LA APP.
+   *
+   * Antes lo montaba cada pantalla, y eso significaba un libro por pantalla:
+   * cada navegacion tiraba el cache y volvia a bajar los mismos bloques. Aca
+   * arriba el libro sobrevive a moverse entre secciones.
+   *
+   * En modo Estandar no se monta: no hay clave que recuperar ni sobre que
+   * leer, y montarlo seria pagar dos consultas por nada.
+   */
+  const conLibro = (hijos: React.ReactNode) =>
+    backend === 'SUPABASE' ? hijos : <ProveedorDeLibro>{hijos}</ProveedorDeLibro>
+
+  return conLibro(
     <CurrencyProvider
       modoInicial={contexto.modo}
       monedas={contexto.monedas}

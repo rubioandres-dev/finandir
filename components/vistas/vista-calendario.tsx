@@ -3,7 +3,6 @@
 import { CalendarDays } from 'lucide-react'
 import { FinancialCalendar } from '@/components/financial-calendar'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { cargarEventosDelMes } from '@/lib/calendar-service'
@@ -68,19 +67,17 @@ export function CalendarioEnCliente({
   hoy: string
 }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro): Promise<DatosDelCalendario> => {
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro): Promise<DatosDelCalendario> => {
             const { tarjetas } = await cargarCuentasYDeudas(libro)
             const { eventos, error } = await cargarEventosDelMes(libro, tarjetas, anio, mes)
             return { eventos, sinTarjetas: tarjetas.length === 0, error }
           }}
-          ver={(datos) => (
+        ver={(datos) => (
             <VistaCalendario anio={anio} mes={mes} hoy={hoy} datos={datos} />
           )}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+      />
+    </GuardianDeBoveda>
   )
 }

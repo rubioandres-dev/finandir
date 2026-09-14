@@ -4,7 +4,6 @@ import { Construction, TrendingUp } from 'lucide-react'
 import { MontoPorMoneda } from '@/components/monto'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
@@ -137,10 +136,9 @@ export function VistaFire({ datos }: { datos: DatosDeFire }) {
 
 export function FireEnCliente({ monedas }: { monedas: Moneda[] }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro) => {
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro) => {
             // Las cotizaciones siguen en Supabase: son caché global, no un dato
             // del usuario.
             const { delMes, ventana } = await cargarDatosDelDashboard(
@@ -151,9 +149,8 @@ export function FireEnCliente({ monedas }: { monedas: Moneda[] }) {
             )
             return calcularFire(delMes, ventana, monedas)
           }}
-          ver={(datos) => <VistaFire datos={datos} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+        ver={(datos) => <VistaFire datos={datos} />}
+      />
+    </GuardianDeBoveda>
   )
 }

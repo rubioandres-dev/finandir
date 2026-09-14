@@ -3,7 +3,6 @@
 import { FileScan } from 'lucide-react'
 import { StatementImporter } from '@/components/statement-importer'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
 import type { CuentaElegible } from '@/lib/types'
@@ -55,13 +54,11 @@ export function tarjetasDe(cuentas: Record<string, { id: string; name: string; t
 
 export function ImportarEnCliente() {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro) => tarjetasDe((await obtenerCuentasPorMoneda(libro)).cuentas)}
-          ver={(tarjetas) => <VistaImportar tarjetas={tarjetas} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro) => tarjetasDe((await obtenerCuentasPorMoneda(libro)).cuentas)}
+        ver={(tarjetas) => <VistaImportar tarjetas={tarjetas} />}
+      />
+    </GuardianDeBoveda>
   )
 }

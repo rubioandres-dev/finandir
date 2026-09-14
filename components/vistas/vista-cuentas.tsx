@@ -6,7 +6,6 @@ import { AccountForm } from '@/components/account-form'
 import { AccountRow } from '@/components/account-row'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import {
   useFormatoRegional,
   useModoMoneda,
@@ -157,13 +156,11 @@ export function VistaCuentas({ datos }: { datos: DatosDeCuentas }) {
 
 export function CuentasEnCliente({ monedas }: { monedas: Moneda[] }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => cargarCuentasYDeudas(libro, monedas)}
-          ver={(datos) => <VistaCuentas datos={datos} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => cargarCuentasYDeudas(libro, monedas)}
+        ver={(datos) => <VistaCuentas datos={datos} />}
+      />
+    </GuardianDeBoveda>
   )
 }

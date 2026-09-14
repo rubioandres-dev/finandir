@@ -22,7 +22,8 @@ import {
 } from 'lucide-react'
 import { cerrarSesion } from '@/app/(auth)/actions'
 import { AboutModal } from '@/components/about-modal'
-import { useTraduccion } from '@/components/currency-provider'
+import { useModoMoneda, useTraduccion } from '@/components/currency-provider'
+import { useEstadoDelLibroOpcional } from '@/components/libro-provider'
 import { useTour } from '@/components/guided-tour'
 import { FloatingPanel } from '@/components/layout/floating-panel'
 import { usePwaInstall } from '@/lib/use-pwa-install'
@@ -34,6 +35,25 @@ const TEMAS = [
 ] as const
 
 /** Iniciales para el avatar: "arubio@…" -> "AR". */
+/**
+ * Dispara la descarga de un blob.
+ *
+ * El nombre lo manda el servidor en Content-Disposition, pero el atributo
+ * `download` de un `blob:` no lo lee: hay que repetirlo acá.
+ */
+function bajar(blob: Blob, nombre: string) {
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombre
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+
+  // Sin esto el blob queda retenido hasta que se recargue la página.
+  URL.revokeObjectURL(url)
+}
+
 export function inicialesDe(texto: string): string {
   const base = texto.includes('@') ? (texto.split('@')[0] ?? '') : texto
   const partes = base.split(/[\s._-]+/).filter(Boolean)
@@ -57,6 +77,45 @@ const FILA =
  */
 function BotonExcel() {
   const { t } = useTraduccion()
+  const { modo, monedasSeleccionadas } = useModoMoneda()
+  const libro = useEstadoDelLibroOpcional()
+
+  /**
+   * Arma la planilla en el navegador, para modo Boveda.
+   *
+   * `exceljs` entra por import dinamico y no arriba del archivo: pesa cientos
+   * de kB y solo lo necesita quien exporta estando en modo cifrado. Cargarlo
+   * siempre lo pagarian todos, en cada visita, para una funcion que casi nadie
+   * usa dos veces por mes.
+   */
+  async function exportarEnNavegador() {
+    if (!libro || libro.fase !== 'abierto') {
+      throw new Error('La boveda esta cerrada.')
+    }
+
+    const [{ armarDatosDeExportacion, nombreDelArchivo }, { construirLibro }, { createClient }] =
+      await Promise.all([
+        import('@/lib/almacen/exportacion'),
+        import('@/lib/excel-export'),
+        import('@/lib/supabase/client'),
+      ])
+
+    const datos = await armarDatosDeExportacion(
+      libro.libro,
+      createClient(),
+      t,
+      modo,
+      monedasSeleccionadas
+    )
+
+    bajar(
+      new Blob([await construirLibro(datos)], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      nombreDelArchivo()
+    )
+  }
+
   const [bajando, setBajando] = useState(false)
   const [error, setError] = useState(false)
 
@@ -67,24 +126,28 @@ function BotonExcel() {
 
     try {
       const respuesta = await fetch('/api/export/excel')
+
+      /**
+       * 501 NO es un error: es el servidor diciendo que no puede descifrar.
+       *
+       * En modo Bóveda la planilla se arma acá, con el mismo armado de datos y
+       * el mismo generador que usa la ruta. La alternativa —mandar la clave al
+       * servidor para que la arme él— seria tirar abajo el modo entero por una
+       * planilla.
+       */
+      if (respuesta.status === 501) {
+        await exportarEnNavegador()
+        return
+      }
+
       if (!respuesta.ok) throw new Error(String(respuesta.status))
 
       const blob = await respuesta.blob()
-      const url = URL.createObjectURL(blob)
+      const nombre =
+        respuesta.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ??
+        'aurem.xlsx'
 
-      // El nombre lo manda el servidor en Content-Disposition, pero el atributo
-      // `download` de un blob: no lo lee: hay que repetirlo acá.
-      const enlace = document.createElement('a')
-      enlace.href = url
-      enlace.download = respuesta.headers
-        .get('Content-Disposition')
-        ?.match(/filename="(.+)"/)?.[1] ?? 'aurem.xlsx'
-      document.body.appendChild(enlace)
-      enlace.click()
-      enlace.remove()
-
-      // Sin esto el blob queda retenido hasta que se recargue la página.
-      URL.revokeObjectURL(url)
+      bajar(blob, nombre)
     } catch {
       setError(true)
     } finally {

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { PiggyBank } from 'lucide-react'
 import { SmartSpendCalculator } from '@/components/smart-spend-calculator'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { cargarInversiones } from '@/lib/investments-service'
@@ -89,10 +88,9 @@ export function GastoInteligenteEnCliente({
   monedaInicial: Moneda
 }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro): Promise<DatosDelGastoInteligente> => {
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro): Promise<DatosDelGastoInteligente> => {
             const [{ tarjetas, cuentas }, { inversiones, resumen }] = await Promise.all([
               cargarCuentasYDeudas(libro, monedas),
               cargarInversiones(libro, monedas),
@@ -104,15 +102,14 @@ export function GastoInteligenteEnCliente({
               inversiones,
             }
           }}
-          ver={(datos) => (
+        ver={(datos) => (
             <VistaGastoInteligente
               datos={datos}
               precioInicial={precioInicial}
               monedaInicial={monedaInicial}
             />
           )}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+      />
+    </GuardianDeBoveda>
   )
 }

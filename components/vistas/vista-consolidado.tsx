@@ -3,7 +3,6 @@
 import { Coins, Scale, TrendingDown, Wallet } from 'lucide-react'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { useFormatoRegional } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas, type Patrimonio } from '@/lib/accounts-service'
@@ -317,7 +316,7 @@ export function VistaConsolidado({
           valores={liquidezTotal}
           locale={locale}
             oculto={oculto}
-        />
+      />
         <TotalCruzado
           etiqueta="Pasivos totales"
           Icono={TrendingDown}
@@ -325,7 +324,7 @@ export function VistaConsolidado({
           valores={pasivosTotales}
           locale={locale}
             oculto={oculto}
-        />
+      />
       </div>
     </div>
   )
@@ -333,13 +332,11 @@ export function VistaConsolidado({
 
 export function ConsolidadoEnCliente({ monedas }: { monedas: Moneda[] }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => armarDatosDelConsolidado(libro, createClient(), monedas)}
-          ver={(datos) => <VistaConsolidado datos={datos} monedas={monedas} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => armarDatosDelConsolidado(libro, createClient(), monedas)}
+        ver={(datos) => <VistaConsolidado datos={datos} monedas={monedas} />}
+      />
+    </GuardianDeBoveda>
   )
 }

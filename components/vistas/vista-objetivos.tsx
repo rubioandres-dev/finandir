@@ -4,7 +4,6 @@ import { Award, Target } from 'lucide-react'
 import { GoalsManager } from '@/components/goals-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
@@ -180,13 +179,11 @@ export function VistaObjetivos({ datos, xp }: { datos: DatosDeObjetivos; xp: num
 
 export function ObjetivosEnCliente({ monedas, xp }: { monedas: Moneda[]; xp: number }) {
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={(libro) => armarDatosDeObjetivos(libro, createClient(), monedas)}
-          ver={(datos) => <VistaObjetivos datos={datos} xp={xp} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={(libro) => armarDatosDeObjetivos(libro, createClient(), monedas)}
+        ver={(datos) => <VistaObjetivos datos={datos} xp={xp} />}
+      />
+    </GuardianDeBoveda>
   )
 }

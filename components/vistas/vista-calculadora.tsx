@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { NightOutCalculator } from '@/components/night-out-calculator'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import { ProveedorDeLibro } from '@/components/libro-provider'
 import { useModoMoneda, useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
@@ -74,19 +73,17 @@ export function CalculadoraEnCliente({ monedas }: { monedas: Moneda[] }) {
   const { modo } = useModoMoneda()
 
   return (
-    <ProveedorDeLibro>
-      <GuardianDeBoveda>
-        <CargadorEnCliente
-          cargar={async (libro) => {
+    <GuardianDeBoveda>
+      <CargadorEnCliente
+        cargar={async (libro) => {
             const [categorias, { cuentas }] = await Promise.all([
               libro.leer('categorias'),
               cargarCuentasYDeudas(libro, monedas),
             ])
             return armarDatosDeLaCalculadora(categorias, cuentas, modo)
           }}
-          ver={(datos) => <VistaCalculadora datos={datos} />}
-        />
-      </GuardianDeBoveda>
-    </ProveedorDeLibro>
+        ver={(datos) => <VistaCalculadora datos={datos} />}
+      />
+    </GuardianDeBoveda>
   )
 }
