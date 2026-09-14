@@ -20,7 +20,13 @@ import {
   type Idioma,
   type Traductor,
 } from '@/lib/i18n'
-import { moduloActivo, type EstadoDeModulos, type Modulo } from '@/lib/modules'
+import {
+  backendSoportaModulo,
+  moduloActivo,
+  type Backend,
+  type EstadoDeModulos,
+  type Modulo,
+} from '@/lib/modules'
 import { MONEDAS_POR_DEFECTO } from '@/lib/monedas'
 import type { Moneda } from '@/lib/types'
 
@@ -36,6 +42,7 @@ type Contexto = {
   idioma: Idioma
   /** Módulos que el usuario apagó en Ajustes. */
   modulos: EstadoDeModulos
+  backend: Backend
   /** true mientras el servidor recarga las vistas con la moneda nueva. */
   cambiando: boolean
   /**
@@ -77,6 +84,7 @@ export function CurrencyProvider({
   locale = LOCALE_POR_DEFECTO,
   idioma = IDIOMA_POR_DEFECTO,
   modulos = {},
+  backend = 'SUPABASE',
   ocultoInicial = false,
   ocultoPorDefecto = false,
 }: {
@@ -86,6 +94,7 @@ export function CurrencyProvider({
   locale?: Locale
   idioma?: Idioma
   modulos?: EstadoDeModulos
+  backend?: Backend
   /** Estado con el que el servidor ya renderizó los importes. */
   ocultoInicial?: boolean
   /** Solo la preferencia, sin el override del ojito. Lo muestra Ajustes. */
@@ -113,6 +122,7 @@ export function CurrencyProvider({
       locale,
       idioma,
       modulos,
+      backend,
       cambiando,
       mostrarEquivalencias: modoEfectivo === 'USD',
       oculto,
@@ -163,7 +173,7 @@ export function CurrencyProvider({
         iniciarCambio(() => router.refresh())
       },
     }
-  }, [modo, monedas, locale, idioma, modulos, cambiando, oculto, porDefecto, router])
+  }, [modo, monedas, locale, idioma, modulos, backend, cambiando, oculto, porDefecto, router])
 
   return <MonedaContext.Provider value={valor}>{children}</MonedaContext.Provider>
 }
@@ -249,9 +259,22 @@ export function usePrivacidad(): {
  * su ruta sigue existiendo: apagar una sección esconde la puerta, no borra
  * los datos ni rompe un enlace que alguien haya guardado.
  */
+/**
+ * Si una sección se puede usar. Son DOS preguntas y las dos tienen que dar que sí.
+ *
+ * `moduloActivo` es lo que el usuario eligió apagar. `backendSoportaModulo` es
+ * lo que su modo de guardado directamente no puede hacer: gastos compartidos
+ * necesita filas que otra cuenta pueda leer y escribir, y eso sólo existe en
+ * modo Bóveda. Van juntas acá y no en cada pantalla para que la barra, el menú
+ * y el Home no puedan quedar diciendo cosas distintas.
+ */
 export function useModuloActivo(): (modulo: Modulo) => boolean {
-  const { modulos } = useMonedaContext()
-  return useMemo(() => (modulo: Modulo) => moduloActivo(modulos, modulo), [modulos])
+  const { modulos, backend } = useMonedaContext()
+  return useMemo(
+    () => (modulo: Modulo) =>
+      moduloActivo(modulos, modulo) && backendSoportaModulo(backend, modulo),
+    [modulos, backend]
+  )
 }
 
 export function useTraduccion(): { t: Traductor; idioma: Idioma } {

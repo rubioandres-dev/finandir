@@ -6,6 +6,9 @@ import { SharedSpacesList } from '@/components/shared-spaces-list'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { crearTraductor } from '@/lib/i18n'
 import { cargarEspacios } from '@/lib/shared-expenses-service'
+import { CompartidosSoloBoveda } from '@/components/compartidos-solo-boveda'
+import { backendDelUsuario } from '@/lib/almacen/acceso'
+import { backendSoportaModulo } from '@/lib/modules'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Gastos compartidos' }
@@ -16,6 +19,11 @@ export default async function SharedExpensesPage() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // Sin Bóveda no hay llave personal, y sin llave personal no hay llave de
+  // grupo. La sección existe igual: se explica en vez de desaparecer.
+  const backend = await backendDelUsuario(supabase, user.id)
+  if (!backendSoportaModulo(backend, 'shared_expenses')) return <CompartidosSoloBoveda />
 
   const { idioma } = await cargarContextoDeMonedas()
   const t = crearTraductor(idioma)

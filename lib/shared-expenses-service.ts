@@ -1,8 +1,12 @@
-// Las funciones que reciben un `SupabaseClient` son solo para el servidor: se
-// usan desde Server Components y Server Actions. Las de cálculo (`repartir`,
-// `dividirEnPartesIguales`, `calcularBalances`) son puras y también se importan
-// desde el cliente, que necesita previsualizar el mismo número que va a guardar.
+// Las de cálculo (`repartir`, `dividirEnPartesIguales`, `calcularBalances`) son
+// puras y corren en los dos lados.
+//
+// De las que reciben un `SupabaseClient`, `cargarEspacios` y
+// `cargarBaseDelEspacio` son del servidor: leen lo que el servidor puede leer.
+// `cargarEspacioCrudo` corre en el NAVEGADOR, porque lo que trae viene cifrado
+// y sólo tiene sentido donde está la llave.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { EspacioCrudo } from './almacen/compartidos'
 import type { Moneda } from './types'
 
 /**
@@ -111,24 +115,13 @@ export type ObjetivoDeGrupo = {
 export const FALTA_MIGRACION_COMPARTIDOS =
   'Falta el esquema de gastos compartidos. Ejecutá migrations/011_shared_expenses_and_modules.sql.'
 
+export const FALTA_MIGRACION_CIFRADOS =
+  'Falta el cifrado de gastos compartidos. Ejecutá migrations/020_llaves_de_grupo.sql ' +
+  'y migrations/023_gastos_compartidos_cifrados.sql en el SQL Editor de Supabase.'
+
 export const FALTA_MIGRACION_MIEMBROS =
   'Falta actualizar gastos compartidos. Ejecutá migrations/015_shared_members_and_settlements.sql ' +
   'y migrations/019_shared_categoria_desnormalizada.sql en el SQL Editor de Supabase.'
-
-/**
- * Arma la foto de categoria desde la fila. Devuelve `null` cuando no hay nombre:
- * el backfill de la 019 no pudo completar las filas cuya categoria ya habia sido
- * borrada, y eso es un dato ausente, no una categoria llamada "".
- */
-function leerFotoDeCategoria(fila: Record<string, unknown>): FotoDeCategoria | null {
-  const nombre = fila.category_name as string | null | undefined
-  if (!nombre) return null
-  return {
-    nombre,
-    icono: (fila.category_icon as string | null) ?? null,
-    color: (fila.category_color as string | null) ?? null,
-  }
-}
 
 export function faltaLaTabla(codigo?: string): boolean {
   return codigo === 'PGRST205' || codigo === 'PGRST204' || codigo === '42P01'
@@ -384,25 +377,28 @@ export async function cargarEspacios(supabase: SupabaseClient): Promise<{
   }
 }
 
-export async function cargarEspacio(
-  supabase: SupabaseClient,
-  spaceId: string
-): Promise<{
+export type BaseDelEspacio = {
   espacio: Espacio | null
   miembros: Miembro[]
-  gastos: GastoCompartido[]
-  liquidaciones: Liquidacion[]
-  objetivos: ObjetivoDeGrupo[]
+  /** Generación vigente de la llave del grupo. Con qué se escribe de ahora en más. */
+  generacion: number
   error: string | null
   faltaMigracion: boolean
-}> {
-  const vacio = {
-    espacio: null,
-    miembros: [],
-    gastos: [],
-    liquidaciones: [],
-    objetivos: [],
-  }
+}
+
+/**
+ * Lo del espacio que el servidor SÍ puede leer: quién está y cómo se llama.
+ *
+ * Va aparte de los gastos porque son dos preguntas con dos respuestas
+ * distintas. Esto decide si mostrar la pantalla, mandar a "unirse" o cortar con
+ * un 404 — todo antes de pintar nada. Los gastos no los puede leer el servidor
+ * ni aunque quisiera, así que esperar por ellos acá sería esperar para siempre.
+ */
+export async function cargarBaseDelEspacio(
+  supabase: SupabaseClient,
+  spaceId: string
+): Promise<BaseDelEspacio> {
+  const vacio = { espacio: null, miembros: [], generacion: 1 }
 
   const { data: espacio, error } = await supabase
     .from('shared_spaces')
@@ -419,43 +415,19 @@ export async function cargarEspacio(
   }
   if (!espacio) return { ...vacio, error: null, faltaMigracion: false }
 
-  const [resMiembros, resGastos, resLiquidaciones, resObjetivos] = await Promise.all([
-    supabase
-      .from('shared_space_members')
-      .select('id, user_id, role, display_name')
-      .eq('space_id', spaceId),
-    supabase
-      .from('shared_transactions')
-      .select(
-        'id, space_id, paid_by_member_id, category_id, category_name, category_icon, category_color, split_type, amount, description, date, shared_splits(member_id, percentage, amount_owed, is_settled)'
-      )
-      .eq('space_id', spaceId)
-      .order('date', { ascending: false }),
-    supabase
-      .from('shared_settlements')
-      .select('id, from_member_id, to_member_id, amount, currency, note, created_at')
-      .eq('space_id', spaceId)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('shared_goals')
-      .select(
-        'id, title, type, category_id, category_name, category_icon, category_color, target_amount, monthly_contribution, target_date, currency'
-      )
-      .eq('space_id', spaceId)
-      .order('created_at'),
-  ])
+  const resMiembros = await supabase
+    .from('shared_space_members')
+    .select('id, user_id, role, display_name')
+    .eq('space_id', spaceId)
 
-  // Con la 011 pero sin la 015, `display_name` y `paid_by_member_id` no existen
-  // y PostgREST responde 42703. Se avisa cuál migración falta en vez de mostrar
-  // un espacio vacío como si el grupo no tuviera nada.
-  const faltaLa015 =
-    faltaLaColumna(resMiembros.error?.code) ||
-    faltaLaColumna(resGastos.error?.code) ||
-    faltaLaTabla(resLiquidaciones.error?.code) ||
-    faltaLaTabla(resObjetivos.error?.code)
-
-  if (faltaLa015) {
+  // Con la 011 pero sin la 015, `display_name` no existe y PostgREST responde
+  // 42703. Se avisa cuál migración falta en vez de mostrar un espacio vacío
+  // como si el grupo no tuviera nada.
+  if (faltaLaColumna(resMiembros.error?.code)) {
     return { ...vacio, error: FALTA_MIGRACION_MIEMBROS, faltaMigracion: true }
+  }
+  if (resMiembros.error) {
+    return { ...vacio, error: resMiembros.error.message, faltaMigracion: false }
   }
 
   const miembros = (resMiembros.data ?? []) as Miembro[]
@@ -470,53 +442,69 @@ export async function cargarEspacio(
       miembros: miembros.length,
     },
     miembros,
-    gastos: (resGastos.data ?? []).map((g) => {
-      const fila = g as Record<string, unknown>
-      return {
-        id: fila.id as string,
-        space_id: fila.space_id as string,
-        paid_by_member_id: fila.paid_by_member_id as string,
-        category_id: (fila.category_id as string | null) ?? null,
-        categoria: leerFotoDeCategoria(fila),
-        split_type: (fila.split_type as TipoDeReparto) ?? 'EQUAL',
-        amount: Number(fila.amount),
-        description: fila.description as string,
-        date: fila.date as string,
-        repartos: ((fila.shared_splits ?? []) as Record<string, unknown>[]).map((s) => ({
-          member_id: s.member_id as string,
-          percentage: Number(s.percentage),
-          amount_owed: Number(s.amount_owed),
-          is_settled: Boolean(s.is_settled),
-        })),
-      }
-    }),
-    liquidaciones: (resLiquidaciones.data ?? []).map((l) => {
-      const fila = l as Record<string, unknown>
-      return {
-        id: fila.id as string,
-        from_member_id: fila.from_member_id as string,
-        to_member_id: fila.to_member_id as string,
-        amount: Number(fila.amount),
-        currency: fila.currency as Moneda,
-        note: (fila.note as string | null) ?? null,
-        created_at: fila.created_at as string,
-      }
-    }),
-    objetivos: (resObjetivos.data ?? []).map((o) => {
-      const fila = o as Record<string, unknown>
-      return {
-        id: fila.id as string,
-        title: fila.title as string,
-        type: fila.type as ObjetivoDeGrupo['type'],
-        category_id: (fila.category_id as string | null) ?? null,
-        categoria: leerFotoDeCategoria(fila),
-        target_amount: Number(fila.target_amount),
-        monthly_contribution:
-          fila.monthly_contribution === null ? null : Number(fila.monthly_contribution),
-        target_date: (fila.target_date as string | null) ?? null,
-        currency: fila.currency as Moneda,
-      }
-    }),
+    generacion: Number(espacio.generacion ?? 1),
+    error: null,
+    faltaMigracion: false,
+  }
+}
+
+/**
+ * Las filas de los gastos, SIN interpretar.
+ *
+ * Devuelve lo que vino de PostgREST y nada más. Interpretar es descifrar, y
+ * descifrar sólo puede pasar donde está la llave: en el navegador de un
+ * miembro. Que esta función no sepa leer lo que trae no es una carencia — es la
+ * propiedad que hace que el servidor tampoco pueda.
+ *
+ * Se piden las columnas en claro ADEMÁS del sobre porque los grupos que ya
+ * tenían datos las siguen usando hasta que alguien con la llave los re-cifra.
+ */
+export async function cargarEspacioCrudo(
+  supabase: SupabaseClient,
+  spaceId: string
+): Promise<{ crudo: EspacioCrudo; error: string | null; faltaMigracion: boolean }> {
+  const vacio: EspacioCrudo = { gastos: [], liquidaciones: [], objetivos: [] }
+
+  const [resGastos, resLiquidaciones, resObjetivos] = await Promise.all([
+    supabase
+      .from('shared_transactions')
+      .select(
+        'id, space_id, paid_by_member_id, payload_cifrado, generacion, category_id, category_name, category_icon, category_color, split_type, amount, description, date, shared_splits(member_id, percentage, amount_owed, is_settled)'
+      )
+      .eq('space_id', spaceId)
+      .order('date', { ascending: false }),
+    supabase
+      .from('shared_settlements')
+      .select(
+        'id, from_member_id, to_member_id, payload_cifrado, generacion, amount, currency, note, created_at'
+      )
+      .eq('space_id', spaceId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('shared_goals')
+      .select(
+        'id, title, type, payload_cifrado, generacion, category_id, category_name, category_icon, category_color, target_amount, monthly_contribution, target_date, currency'
+      )
+      .eq('space_id', spaceId)
+      .order('created_at'),
+  ])
+
+  const falta =
+    faltaLaColumna(resGastos.error?.code) ||
+    faltaLaTabla(resLiquidaciones.error?.code) ||
+    faltaLaTabla(resObjetivos.error?.code)
+
+  if (falta) return { crudo: vacio, error: FALTA_MIGRACION_CIFRADOS, faltaMigracion: true }
+
+  const primerError = resGastos.error ?? resLiquidaciones.error ?? resObjetivos.error
+  if (primerError) return { crudo: vacio, error: primerError.message, faltaMigracion: false }
+
+  return {
+    crudo: {
+      gastos: (resGastos.data ?? []) as EspacioCrudo['gastos'],
+      liquidaciones: (resLiquidaciones.data ?? []) as EspacioCrudo['liquidaciones'],
+      objetivos: (resObjetivos.data ?? []) as EspacioCrudo['objetivos'],
+    },
     error: null,
     faltaMigracion: false,
   }

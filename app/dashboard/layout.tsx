@@ -116,6 +116,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       locale={contexto.locale}
       idioma={contexto.idioma}
       modulos={contexto.modulos}
+      backend={backend}
       ocultoInicial={contexto.oculto}
       ocultoPorDefecto={contexto.ocultoPorDefecto}
     >

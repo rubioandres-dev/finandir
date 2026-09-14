@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { ArrowRight, Loader2, Plus, QrCode, Scale, UserPlus, Users } from 'lucide-react'
 import {
@@ -12,7 +11,8 @@ import { useFormatoRegional, useTraduccion } from '@/components/currency-provide
 import { QrInviteModal } from '@/components/qr-invite'
 import { SharedSpaceGoals } from '@/components/shared-space-goals'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
-import { porcentajesIguales } from '@/lib/shared-expenses-service'
+import { cifrarGasto, cifrarPago } from '@/lib/almacen/compartidos'
+import { porcentajesIguales, repartir } from '@/lib/shared-expenses-service'
 import type {
   Balance,
   Espacio,
@@ -23,6 +23,9 @@ import type {
   Transferencia,
 } from '@/lib/shared-expenses-service'
 import { hoyEnArgentina } from '@/lib/types'
+
+const SIN_LLAVE =
+  'Todavía no tenés la llave de este grupo. Un administrador te la da con sólo abrir el grupo.'
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-3 py-2 text-sm outline-none transition focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -47,6 +50,8 @@ export function SharedSpaceDetail({
   liquidacion,
   nombres,
   miMiembroId,
+  llave,
+  alCambiar,
 }: {
   espacio: Espacio
   miembros: Miembro[]
@@ -59,8 +64,15 @@ export function SharedSpaceDetail({
   nombres: Record<string, string>
   /** Mi fila de miembro en este grupo. `null` no debería pasar: la página redirige. */
   miMiembroId: string | null
+  /**
+   * La llave del grupo. `null` = todavía no me la dieron: puedo mirar lo que
+   * haya en claro, pero no escribir. Guardar sin llave dejaría un gasto que
+   * nadie del grupo puede leer, ni siquiera yo.
+   */
+  llave: { gek: CryptoKey; generacion: number } | null
+  /** Volver a leer los gastos. Reemplaza a `router.refresh()`: los trae el navegador. */
+  alCambiar: () => void
 }) {
-  const router = useRouter()
   const { t } = useTraduccion()
   const { formatearMonto, formatearFecha } = useFormatoRegional()
 
@@ -114,20 +126,39 @@ export function SharedSpaceDetail({
       return
     }
 
+    if (!llave) {
+      setError(SIN_LLAVE)
+      return
+    }
+
     setError(null)
     iniciar(async () => {
+      // El reparto se calcula ACÁ, con el método del resto mayor, porque el
+      // servidor ya no puede: recibe el gasto cifrado. La suma de las partes
+      // sigue dando exactamente el total, que es lo que hace cerrar los saldos.
+      const partes = repartir(
+        importe,
+        miembros.map((m) => ({ member_id: m.id, percentage: reparto[m.id] ?? 0 }))
+      )
+
       const resultado = await crearGastoCompartido({
         spaceId: espacio.id,
         pagadoPor,
-        // El reparto se guarda como porcentaje; `split_type` recuerda cómo lo
-        // eligió el usuario para poder reabrir el formulario igual.
-        tipoDeReparto: Math.abs(suma - 100) < 0.001 && new Set(Object.values(reparto)).size === 1
-          ? 'EQUAL'
-          : 'PERCENTAGE',
-        monto: importe,
-        descripcion: descripcion.trim() || 'Gasto compartido',
         fecha: hoyEnArgentina(),
-        repartos: miembros.map((m) => ({ member_id: m.id, percentage: reparto[m.id] ?? 0 })),
+        generacion: llave.generacion,
+        payloadCifrado: await cifrarGasto(llave.gek, {
+          monto: importe,
+          descripcion: descripcion.trim() || 'Gasto compartido',
+          categoriaId: null,
+          categoria: null,
+          // `tipoDeReparto` recuerda cómo lo eligió el usuario, para poder
+          // reabrir el formulario igual.
+          tipoDeReparto:
+            Math.abs(suma - 100) < 0.001 && new Set(Object.values(reparto)).size === 1
+              ? 'EQUAL'
+              : 'PERCENTAGE',
+          repartos: partes.map((p) => ({ ...p, is_settled: false })),
+        }),
       })
 
       if (!resultado.ok) {
@@ -138,7 +169,7 @@ export function SharedSpaceDetail({
       cerrarPanel()
       setMonto('')
       setDescripcion('')
-      router.refresh()
+      alCambiar()
     })
   }
 
@@ -162,7 +193,7 @@ export function SharedSpaceDetail({
 
       cerrarPanel()
       setNombreInvitado('')
-      router.refresh()
+      alCambiar()
     })
   }
 
@@ -178,14 +209,20 @@ export function SharedSpaceDetail({
       return
     }
 
+    if (!llave) {
+      setError(SIN_LLAVE)
+      return
+    }
+
     setError(null)
     iniciar(async () => {
       const resultado = await registrarPago({
         spaceId: espacio.id,
         deMiembro: pagoDe,
         aMiembro: pagoA,
-        monto: importe,
         moneda: espacio.currency,
+        generacion: llave.generacion,
+        payloadCifrado: await cifrarPago(llave.gek, { monto: importe, nota: null }),
       })
 
       if (!resultado.ok) {
@@ -195,7 +232,7 @@ export function SharedSpaceDetail({
 
       cerrarPanel()
       setPagoMonto('')
-      router.refresh()
+      alCambiar()
     })
   }
 
@@ -507,7 +544,13 @@ export function SharedSpaceDetail({
       )}
 
       {/* --- Objetivos del grupo --------------------------------------------- */}
-      <SharedSpaceGoals espacio={espacio} objetivos={objetivos} gastos={gastos} />
+      <SharedSpaceGoals
+        espacio={espacio}
+        objetivos={objetivos}
+        gastos={gastos}
+        llave={llave}
+        alCambiar={alCambiar}
+      />
 
       {/* --- Gastos --------------------------------------------------------- */}
       <section className="flex flex-col gap-2.5">

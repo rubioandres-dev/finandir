@@ -2,16 +2,24 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { SharedSpaceDetail } from '@/components/shared-space-detail'
-import {
-  calcularBalances,
-  calcularLiquidacion,
-  cargarEspacio,
-} from '@/lib/shared-expenses-service'
+import { EspacioEnCliente } from '@/components/vistas/espacio-en-cliente'
+import { cargarBaseDelEspacio } from '@/lib/shared-expenses-service'
+import { CompartidosSoloBoveda } from '@/components/compartidos-solo-boveda'
+import { backendDelUsuario } from '@/lib/almacen/acceso'
+import { backendSoportaModulo } from '@/lib/modules'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Grupo' }
 
+/**
+ * El grupo, hasta donde el servidor puede llegar.
+ *
+ * Lee lo que sí puede leer —el nombre del grupo y quiénes son— y con eso
+ * resuelve las tres decisiones que conviene tomar antes de pintar nada: si el
+ * grupo existe, si el que entra es miembro, y con qué nombre mostrar a cada
+ * uno. Los gastos no aparecen acá y no es una optimización: están cifrados con
+ * la llave del grupo, que sólo existe en el navegador de un miembro.
+ */
 export default async function SharedSpacePage({
   params,
 }: {
@@ -25,10 +33,12 @@ export default async function SharedSpacePage({
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { espacio, miembros, gastos, liquidaciones, objetivos, error } = await cargarEspacio(
-    supabase,
-    id
-  )
+  // Sin Bóveda no hay llave personal, y sin llave personal no hay llave de
+  // grupo. La sección existe igual: se explica en vez de desaparecer.
+  const backend = await backendDelUsuario(supabase, user.id)
+  if (!backendSoportaModulo(backend, 'shared_expenses')) return <CompartidosSoloBoveda />
+
+  const { espacio, miembros, generacion, error } = await cargarBaseDelEspacio(supabase, id)
 
   if (error) {
     return (
@@ -45,18 +55,8 @@ export default async function SharedSpacePage({
 
   // Sin membresía, RLS ya oculta los gastos: mandarlo a la pantalla de unirse
   // es más útil que mostrarle un grupo vacío que no entiende.
-  if (!miembros.some((m) => m.user_id === user.id)) {
-    redirect(`/dashboard/shared-expenses/join/${id}`)
-  }
-
-  // Los saldos se calculan por MIEMBRO y ya netos de las liquidaciones: un pago
-  // registrado entra al balance como un movimiento más.
-  const balances = calcularBalances(
-    gastos,
-    miembros.map((m) => m.id),
-    liquidaciones
-  )
-  const liquidacion = calcularLiquidacion(balances)
+  const miMiembro = miembros.find((m) => m.user_id === user.id)
+  if (!miMiembro) redirect(`/dashboard/shared-expenses/join/${id}`)
 
   /**
    * Nombres para mostrar, resueltos por fin sin rodeos.
@@ -73,8 +73,6 @@ export default async function SharedSpacePage({
     nombres[miembro.id] = miembro.user_id === user.id ? 'Vos' : miembro.display_name
   }
 
-  const miMiembroId = miembros.find((m) => m.user_id === user.id)?.id ?? null
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -90,16 +88,15 @@ export default async function SharedSpacePage({
         </h1>
       </div>
 
-      <SharedSpaceDetail
+      <EspacioEnCliente
         espacio={espacio}
         miembros={miembros}
-        gastos={gastos}
-        liquidaciones={liquidaciones}
-        objetivos={objetivos}
-        balances={balances}
-        liquidacion={liquidacion}
+        generacion={generacion}
+        miMiembroId={miMiembro.id}
+        soyElCreador={espacio.created_by === user.id}
+        soyAdmin={miMiembro.role === 'ADMIN'}
+        userId={user.id}
         nombres={nombres}
-        miMiembroId={miMiembroId}
       />
     </div>
   )

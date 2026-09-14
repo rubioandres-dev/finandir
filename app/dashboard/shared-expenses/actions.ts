@@ -6,12 +6,12 @@ import { z } from 'zod'
 import { guardarTransaccion } from '@/app/dashboard/actions'
 import { CODIGOS_DE_MONEDA } from '@/lib/monedas'
 import {
+  FALTA_MIGRACION_CIFRADOS,
   FALTA_MIGRACION_COMPARTIDOS,
   FALTA_MIGRACION_MIEMBROS,
   dividirEnPartesIguales,
   faltaLaColumna,
   faltaLaTabla,
-  repartir,
 } from '@/lib/shared-expenses-service'
 import { libroDelServidor } from '@/lib/almacen/acceso'
 import { createClient } from '@/lib/supabase/server'
@@ -19,10 +19,27 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 export type ResultadoCompartido = { ok: true } | { ok: false; error: string }
 
+/**
+ * Un sobre del grupo: `v1.<iv>.<datos>` en base64.
+ *
+ * Se valida la FORMA, no el contenido: que sea una cadena con la pinta de algo
+ * cifrado es lo único comprobable desde acá. Sirve para que un bug del cliente
+ * que mande el objeto sin cifrar no termine guardado en claro sin que nadie se
+ * entere — que es exactamente el modo en que este tipo de cambios se deshace
+ * solo con el tiempo.
+ */
+const sobreSchema = z
+  .string()
+  .regex(/^v1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/, 'El dato no viene cifrado.')
+
 /** Traduce el código de Postgres a "corré tal migración". */
 function porMigracion(codigo?: string): string | null {
   if (faltaLaTabla(codigo)) return FALTA_MIGRACION_COMPARTIDOS
   if (faltaLaColumna(codigo)) return FALTA_MIGRACION_MIEMBROS
+  // 23502 = NOT NULL. Pasa exactamente en un caso: el código ya manda el gasto
+  // cifrado y la base todavía exige las columnas en claro. Sin esta línea el
+  // usuario ve "null value in column amount", que no le dice qué hacer.
+  if (codigo === '23502') return FALTA_MIGRACION_CIFRADOS
   return null
 }
 
@@ -216,69 +233,41 @@ export async function agregarInvitado(
 }
 
 /**
- * Saca a un miembro del grupo.
+ * SACAR A ALGUIEN DEL GRUPO NO VIVE ACÁ
  *
- * La FK de `shared_transactions.paid_by_member_id` es `on delete restrict`: si
- * la persona puso plata alguna vez, la base rechaza el borrado. Es correcto
- * —dejaría gastos sin pagador y los saldos no cerrarían— pero el mensaje de
- * Postgres no se entiende, así que se traduce.
+ * Había una `quitarMiembro` que borraba la fila y devolvía `ok`. Con los gastos
+ * cifrados eso es mentira: el que se va conserva la llave del grupo en su
+ * navegador, así que sigue pudiendo leer todo lo que ya estaba escrito. Borrar
+ * el miembro sin rotar la llave expulsa en la lista y no en los datos.
+ *
+ * Expulsar de verdad es rotar la llave y re-cifrar el grupo entero, y las dos
+ * cosas necesitan la llave abierta — o sea, el navegador. Está en
+ * `lib/almacen/expulsion.ts`. Esta nota queda en lugar de la función para que
+ * el próximo que la busque acá encuentre el motivo y no la escriba de nuevo.
  */
-export async function quitarMiembro(
-  spaceId: string,
-  memberId: string
-): Promise<ResultadoCompartido> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { error } = await supabase.from('shared_space_members').delete().eq('id', memberId)
-
-  if (error) {
-    // 23503 = violación de clave foránea.
-    if (error.code === '23503') {
-      return {
-        ok: false,
-        error:
-          'No se puede sacar a alguien que pagó un gasto del grupo: borrá primero esos gastos.',
-      }
-    }
-    return { ok: false, error: `No se pudo sacar del grupo: ${error.message}` }
-  }
-
-  revalidatePath(`/dashboard/shared-expenses/${spaceId}`)
-  return { ok: true }
-}
-
+/**
+ * Lo que el servidor puede saber de un gasto compartido.
+ *
+ * EL IMPORTE Y LA DESCRIPCIÓN NO ESTÁN, Y NO ES UN OLVIDO
+ *
+ * Viajan adentro de `payloadCifrado`, que el cliente arma con la llave del
+ * grupo. Acá no hay forma de validar que el reparto sume 100% ni que el monto
+ * sea positivo: validar es leer, y leer es justo lo que no queremos poder.
+ *
+ * Esa validación no desapareció, se mudó: la hace el formulario antes de
+ * cifrar, que es donde el usuario puede corregirla. Lo que queda acá es lo
+ * único que el servidor necesita para archivar la fila y para que la RLS
+ * decida: de qué grupo es, quién pagó y de cuándo.
+ */
 const gastoSchema = z.object({
   spaceId: z.uuid(),
   /** Id del MIEMBRO que pagó, no del usuario: puede ser un invitado sin cuenta. */
   pagadoPor: z.uuid(),
-  categoriaId: z.uuid().nullable().optional(),
-  /**
-   * Foto de la categoria, desde la 019. La manda el CLIENTE y no se resuelve
-   * en el servidor a proposito: en modo cifrado las categorias del usuario
-   * viven en un bloque que el servidor no puede leer, asi que un lookup contra
-   * `categories` funcionaria hoy y devolveria null manana.
-   *
-   * Es un rotulo propio del usuario, no un dato de autoridad: que venga del
-   * cliente no habilita nada que el usuario no pueda escribir igual.
-   */
-  categoriaNombre: z.string().trim().min(1).max(60).nullable().optional(),
-  categoriaIcono: z.string().trim().max(40).nullable().optional(),
-  categoriaColor: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color invalido.')
-    .nullable()
-    .optional(),
-  tipoDeReparto: z.enum(['EQUAL', 'PERCENTAGE', 'EXACT']).default('EQUAL'),
-  monto: z.number().positive('El importe tiene que ser mayor a cero.'),
-  descripcion: z.string().trim().min(1, 'Escribí una descripción.').max(120),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.'),
-  repartos: z
-    .array(z.object({ member_id: z.uuid(), percentage: z.number().min(0).max(100) }))
-    .min(1, 'Tiene que haber al menos un participante.'),
+  /** Con qué generación de la llave se cifró. Sin esto no se sabe con cuál abrir. */
+  generacion: z.number().int().positive(),
+  payloadCifrado: sobreSchema,
 })
 
 export async function crearGastoCompartido(
@@ -287,59 +276,25 @@ export async function crearGastoCompartido(
   const datos = gastoSchema.safeParse(entrada)
   if (!datos.success) return { ok: false, error: datos.error.issues[0].message }
 
-  const suma = datos.data.repartos.reduce((s, r) => s + r.percentage, 0)
-  // Tolerancia de un décimo: los porcentajes se editan a mano y 33,3 × 3 = 99,9.
-  if (Math.abs(suma - 100) > 0.5) {
-    return { ok: false, error: `El reparto tiene que sumar 100%. Ahora suma ${suma.toFixed(1)}%.` }
-  }
-
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const { data: gasto, error } = await supabase
-    .from('shared_transactions')
-    .insert({
-      space_id: datos.data.spaceId,
-      paid_by_member_id: datos.data.pagadoPor,
-      category_id: datos.data.categoriaId ?? null,
-      category_name: datos.data.categoriaNombre ?? null,
-      category_icon: datos.data.categoriaIcono ?? null,
-      category_color: datos.data.categoriaColor ?? null,
-      split_type: datos.data.tipoDeReparto,
-      amount: datos.data.monto,
-      description: datos.data.descripcion,
-      date: datos.data.fecha,
-      created_by: user.id,
-    })
-    .select('id')
-    .single()
+  const { error } = await supabase.from('shared_transactions').insert({
+    space_id: datos.data.spaceId,
+    paid_by_member_id: datos.data.pagadoPor,
+    date: datos.data.fecha,
+    payload_cifrado: datos.data.payloadCifrado,
+    generacion: datos.data.generacion,
+    created_by: user.id,
+  })
 
-  if (error || !gasto) {
-    const aviso = porMigracion(error?.code)
+  if (error) {
+    const aviso = porMigracion(error.code)
     if (aviso) return { ok: false, error: aviso }
-    return { ok: false, error: `No se pudo guardar: ${error?.message}` }
-  }
-
-  // El reparto se calcula en el servidor con el método del resto mayor: así la
-  // suma de las partes es exactamente el total, sin centavos perdidos.
-  const partes = repartir(datos.data.monto, datos.data.repartos)
-
-  const { error: errorRepartos } = await supabase.from('shared_splits').insert(
-    partes.map((p) => ({
-      transaction_id: gasto.id,
-      member_id: p.member_id,
-      percentage: p.percentage,
-      amount_owed: p.amount_owed,
-    }))
-  )
-
-  if (errorRepartos) {
-    // Un gasto sin repartos rompe todos los balances: se deshace.
-    await supabase.from('shared_transactions').delete().eq('id', gasto.id)
-    return { ok: false, error: `No se pudo guardar el reparto: ${errorRepartos.message}` }
+    return { ok: false, error: `No se pudo guardar: ${error.message}` }
   }
 
   revalidatePath(`/dashboard/shared-expenses/${datos.data.spaceId}`)
@@ -353,9 +308,10 @@ const pagoSchema = z
     spaceId: z.uuid(),
     deMiembro: z.uuid(),
     aMiembro: z.uuid(),
-    monto: z.number().positive('El importe tiene que ser mayor a cero.'),
     moneda: z.enum(CODIGOS_DE_MONEDA),
-    nota: z.string().trim().max(200).optional(),
+    generacion: z.number().int().positive(),
+    /** Lleva el importe y la nota. Ver `gastoSchema`. */
+    payloadCifrado: sobreSchema,
   })
   .refine((d) => d.deMiembro !== d.aMiembro, {
     message: 'El que paga y el que cobra tienen que ser distintos.',
@@ -372,6 +328,9 @@ const pagoSchema = z
  * historial, no se podía deshacer un error, y un pago parcial no tenía forma de
  * representarse. Como fila, el pago entra al cálculo de saldos como un
  * movimiento más y todo cierra sin casos especiales.
+ *
+ * Desde la 023 el importe va cifrado. Quiénes son las partes sigue en claro:
+ * son claves foráneas con cascada, y "A y B arreglaron algo" no dice cuánto.
  */
 export async function registrarPago(
   entrada: z.infer<typeof pagoSchema>
@@ -389,9 +348,9 @@ export async function registrarPago(
     space_id: datos.data.spaceId,
     from_member_id: datos.data.deMiembro,
     to_member_id: datos.data.aMiembro,
-    amount: datos.data.monto,
     currency: datos.data.moneda,
-    note: datos.data.nota?.trim() || null,
+    payload_cifrado: datos.data.payloadCifrado,
+    generacion: datos.data.generacion,
     created_by: user.id,
   })
 
@@ -421,44 +380,19 @@ export async function borrarPago(
 
 // --- Objetivos del grupo ------------------------------------------------------
 
-const objetivoSchema = z
-  .object({
-    spaceId: z.uuid(),
-    titulo: z.string().trim().min(1, 'Poné un título.').max(100, 'El título es muy largo.'),
-    tipo: z.enum(['CATEGORY_BUDGET', 'GROUP_SAVINGS']),
-    categoriaId: z.uuid().nullable().optional(),
-  /**
-     * Foto de la categoria, desde la 019. La manda el CLIENTE y no se resuelve
-     * en el servidor a proposito: en modo cifrado las categorias del usuario
-     * viven en un bloque que el servidor no puede leer, asi que un lookup contra
-     * `categories` funcionaria hoy y devolveria null manana.
-     *
-     * Es un rotulo propio del usuario, no un dato de autoridad: que venga del
-     * cliente no habilita nada que el usuario no pueda escribir igual.
-     */
-    categoriaNombre: z.string().trim().min(1).max(60).nullable().optional(),
-    categoriaIcono: z.string().trim().max(40).nullable().optional(),
-    categoriaColor: z
-      .string()
-      .regex(/^#[0-9A-Fa-f]{6}$/, 'Color invalido.')
-      .nullable()
-      .optional(),
-    monto: z.number().positive('La meta tiene que ser mayor a cero.'),
-    aporteMensual: z.number().min(0).nullable().optional(),
-    fechaObjetivo: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.')
-      .nullable()
-      .optional(),
-    moneda: z.enum(CODIGOS_DE_MONEDA),
-  })
-  // El nombre va junto al id: es lo unico que el resto del grupo puede leer, y
-  // desde la 019 es lo que exige el CHECK de la base. Validarlo aca hace que el
-  // error salga en el formulario y no como un 23514 sin traducir.
-  .refine((d) => d.tipo !== 'CATEGORY_BUDGET' || (!!d.categoriaId && !!d.categoriaNombre), {
-    message: 'Elegí la categoría del presupuesto.',
-    path: ['categoriaId'],
-  })
+const objetivoSchema = z.object({
+  spaceId: z.uuid(),
+  tipo: z.enum(['CATEGORY_BUDGET', 'GROUP_SAVINGS']),
+  fechaObjetivo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida.')
+    .nullable()
+    .optional(),
+  moneda: z.enum(CODIGOS_DE_MONEDA),
+  generacion: z.number().int().positive(),
+  /** Lleva el título, la meta, el aporte y la categoría. Ver `gastoSchema`. */
+  payloadCifrado: sobreSchema,
+})
 
 /**
  * Crea un objetivo del grupo: un techo de gasto por categoría o una meta de
@@ -468,6 +402,8 @@ const objetivoSchema = z
  * pero vive en su propia tabla y no se mezcla con aquellos: el techo de gasto de
  * una casa compartida no es el techo de gasto de ninguno de sus miembros, y
  * sumarlos al presupuesto personal contaría dos veces la misma plata.
+ *
+ * El tipo queda en claro porque decide cómo se muestra y no dice nada de plata.
  */
 export async function guardarObjetivoDeGrupo(
   entrada: z.infer<typeof objetivoSchema>
@@ -481,22 +417,13 @@ export async function guardarObjetivoDeGrupo(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
 
-  const esDeCategoria = datos.data.tipo === 'CATEGORY_BUDGET'
-
   const { error } = await supabase.from('shared_goals').insert({
     space_id: datos.data.spaceId,
-    title: datos.data.titulo,
     type: datos.data.tipo,
-    category_id: datos.data.tipo === 'CATEGORY_BUDGET' ? datos.data.categoriaId : null,
-    // El CHECK `shared_goals_category_required` de la 019 mira el NOMBRE, no el
-    // id: es lo unico que el resto del grupo puede leer.
-    category_name: esDeCategoria ? (datos.data.categoriaNombre ?? null) : null,
-    category_icon: esDeCategoria ? (datos.data.categoriaIcono ?? null) : null,
-    category_color: esDeCategoria ? (datos.data.categoriaColor ?? null) : null,
-    target_amount: datos.data.monto,
-    monthly_contribution: datos.data.aporteMensual ?? null,
     target_date: datos.data.fechaObjetivo ?? null,
     currency: datos.data.moneda,
+    payload_cifrado: datos.data.payloadCifrado,
+    generacion: datos.data.generacion,
     created_by: user.id,
   })
 

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Loader2, PiggyBank, Plus, Target, Trash2 } from 'lucide-react'
 import {
@@ -9,6 +8,7 @@ import {
 } from '@/app/dashboard/shared-expenses/actions'
 import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
+import { cifrarObjetivo } from '@/lib/almacen/compartidos'
 import { gastoPorCategoria } from '@/lib/shared-expenses-service'
 import type { Espacio, GastoCompartido, ObjetivoDeGrupo } from '@/lib/shared-expenses-service'
 
@@ -37,12 +37,16 @@ export function SharedSpaceGoals({
   espacio,
   objetivos,
   gastos,
+  llave,
+  alCambiar,
 }: {
   espacio: Espacio
   objetivos: ObjetivoDeGrupo[]
   gastos: GastoCompartido[]
+  /** La llave del grupo. `null` = todavía no me la dieron; se puede mirar, no escribir. */
+  llave: { gek: CryptoKey; generacion: number } | null
+  alCambiar: () => void
 }) {
-  const router = useRouter()
   const { t } = useTraduccion()
   const { formatearMonto } = useFormatoRegional()
 
@@ -74,17 +78,27 @@ export function SharedSpaceGoals({
       return
     }
 
+    if (!llave) {
+      setError('Todavía no tenés la llave de este grupo.')
+      return
+    }
+
     const aporteMensual = aporte.trim() === '' ? null : Number(aporte.replace(',', '.'))
 
     setError(null)
     iniciar(async () => {
       const resultado = await guardarObjetivoDeGrupo({
         spaceId: espacio.id,
-        titulo: titulo.trim(),
         tipo,
-        monto: importe,
-        aporteMensual: Number.isFinite(aporteMensual as number) ? aporteMensual : null,
         moneda: espacio.currency,
+        generacion: llave.generacion,
+        payloadCifrado: await cifrarObjetivo(llave.gek, {
+          titulo: titulo.trim(),
+          categoriaId: null,
+          categoria: null,
+          montoObjetivo: importe,
+          aporteMensual: Number.isFinite(aporteMensual as number) ? aporteMensual : null,
+        }),
       })
 
       if (!resultado.ok) {
@@ -96,7 +110,7 @@ export function SharedSpaceGoals({
       setTitulo('')
       setMonto('')
       setAporte('')
-      router.refresh()
+      alCambiar()
     })
   }
 
@@ -107,7 +121,7 @@ export function SharedSpaceGoals({
         setError(resultado.error)
         return
       }
-      router.refresh()
+      alCambiar()
     })
   }
 

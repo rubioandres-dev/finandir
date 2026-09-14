@@ -105,6 +105,51 @@ export async function miembrosDelEspacio(
   }))
 }
 
+/**
+ * TODAS las claves del miembro en ese espacio, por generación.
+ *
+ * No alcanza con la última: una rotación deja filas escritas con la llave vieja
+ * hasta que alguien las re-cifra, y cada fila dice con qué generación se
+ * escribió. Quedarse con la última haría desaparecer justo los gastos
+ * anteriores a la expulsión, que son los que uno quiere seguir viendo.
+ *
+ * Una generación que no abre se saltea: puede ser un sobre de una rotación que
+ * quedó a medias, y no es motivo para dejar al miembro sin las que sí abren.
+ */
+export async function clavesDelEspacio(
+  supabase: SupabaseClient,
+  spaceId: string,
+  memberId: string,
+  privada: CryptoKey
+): Promise<Map<number, CryptoKey>> {
+  const { data, error } = await supabase
+    .from('shared_space_claves')
+    .select('generacion, clave_envuelta')
+    .eq('space_id', spaceId)
+    .eq('member_id', memberId)
+    .order('generacion', { ascending: false })
+
+  if (error) fallar(error)
+
+  const claves = new Map<number, CryptoKey>()
+
+  for (const fila of (data ?? []) as { generacion: number; clave_envuelta: string }[]) {
+    try {
+      claves.set(
+        fila.generacion,
+        await abrirClaveDeGrupo(
+          { generacion: fila.generacion, claveEnvuelta: fila.clave_envuelta },
+          privada
+        )
+      )
+    } catch {
+      /* Sobre que no abre: esa generación no se ve, las otras sí. */
+    }
+  }
+
+  return claves
+}
+
 /** La clave del grupo, abierta con la privada del miembro. */
 export async function abrirClaveDelEspacio(
   supabase: SupabaseClient,
@@ -143,15 +188,19 @@ export async function estrenarClaveDeEspacio(
   supabase: SupabaseClient,
   spaceId: string,
   memberId: string,
-  publica: ClavePublica
+  publica: ClavePublica,
+  // Casi siempre 1. Puede ser mayor en un grupo que rotó antes de tener llaves:
+  // `shared_spaces.generacion` manda, porque es contra ese número que se van a
+  // escribir los gastos.
+  generacion = 1
 ): Promise<CryptoKey> {
   const gek = await crearClaveDeGrupo()
-  const sobre = await envolverParaMiembro(gek, await importarPublica(publica), 1)
+  const sobre = await envolverParaMiembro(gek, await importarPublica(publica), generacion)
 
   const { error } = await supabase.from('shared_space_claves').insert({
     space_id: spaceId,
     member_id: memberId,
-    generacion: 1,
+    generacion,
     clave_envuelta: sobre.claveEnvuelta,
   })
 
