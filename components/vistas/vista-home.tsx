@@ -1,5 +1,6 @@
 'use client'
 
+import { type DatosDelHome, armarDatosDelHome } from './datos-home'
 import Link from 'next/link'
 import { AnalyticsChart } from '@/components/analytics-chart'
 import { BalanceOverviewCard } from '@/components/balance-overview-card'
@@ -12,77 +13,15 @@ import { GuideCarousel } from '@/components/guide-carousel'
 import { MarketRatesCard } from '@/components/market-rates-card'
 import { MonthlyFlowChart } from '@/components/monthly-flow-chart'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
-import {
-  useModoMoneda,
-  useModuloActivo,
-  useTraduccion,
-} from '@/components/currency-provider'
+import { useModoMoneda, useModuloActivo, useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
-import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { resumirBalance } from '@/lib/balance-overview'
 import { getBestCardToPay } from '@/lib/card-optimizer'
 import { calcularAvances } from '@/lib/category-budgets-service'
-import { cargarCompromisos } from '@/lib/commitments-service'
 import { esDeLaMoneda } from '@/lib/currency-mode'
-import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
-import { obtenerMapaDeCambio } from '@/lib/exchange'
-import { cargarInversiones } from '@/lib/investments-service'
 import { equivalenteAproximado } from '@/lib/monedas'
-import { cargarFlujoMensual } from '@/lib/monthly-flow'
-import { obtenerCotizacionesDelMercado } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/client'
-import type { Libro } from '@/lib/almacen/libro'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { hoyEnArgentina, type Moneda } from '@/lib/types'
-
-export type DatosDelHome = Awaited<ReturnType<typeof armarDatosDelHome>>
-
-/**
- * Las ocho lecturas del Home, en un solo lugar.
- *
- * Las hacen las DOS rutas —la del servidor y la del navegador—, asi que vivir
- * en una funcion compartida no es prolijidad: duplicarlas seria dejar que el
- * Home muestre numeros distintos segun el modo de guardado del usuario.
- */
-export async function armarDatosDelHome(
-  libro: Libro,
-  supabase: SupabaseClient,
-  modo: Moneda,
-  monedas: Moneda[],
-  hoy: string
-) {
-  const datos = await cargarDatosDelDashboard(libro, supabase, modo, monedas)
-
-  const [
-    { tarjetas, cuentas, patrimonio },
-    cotizacionesDeMercado,
-    { resumen: carteraDeInversiones },
-    { curva },
-    { serie: flujoMensual },
-  ] = await Promise.all([
-    cargarCuentasYDeudas(libro, monedas),
-    obtenerCotizacionesDelMercado(),
-    cargarInversiones(libro, monedas),
-    cargarCompromisos(libro, hoy),
-    cargarFlujoMensual(libro, modo, hoy),
-  ])
-
-  // El mapa va después: reusa el MEP que `cargarDatosDelDashboard` ya resolvió
-  // en vez de volver a pedirlo.
-  const { mapa } = await obtenerMapaDeCambio(supabase, monedas, datos.cotizacion?.venta ?? null)
-
-  return {
-    ...datos,
-    tarjetas,
-    cuentas,
-    patrimonio,
-    cotizacionesDeMercado,
-    carteraDeInversiones,
-    curva,
-    flujoMensual,
-    mapa,
-  }
-}
 
 /**
  * Todo lo que se deriva del modo de moneda se calcula ACA, en el cliente. Antes

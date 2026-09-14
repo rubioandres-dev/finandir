@@ -1,5 +1,6 @@
 'use client'
 
+import { tarjetasDe } from './datos-importar'
 import { FileScan } from 'lucide-react'
 import { StatementImporter } from '@/components/statement-importer'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
@@ -38,18 +39,6 @@ export function VistaImportar({ tarjetas }: { tarjetas: CuentaElegible[] }) {
       <StatementImporter tarjetas={tarjetas} />
     </div>
   )
-}
-
-/** Las tarjetas del usuario, para el selector del importador. */
-export function tarjetasDe(cuentas: Record<string, { id: string; name: string; type: string; currency: string }>): CuentaElegible[] {
-  return Object.values(cuentas)
-    .filter((c) => c.type === 'CREDIT_CARD')
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      type: c.type as CuentaElegible['type'],
-      currency: c.currency,
-    }))
 }
 
 export function ImportarEnCliente() {

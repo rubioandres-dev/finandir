@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDeObjetivos,
-  ObjetivosEnCliente,
-  VistaObjetivos,
-  type DatosDeObjetivos,
-} from '@/components/vistas/vista-objetivos'
+import { ObjetivosEnCliente, VistaObjetivos } from '@/components/vistas/vista-objetivos'
+import { armarDatosDeObjetivos, type DatosDeObjetivos } from '@/components/vistas/datos-objetivos'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'

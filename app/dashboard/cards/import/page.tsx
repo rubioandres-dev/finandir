@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  ImportarEnCliente,
-  tarjetasDe,
-  VistaImportar,
-} from '@/components/vistas/vista-importar'
+import { ImportarEnCliente, VistaImportar } from '@/components/vistas/vista-importar'
+import { tarjetasDe } from '@/components/vistas/datos-importar'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
 import { createClient } from '@/lib/supabase/server'

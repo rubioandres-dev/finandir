@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  deudaPorTarjetaDe,
-  GastoInteligenteEnCliente,
-  VistaGastoInteligente,
-  type DatosDelGastoInteligente,
-} from '@/components/vistas/vista-gasto-inteligente'
+import { GastoInteligenteEnCliente, VistaGastoInteligente } from '@/components/vistas/vista-gasto-inteligente'
+import { deudaPorTarjetaDe, type DatosDelGastoInteligente } from '@/components/vistas/datos-gasto-inteligente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'

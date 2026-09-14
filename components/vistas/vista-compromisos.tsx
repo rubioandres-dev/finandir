@@ -1,43 +1,14 @@
 'use client'
 
+import { type DatosDeCompromisos, armarDatosDeCompromisos } from './datos-compromisos'
 import { CalendarClock, CreditCard, PartyPopper, TrendingDown } from 'lucide-react'
 import { DebtCurveChart } from '@/components/debt-curve-chart'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { useFormatoRegional, useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
-import { cargarCompromisos, primerMesLibre } from '@/lib/commitments-service'
-import type { PlanActivo, PuntoDeCurva } from '@/lib/commitments-service'
-import { obtenerCuentasPorMoneda } from '@/lib/finanzas'
-import type { Libro } from '@/lib/almacen/libro'
+import { primerMesLibre } from '@/lib/commitments-service'
 import type { Moneda } from '@/lib/types'
-
-export type DatosDeCompromisos = {
-  curva: PuntoDeCurva[]
-  planes: PlanActivo[]
-  nombrePorCuenta: [string, string][]
-  error: string | null
-}
-
-/** Las dos lecturas juntas, para que las dos rutas hagan exactamente lo mismo. */
-export async function armarDatosDeCompromisos(
-  libro: Libro,
-  hoy: string
-): Promise<DatosDeCompromisos> {
-  const [{ curva, planes, error }, { cuentas }] = await Promise.all([
-    cargarCompromisos(libro, hoy),
-    obtenerCuentasPorMoneda(libro),
-  ])
-
-  return {
-    curva,
-    planes,
-    // Un array de pares y no un Map: esto cruza del servidor al cliente como
-    // props, y un Map no sobrevive la serializacion.
-    nombrePorCuenta: Object.values(cuentas).map((c) => [c.id, c.name] as [string, string]),
-    error,
-  }
-}
 
 export function VistaCompromisos({
   datos,

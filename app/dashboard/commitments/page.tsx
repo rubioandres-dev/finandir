@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDeCompromisos,
-  CompromisosEnCliente,
-  VistaCompromisos,
-  type DatosDeCompromisos,
-} from '@/components/vistas/vista-compromisos'
+import { CompromisosEnCliente, VistaCompromisos } from '@/components/vistas/vista-compromisos'
+import { armarDatosDeCompromisos, type DatosDeCompromisos } from '@/components/vistas/datos-compromisos'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'

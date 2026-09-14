@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDelHome,
-  HomeEnCliente,
-  VistaHome,
-  type DatosDelHome,
-} from '@/components/vistas/vista-home'
+import { HomeEnCliente, VistaHome } from '@/components/vistas/vista-home'
+import { armarDatosDelHome, type DatosDelHome } from '@/components/vistas/datos-home'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'

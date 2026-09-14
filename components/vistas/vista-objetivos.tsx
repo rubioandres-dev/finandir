@@ -1,78 +1,15 @@
 'use client'
 
+import { type DatosDeObjetivos, armarDatosDeObjetivos } from './datos-objetivos'
 import { Award, Target } from 'lucide-react'
 import { GoalsManager } from '@/components/goals-manager'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
-import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
-import {
-  avanceDentroDelTier,
-  calcularAvance,
-  cargarObjetivos,
-  medirObjetivo,
-  siguienteTier,
-  tierPara,
-  TIERS,
-  type BaseDeMedicion,
-} from '@/lib/goals-service'
-import { cargarInversiones } from '@/lib/investments-service'
+import { avanceDentroDelTier, calcularAvance, medirObjetivo, siguienteTier, tierPara, TIERS } from '@/lib/goals-service'
 import { createClient } from '@/lib/supabase/client'
 import type { Moneda } from '@/lib/types'
-
-/** Total de una magnitud en la divisa principal. Los libros no se mezclan. */
-function enPrincipal(
-  totales: { moneda: string; valor: number }[],
-  principal: string
-): number {
-  return totales.find((x) => x.moneda === principal)?.valor ?? 0
-}
-
-export type DatosDeObjetivos = {
-  /** La divisa en la que se mide todo. Viaja con los datos porque el JSX la muestra. */
-  principal: Moneda
-  base: BaseDeMedicion
-  objetivos: Awaited<ReturnType<typeof cargarObjetivos>>['objetivos']
-  faltaMigracion: boolean
-}
-
-/**
- * Todo se mide en la divisa PRINCIPAL. Un objetivo de ahorro no puede promediar
- * una tasa en pesos con otra en dólares: serían dos números distintos sumados
- * como si fueran el mismo.
- */
-export async function armarDatosDeObjetivos(
-  libro: Parameters<typeof cargarObjetivos>[0],
-  supabase: Parameters<typeof cargarDatosDelDashboard>[1],
-  monedas: Moneda[]
-): Promise<DatosDeObjetivos> {
-  const principal = monedas[0]
-
-  const [datos, { patrimonio }, { resumen }, { objetivos, faltaMigracion }] =
-    await Promise.all([
-      cargarDatosDelDashboard(libro, supabase, undefined, monedas),
-      cargarCuentasYDeudas(libro, monedas),
-      cargarInversiones(libro, monedas),
-      cargarObjetivos(libro),
-    ])
-
-  return {
-    principal,
-    base: {
-      ingresosDelMes: enPrincipal(datos.ingresosDelMes, principal),
-      gastosDelMes: enPrincipal(datos.gastosDelMes, principal),
-      inversiones: enPrincipal(resumen.valorActual, principal),
-      liquido: enPrincipal(patrimonio.liquido, principal),
-      deuda:
-        enPrincipal(patrimonio.deudaTarjetas, principal) +
-        enPrincipal(patrimonio.deudaPersonal, principal),
-    },
-    objetivos,
-    faltaMigracion,
-  }
-}
 
 export function VistaObjetivos({ datos, xp }: { datos: DatosDeObjetivos; xp: number }) {
   const { t } = useTraduccion()

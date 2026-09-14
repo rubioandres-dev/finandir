@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDelConsolidado,
-  ConsolidadoEnCliente,
-  VistaConsolidado,
-  type DatosDelConsolidado,
-} from '@/components/vistas/vista-consolidado'
+import { ConsolidadoEnCliente, VistaConsolidado } from '@/components/vistas/vista-consolidado'
+import { armarDatosDelConsolidado, type DatosDelConsolidado } from '@/components/vistas/datos-consolidado'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { createClient } from '@/lib/supabase/server'

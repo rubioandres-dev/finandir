@@ -1,5 +1,6 @@
 'use client'
 
+import { type DatosDeLaCalculadora, armarDatosDeLaCalculadora } from './datos-calculadora'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { NightOutCalculator } from '@/components/night-out-calculator'
@@ -7,13 +8,7 @@ import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { useModoMoneda, useTraduccion } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
-import { esDeLaMoneda } from '@/lib/currency-mode'
-import type { CuentaElegible, Moneda } from '@/lib/types'
-
-export type DatosDeLaCalculadora = {
-  categorias: { nombre: string }[]
-  cuentas: CuentaElegible[]
-}
+import type { Moneda } from '@/lib/types'
 
 export function VistaCalculadora({ datos }: { datos: DatosDeLaCalculadora }) {
   const { t } = useTraduccion()
@@ -39,34 +34,6 @@ export function VistaCalculadora({ datos }: { datos: DatosDeLaCalculadora }) {
       <NightOutCalculator categorias={datos.categorias} cuentas={datos.cuentas} />
     </div>
   )
-}
-
-/**
- * El recorte por moneda y por tipo vive acá para que las dos rutas lo hagan
- * igual. Duplicarlo en el `page.tsx` y en el cargador es como terminan
- * divergiendo: alguien arregla uno y no se acuerda del otro.
- */
-export function armarDatosDeLaCalculadora(
-  categorias: { name: string; type: string }[],
-  cuentas: { id: string; name: string; type: string; currency: string }[],
-  modo: Moneda
-): DatosDeLaCalculadora {
-  return {
-    // Solo categorías de gasto: es lo único que una salida puede imputar.
-    categorias: categorias
-      .filter((c) => c.type === 'EXPENSE')
-      .map((c) => ({ nombre: c.name })),
-    // Solo las de la moneda activa: `guardarTransaccion` rechaza una cuenta
-    // cuya divisa no coincide, así que ofrecer las demás sería ofrecer un error.
-    cuentas: cuentas
-      .filter((c) => esDeLaMoneda(c, modo))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: c.type as CuentaElegible['type'],
-        currency: c.currency,
-      })),
-  }
 }
 
 export function CalculadoraEnCliente({ monedas }: { monedas: Moneda[] }) {

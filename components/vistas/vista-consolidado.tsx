@@ -1,20 +1,15 @@
 'use client'
 
+import { type DatosDelConsolidado, armarDatosDelConsolidado } from './datos-consolidado'
 import { Coins, Scale, TrendingDown, Wallet } from 'lucide-react'
 import { Card, CardLabel } from '@/components/ui/card'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { useFormatoRegional } from '@/components/currency-provider'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
-import { cargarCuentasYDeudas, type Patrimonio } from '@/lib/accounts-service'
 import { consolidar, type LadoDeLaMoneda } from '@/lib/consolidated-service'
-import { obtenerMapaDeCambio, type MapaDeCambio } from '@/lib/exchange'
-import { cargarInversiones, type ResumenDeInversiones } from '@/lib/investments-service'
 import { nombreDeMoneda } from '@/lib/monedas'
-import { obtenerCotizacionDelDia, type Cotizacion } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/client'
 import { crearFormateadores, type Locale } from '@/lib/formatters'
-import type { Libro } from '@/lib/almacen/libro'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Moneda } from '@/lib/types'
 
 /** Una línea del desglose: rótulo, monto y si suma o resta. */
@@ -175,40 +170,6 @@ function TotalCruzado({
       </div>
     </Card>
   )
-}
-
-
-export type DatosDelConsolidado = {
-  patrimonio: Patrimonio
-  resumen: ResumenDeInversiones
-  cotizacion: Cotizacion | null
-  mapa: MapaDeCambio
-  error: string | null
-}
-
-export async function armarDatosDelConsolidado(
-  libro: Libro,
-  supabase: SupabaseClient,
-  monedas: Moneda[]
-): Promise<DatosDelConsolidado> {
-  const [{ patrimonio, error: errorCuentas }, { resumen, error: errorInversiones }, cotizacion] =
-    await Promise.all([
-      cargarCuentasYDeudas(libro, monedas),
-      cargarInversiones(libro, monedas),
-      obtenerCotizacionDelDia(supabase),
-    ])
-
-  // El MEP ya resuelto se le pasa al mapa para no pedirlo dos veces; el resto
-  // de las divisas se cotiza contra el peso.
-  const { mapa } = await obtenerMapaDeCambio(supabase, monedas, cotizacion?.venta ?? null)
-
-  return {
-    patrimonio,
-    resumen,
-    cotizacion,
-    mapa,
-    error: errorCuentas ?? errorInversiones,
-  }
 }
 
 /**

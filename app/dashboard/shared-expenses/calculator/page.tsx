@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  armarDatosDeLaCalculadora,
-  CalculadoraEnCliente,
-  VistaCalculadora,
-  type DatosDeLaCalculadora,
-} from '@/components/vistas/vista-calculadora'
+import { CalculadoraEnCliente, VistaCalculadora } from '@/components/vistas/vista-calculadora'
+import { armarDatosDeLaCalculadora, type DatosDeLaCalculadora } from '@/components/vistas/datos-calculadora'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'

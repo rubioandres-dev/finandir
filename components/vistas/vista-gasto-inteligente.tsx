@@ -1,5 +1,6 @@
 'use client'
 
+import { type DatosDelGastoInteligente, deudaPorTarjetaDe } from './datos-gasto-inteligente'
 import Link from 'next/link'
 import { PiggyBank } from 'lucide-react'
 import { SmartSpendCalculator } from '@/components/smart-spend-calculator'
@@ -7,15 +8,7 @@ import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { CargadorEnCliente } from '@/components/vistas/cargador-en-cliente'
 import { cargarCuentasYDeudas } from '@/lib/accounts-service'
 import { cargarInversiones } from '@/lib/investments-service'
-import type { Inversion, Moneda, Tarjeta } from '@/lib/types'
-
-export type DatosDelGastoInteligente = {
-  tarjetas: Tarjeta[]
-  deudaPorTarjeta: Record<string, number>
-  /** Una TNA por moneda: las tasas de pesos y dolares no se mezclan. */
-  tnaLiquida: Record<string, number | null>
-  inversiones: Inversion[]
-}
+import type { Moneda } from '@/lib/types'
 
 export function VistaGastoInteligente({
   datos,
@@ -60,21 +53,6 @@ export function VistaGastoInteligente({
         </Link>
       )}
     </div>
-  )
-}
-
-/**
- * La deuda de cada tarjeta sale de su saldo, que en tarjetas es NEGATIVO: ese
- * negativo es lo que se debe. El `Math.max(0, …)` cubre el caso de una tarjeta
- * con saldo a favor, que no es una deuda de cero pesos sino ninguna deuda.
- */
-export function deudaPorTarjetaDe(
-  cuentas: { id: string; type: string; balance: number }[]
-): Record<string, number> {
-  return Object.fromEntries(
-    cuentas
-      .filter((c) => c.type === 'CREDIT_CARD')
-      .map((c) => [c.id, Math.max(0, -Number(c.balance ?? 0))])
   )
 }
 

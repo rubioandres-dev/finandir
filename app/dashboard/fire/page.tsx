@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import {
-  calcularFire,
-  FireEnCliente,
-  VistaFire,
-  type DatosDeFire,
-} from '@/components/vistas/vista-fire'
+import { FireEnCliente, VistaFire } from '@/components/vistas/vista-fire'
+import { calcularFire, type DatosDeFire } from '@/components/vistas/datos-fire'
 import { libroDelServidor, ModoCifradoEnServidor } from '@/lib/almacen/acceso'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
 import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
