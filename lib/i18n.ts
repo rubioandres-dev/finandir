@@ -464,6 +464,17 @@ const ES_AR = {
   'smart.descartar': 'Descartar',
 
   // --- Escáner de comprobantes ----------------------------------------------
+  'boveda.titulo': 'Tu bóveda está cerrada',
+  'boveda.explicacion':
+    'Tus datos están cifrados con tu contraseña. Ni AUREM puede abrirlos: hace falta que los abras vos, en este dispositivo.',
+  'boveda.etiquetaContrasena': 'Tu contraseña',
+  'boveda.etiquetaCodigo': 'Tu código de recuperación',
+  'boveda.abrir': 'Abrir la bóveda',
+  'boveda.abriendo': 'Abriendo…',
+  'boveda.noMeAcuerdo': 'No me acuerdo la contraseña',
+  'boveda.volverAContrasena': 'Volver a la contraseña',
+  'boveda.avisoDerivacion':
+    'Abrirla tarda un segundo: la clave se calcula acá y nunca sale de tu dispositivo.',
   'escaner.titulo': 'Comprobante',
   'escaner.altPrevia': 'Comprobante a analizar',
   'escaner.leyendo': 'Leyendo el comprobante…',
@@ -855,6 +866,18 @@ const ES_NEUTRO: Parcial = {
 }
 
 const EN: Parcial = {
+  'boveda.titulo': 'Your vault is locked',
+  'boveda.explicacion':
+    'Your data is encrypted with your password. Not even AUREM can open it: you have to unlock it yourself, on this device.',
+  'boveda.etiquetaContrasena': 'Your password',
+  'boveda.etiquetaCodigo': 'Your recovery code',
+  'boveda.abrir': 'Unlock',
+  'boveda.abriendo': 'Unlocking…',
+  'boveda.noMeAcuerdo': 'I forgot my password',
+  'boveda.volverAContrasena': 'Back to password',
+  'boveda.avisoDerivacion':
+    'It takes a second: the key is computed here and never leaves your device.',
+
   'escaner.avisoPrivacidad':
     'To read it, the receipt is sent to our server and to the Google AI service. '
     + 'It is not stored: it is discarded as soon as the reading finishes.',
