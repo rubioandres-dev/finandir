@@ -76,9 +76,8 @@ const BASE: Seccion[] = [
 /**
  * Conmutables por `ModuleContext`.
  *
- * `Presupuestos` no tiene módulo propio ni ruta propia: desde la 013 el techo de
- * gasto se administra dentro de Ajustes. El ancla lleva directo a esa sección en
- * vez de inventar una pantalla que sería la misma card sola.
+ * `Presupuestos` no tiene módulo propio, pero sí pantalla propia: es plata y se
+ * mira seguido, y estaba escondido al final de la lista de preferencias.
  *
  * `Vista consolidada` tampoco es un módulo: es la salida cuando el modo de una
  * sola moneda no alcanza, y apagarla dejaría a alguien con tres divisas sin
@@ -97,7 +96,7 @@ const CONMUTABLES: Seccion[] = [
     Icono: Lightbulb,
     modulo: 'smart_spend',
   },
-  { href: '/dashboard/settings#presupuestos', etiqueta: 'presupuestos.titulo', Icono: PieChart },
+  { href: '/dashboard/budgets', etiqueta: 'presupuestos.titulo', Icono: PieChart },
   {
     href: '/dashboard/commitments',
     etiqueta: 'modulos.cuotas',
@@ -185,8 +184,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 // --- La barra ----------------------------------------------------------------
 
 function esRutaActiva(href: string, ruta: string): boolean {
-  // El ancla no es parte de la ruta: `/dashboard/settings#presupuestos` marca
-  // activo con `/dashboard/settings`, igual que el enlace de Ajustes.
+  // Comparación por prefijo: `/dashboard/accounts/nueva` marca activo Cuentas.
   const base = href.split('#')[0]
   return base === '/dashboard' ? ruta === base : ruta.startsWith(base)
 }

@@ -12,6 +12,7 @@ import {
   PieChart,
   Rocket,
   Settings,
+  User,
   Target,
   Users,
   Wallet,
@@ -86,19 +87,22 @@ const SECCIONES: {
     detalle: 'nav.consolidadoDetalle',
     Icono: PieChart,
   },
-  // Los presupuestos no tienen ruta propia: desde la 013 se administran dentro
-  // de Ajustes. El ancla lleva directo a esa card en vez de inventar una
-  // pantalla que sería la misma sección sola.
   {
-    href: '/dashboard/settings#presupuestos',
+    href: '/dashboard/budgets',
     etiqueta: 'presupuestos.titulo',
     detalle: 'presupuestos.detalle',
     Icono: Wallet,
   },
   { href: '/dashboard/guide', etiqueta: 'nav.guia', detalle: 'nav.guiaDetalle', Icono: BookOpen },
   {
+    href: '/dashboard/profile',
+    etiqueta: 'nav.perfil',
+    detalle: 'nav.perfilDetalle',
+    Icono: User,
+  },
+  {
     href: '/dashboard/settings',
-    etiqueta: 'nav.ajustes',
+    etiqueta: 'nav.configuracion',
     detalle: 'nav.ajustesDetalle',
     Icono: Settings,
   },

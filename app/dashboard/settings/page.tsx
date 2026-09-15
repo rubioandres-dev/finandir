@@ -1,28 +1,47 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { BudgetProgress, type PresupuestoDeCategoria } from '@/components/budget-progress'
+import { SlidersHorizontal } from 'lucide-react'
 import { CurrencySettings } from '@/components/currency-settings'
 import { LanguageSettings } from '@/components/language-settings'
 import { ModuleSettings } from '@/components/module-settings'
 import { PrivacySettings } from '@/components/privacy-settings'
 import { StorageSettings } from '@/components/storage-settings'
-import { ProfileForm } from '@/components/profile-form'
 import { RegionSettings } from '@/components/region-settings'
 import { SettingsDraftProvider } from '@/components/settings-draft'
 import { Card, CardContent, CardLabel } from '@/components/ui/card'
 import { cargarContextoDeMonedas } from '@/lib/currency-mode-server'
-import { cargarDatosDelDashboard } from '@/lib/dashboard-data'
 import { crearTraductor } from '@/lib/i18n'
+import { obtenerCotizacionDelDia } from '@/lib/rates'
 import { createClient } from '@/lib/supabase/server'
-import { formatoMoneda, rangoDelMesActual } from '@/lib/types'
-import {
-  backendDelUsuario,
-  libroDelServidor,
-  ModoCifradoEnServidor,
-} from '@/lib/almacen/acceso'
+import { formatoMoneda } from '@/lib/types'
+import { backendDelUsuario } from '@/lib/almacen/acceso'
 
-export const metadata: Metadata = { title: 'Ajustes' }
+export const metadata: Metadata = { title: 'Configuración' }
 
+/**
+ * CONFIGURACIÓN — cómo se comporta la app
+ * =============================================================================
+ *
+ * Acá estaba TODO: los datos personales, la contraseña, las preferencias y los
+ * presupuestos por categoría. Eran cuatro cosas con públicos y frecuencias
+ * distintas amontonadas en una pantalla larga, y encontrar cualquiera costaba.
+ *
+ * Quedó partida en tres: Perfil (quién sos), Presupuestos (tu plata) y esto
+ * —divisas, región, idioma, módulos, privacidad y dónde se guardan los datos—.
+ *
+ * LA RUTA NO CAMBIA
+ *
+ * Sigue siendo `/dashboard/settings` aunque la sección se llame Configuración:
+ * hay enlaces viejos, un ancla `#guardado` al que manda el onboarding, y
+ * romperlos para que la URL haga juego con el título no le sirve a nadie.
+ *
+ * Y TIENE QUE ABRIR SIEMPRE
+ *
+ * Es donde vive el interruptor para volver a modo Estándar. Si se cayera porque
+ * el servidor no puede leer los datos, alguien en Bóveda no tendría por dónde
+ * salir. Por eso acá adentro no se lee ni un movimiento: lo único que se
+ * consulta es el perfil, que se queda en claro en todos los modos.
+ */
 export default async function SettingsPage() {
   const supabase = await createClient()
   const {
@@ -30,81 +49,27 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Ajustes muestra TODAS las divisas del perfil, no solo la activa: es donde
-  // se administran, así que filtrarlas por el modo del header sería absurdo.
+  // Configuración muestra TODAS las divisas del perfil, no solo la activa: es
+  // donde se administran, así que filtrarlas por el modo del header sería
+  // absurdo.
   const {
     monedas,
     locale,
     idioma,
     modulos,
-    perfil,
     faltaMigracion: faltaPerfil,
   } = await cargarContextoDeMonedas()
   const tr = crearTraductor(idioma)
 
   const backend = await backendDelUsuario(supabase, user.id)
-
-  /**
-   * Ajustes TIENE que abrir aunque el servidor no pueda leer los datos.
-   *
-   * Es la pantalla donde vive el interruptor para volver a modo Estandar: si se
-   * cayera con el resto, un usuario en Boveda no tendria por donde salir. Los
-   * presupuestos se ocultan, todo lo demas sigue.
-   */
-  let datos: Awaited<ReturnType<typeof cargarDatosDelDashboard>> | null = null
-
-  try {
-    const libro = await libroDelServidor(supabase, user.id)
-    datos = await cargarDatosDelDashboard(libro, supabase, undefined, monedas)
-  } catch (error) {
-    if (!(error instanceof ModoCifradoEnServidor)) throw error
-  }
-
-  const { categorias, delMes, presupuestos, cotizacion, faltaMigracion } = datos ?? {
-    categorias: [],
-    delMes: [],
-    presupuestos: [],
-    cotizacion: null,
-    faltaMigracion: false,
-  }
-  const { desde } = rangoDelMesActual()
-
-  const gastado = new Map<string, number>()
-  for (const movimiento of delMes) {
-    if (movimiento.type !== 'EXPENSE' || !movimiento.category_id) continue
-    const clave = `${movimiento.category_id}:${movimiento.currency}`
-    gastado.set(clave, (gastado.get(clave) ?? 0) + Number(movimiento.amount))
-  }
-
-  const limitePorClave = new Map(
-    presupuestos.map((p) => [`${p.category_id}:${p.currency}`, Number(p.amount)])
-  )
-
-  const presupuestosPorCategoria: PresupuestoDeCategoria[] = categorias
-    .filter((c) => c.type === 'EXPENSE')
-    .map((c) => ({
-      id: c.id,
-      nombre: c.name,
-      icono: c.icon,
-      color: c.color,
-      lineas: monedas.map((moneda) => ({
-        moneda,
-        presupuesto: limitePorClave.get(`${c.id}:${moneda}`) ?? null,
-        gastado: gastado.get(`${c.id}:${moneda}`) ?? 0,
-      })),
-    }))
+  const cotizacion = await obtenerCotizacionDelDia(supabase)
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-lg font-bold tracking-tight text-on-background">{tr('ajustes.titulo')}</h1>
-
-      <ProfileForm
-        email={user.email ?? ''}
-        nombre={
-          perfil?.display_name ??
-          (typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '')
-        }
-      />
+      <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-on-background">
+        <SlidersHorizontal className="size-5 text-gold-leaf" aria-hidden />
+        {tr('nav.configuracion')}
+      </h1>
 
       {/* Las divisas siguen guardando al toque: cambiarlas altera la lista del
           selector del header, y dejarlas en un borrador sin confirmar mostraría
@@ -133,22 +98,6 @@ export default async function SettingsPage() {
 
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <CardLabel>{tr('ajustes.cuenta')}</CardLabel>
-          <dl className="flex flex-col gap-2 text-sm">
-            <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">{tr('ajustes.categoriasContador')}</dt>
-              <dd className="font-medium tabular-nums">{categorias.length}</dd>
-            </div>
-            <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">{tr('ajustes.periodoActual')}</dt>
-              <dd className="font-medium tabular-nums">{desde.slice(0, 7)}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="flex flex-col gap-3">
           <CardLabel>{tr('ajustes.cotizacion')}</CardLabel>
           {cotizacion ? (
             <>
@@ -172,8 +121,6 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      <BudgetProgress categorias={presupuestosPorCategoria} faltaMigracion={faltaMigracion} />
     </div>
   )
 }

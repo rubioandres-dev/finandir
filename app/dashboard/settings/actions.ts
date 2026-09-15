@@ -345,43 +345,21 @@ export async function completarOnboarding(entrada: {
   return { mensaje: '¡Listo!' }
 }
 
-const contrasenaSchema = z
-  .object({
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
-    repetida: z.string(),
-  })
-  .refine((d) => d.password === d.repetida, {
-    message: 'Las contraseñas no coinciden.',
-    path: ['repetida'],
-  })
+/**
+ * CAMBIAR LA CONTRASEÑA NO VIVE ACÁ
+ *
+ * Había una `cambiarContrasena` que tomaba la nueva y la repetida y llamaba a
+ * `auth.updateUser`. Dos cosas mal:
+ *
+ *   · no pedía la actual, así que cualquiera con la sesión abierta podía dejar
+ *     afuera al dueño;
+ *   · en modo Bóveda cambiaba SOLO la de Auth. La que descifra los datos vive
+ *     en el sobre, y quedaba con la vieja: el usuario entraba con la nueva y no
+ *     podía leer nada.
+ *
+ * Las dos cosas necesitan la contraseña actual y la criptografía del navegador,
+ * así que el cambio es `components/cambiar-contrasena.tsx` sobre
+ * `lib/almacen/contrasena.ts`. Esta nota queda en lugar de la función para que
+ * el próximo que la busque acá encuentre el motivo y no la escriba de nuevo.
+ */
 
-export async function cambiarContrasena(
-  _estadoPrevio: EstadoDePerfil,
-  formData: FormData
-): Promise<EstadoDePerfil> {
-  const datos = contrasenaSchema.safeParse({
-    password: formData.get('password'),
-    repetida: formData.get('repetida'),
-  })
-
-  if (!datos.success) return { error: datos.error.issues[0].message }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Tu sesión expiró. Volvé a iniciar sesión.' }
-
-  const { error } = await supabase.auth.updateUser({ password: datos.data.password })
-
-  if (error) {
-    return {
-      error:
-        error.code === 'same_password'
-          ? 'Esa ya es tu contraseña actual.'
-          : `No se pudo cambiar la contraseña: ${error.message}`,
-    }
-  }
-
-  return { mensaje: 'Contraseña actualizada.' }
-}

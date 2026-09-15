@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
   Check,
@@ -38,7 +38,27 @@ import { createClient } from '@/lib/supabase/client'
  * No hay "después lo veo". El paso no se puede cerrar sin marcar que se anotó,
  * porque es literalmente lo único que queda si el usuario olvida su contraseña
  * — ni nosotros podemos abrir sus datos.
+ *
+ * LA RECARGA VA ANTES DEL CÓDIGO, NO DESPUÉS
+ *
+ * Cambiar de modo cambia lo que la app entera puede hacer: Gastos compartidos
+ * sólo existe en Bóveda, el proveedor del libro se monta o no, el menú se
+ * rearma. Nada de eso se entera sin una carga nueva.
+ *
+ * Antes la recarga colgaba del botón "Terminar", al final del paso del código.
+ * Dos problemas: si el usuario anotaba el código y se iba —que es lo razonable—
+ * la app se quedaba a mitad de camino hasta que la cerrara y la abriera; y aun
+ * apretándolo, `reload()` en una PWA puede volver del caché del service worker
+ * y traer exactamente la versión vieja.
+ *
+ * Ahora se navega a una URL única —que ningún caché tiene— apenas la activación
+ * cierra, y el código se muestra del otro lado. Viaja por `sessionStorage`, que
+ * es de esta pestaña y se borra en cuanto se lee: el secreto vive los
+ * milisegundos que tarda la página en montar.
  */
+
+/** Sólo existe entre la navegación y el primer render de la pantalla nueva. */
+const CODIGO_PENDIENTE = 'aurem:boveda-recien-activada'
 
 type Paso =
   | { fase: 'info' }
@@ -46,6 +66,17 @@ type Paso =
   | { fase: 'trabajando' }
   | { fase: 'codigo'; codigo: string; movimientos: number }
   | { fase: 'error'; mensaje: string; detalle: string[] }
+
+/**
+ * Una carga completa, a una URL que ningún caché vio antes.
+ *
+ * `location.reload()` en una PWA puede resolverse contra el service worker y
+ * devolver la respuesta guardada, que es justo la del modo anterior. Un
+ * parámetro distinto cada vez no puede estar cacheado.
+ */
+function recargarEntera() {
+  window.location.href = `/dashboard/settings?modo=${Date.now()}#guardado`
+}
 
 const CAMPO =
   'rounded-lg border border-glass-stroke/50 bg-charcoal/60 px-4 py-3 text-base outline-none transition placeholder:text-subtle focus:border-gold-leaf focus:ring-2 focus:ring-gold-leaf/25 disabled:opacity-60'
@@ -61,6 +92,33 @@ export function StorageSettings({ backend }: { backend: Backend }) {
   const [copiado, setCopiado] = useState(false)
 
   const enBoveda = backend === 'NUBE'
+
+  /**
+   * Del otro lado de la recarga: si quedó un código anotado, se muestra y se
+   * borra en el acto.
+   *
+   * Va en un efecto y no en el inicializador de `useState` porque el servidor
+   * también renderiza este componente, y ahí `sessionStorage` no existe: leerlo
+   * arriba daría un HTML distinto del que hidrata el navegador.
+   */
+  useEffect(() => {
+    let pendiente: { codigo: string; movimientos: number } | null = null
+    try {
+      const guardado = sessionStorage.getItem(CODIGO_PENDIENTE)
+      if (guardado) {
+        sessionStorage.removeItem(CODIGO_PENDIENTE)
+        pendiente = JSON.parse(guardado)
+      }
+    } catch {
+      // Sin `sessionStorage` no hay nada que recuperar y la pantalla abre normal.
+    }
+    // Traspaso de una sola vez entre dos cargas de página: no hay ningún evento
+    // del que colgar esto, y el inicializador no puede porque corre en el
+    // servidor. Es el caso para el que la excepción existe.
+    if (!pendiente) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPaso({ fase: 'codigo', ...pendiente })
+  }, [])
 
   async function ejecutar(hacia: Backend) {
     const supabase = createClient()
@@ -95,7 +153,25 @@ export function StorageSettings({ backend }: { backend: Backend }) {
       // Se recuerda la clave en este dispositivo para no pedirla otra vez
       // inmediatamente despues de activarla.
       await recordarClaves(r.claves)
-      setPaso({ fase: 'codigo', codigo: r.codigoDeRecuperacion, movimientos: r.resumen.movimientos })
+
+      try {
+        sessionStorage.setItem(
+          CODIGO_PENDIENTE,
+          JSON.stringify({
+            codigo: r.codigoDeRecuperacion,
+            movimientos: r.resumen.movimientos,
+          })
+        )
+        recargarEntera()
+      } catch {
+        // Sin `sessionStorage` no se puede pasar el código al otro lado, así que
+        // se muestra acá: mejor una app a medio actualizar que perderlo.
+        setPaso({
+          fase: 'codigo',
+          codigo: r.codigoDeRecuperacion,
+          movimientos: r.resumen.movimientos,
+        })
+      }
       return
     }
 
@@ -110,7 +186,7 @@ export function StorageSettings({ backend }: { backend: Backend }) {
         setPaso({ fase: 'error', mensaje: r.error, detalle: [] })
         return
       }
-      window.location.reload()
+      recargarEntera()
     } catch (error) {
       setPaso({
         fase: 'error',
@@ -238,7 +314,7 @@ export function StorageSettings({ backend }: { backend: Backend }) {
             <button
               type="button"
               disabled={!anotado}
-              onClick={() => window.location.reload()}
+              onClick={() => setPaso({ fase: 'info' })}
               className={BOTON}
             >
               {t('guardado.terminar')}

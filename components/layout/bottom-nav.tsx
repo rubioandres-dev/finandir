@@ -43,6 +43,8 @@ const RUTAS_DEL_MENU = [
   '/dashboard/consolidated',
   '/dashboard/guide',
   '/dashboard/settings',
+  '/dashboard/profile',
+  '/dashboard/budgets',
   '/dashboard/commitments',
   '/dashboard/cards',
 ]
