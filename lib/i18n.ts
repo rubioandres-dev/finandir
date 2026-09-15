@@ -241,6 +241,18 @@ const ES_AR = {
   'compartidos.escanear': 'Escanear QR de invitación',
   'compartidos.sinGrupos': 'Todavía no tenés grupos. Creá uno o sumate con un QR.',
   'compartidos.miembros': '{cantidad} miembros',
+
+  'compartidos.integrantes': 'Integrantes',
+  'compartidos.rolCreador': 'Creador',
+  'compartidos.rolAdmin': 'Admin',
+  'compartidos.rolInvitado': 'Invitado',
+  'compartidos.cancelar': 'Cancelar',
+  'compartidos.sacar': 'Sacar del grupo',
+  'compartidos.sacarConfirmar': 'Sacar del grupo',
+  'compartidos.sacarAviso':
+    '{nombre} deja de ver los gastos del grupo, incluidos los de antes: la llave se renueva y los gastos se vuelven a cifrar con la nueva. Lo que ya haya visto, lo vio. Puede tardar unos segundos.',
+  'compartidos.sacarAvisoInvitado':
+    '{nombre} es un invitado sin cuenta: no ve el grupo ni lo veía. Sacarlo lo quita de los repartos nuevos; los gastos ya cargados siguen con su parte.',
   'compartidos.mostrarQr': 'Mostrar QR de invitación',
   'compartidos.qrAyuda':
     'Que lo escaneen con la cámara del teléfono. También sirve compartir el enlace.',
@@ -1173,6 +1185,18 @@ const EN: Parcial = {
   'compartidos.escanear': 'Scan an invite QR',
   'compartidos.sinGrupos': 'No groups yet. Create one or join with a QR.',
   'compartidos.miembros': '{cantidad} members',
+
+  'compartidos.integrantes': 'Members',
+  'compartidos.rolCreador': 'Owner',
+  'compartidos.rolAdmin': 'Admin',
+  'compartidos.rolInvitado': 'Guest',
+  'compartidos.cancelar': 'Cancel',
+  'compartidos.sacar': 'Remove from group',
+  'compartidos.sacarConfirmar': 'Remove from group',
+  'compartidos.sacarAviso':
+    '{nombre} stops seeing the group expenses, including the older ones: the key is rotated and the expenses are re-encrypted with the new one. Whatever they already saw, they saw. This can take a few seconds.',
+  'compartidos.sacarAvisoInvitado':
+    '{nombre} is a guest without an account: they never saw the group. Removing them takes them out of new splits; expenses already recorded keep their share.',
   'compartidos.mostrarQr': 'Show invite QR',
   'compartidos.qrAyuda': 'Have them scan it with their phone camera. Sharing the link also works.',
   'compartidos.copiarEnlace': 'Copy link',

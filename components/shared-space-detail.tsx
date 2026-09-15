@@ -1,7 +1,18 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ArrowRight, Loader2, Plus, QrCode, Scale, UserPlus, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  Crown,
+  Loader2,
+  Plus,
+  QrCode,
+  Scale,
+  ShieldCheck,
+  UserMinus,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import {
   agregarInvitado,
   crearGastoCompartido,
@@ -52,6 +63,8 @@ export function SharedSpaceDetail({
   miMiembroId,
   llave,
   alCambiar,
+  soyAdmin,
+  alExpulsar,
 }: {
   espacio: Espacio
   miembros: Miembro[]
@@ -72,11 +85,21 @@ export function SharedSpaceDetail({
   llave: { gek: CryptoKey; generacion: number } | null
   /** Volver a leer los gastos. Reemplaza a `router.refresh()`: los trae el navegador. */
   alCambiar: () => void
+  soyAdmin: boolean
+  /**
+   * Saca a alguien del grupo. Lo hace el cargador, no esta pantalla: rotar la
+   * llave y re-cifrar necesita cosas que acá no están y que no tienen por qué
+   * estar. Devuelve el error en vez de tirarlo, para mostrarlo en su fila.
+   */
+  alExpulsar: (memberId: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }) {
   const { t } = useTraduccion()
   const { formatearMonto, formatearFecha } = useFormatoRegional()
 
   const [qrAbierto, setQrAbierto] = useState(false)
+  /** A quién se está por sacar. La confirmación va en su propia fila. */
+  const [porSacar, setPorSacar] = useState<string | null>(null)
+  const [errorAlSacar, setErrorAlSacar] = useState<string | null>(null)
   const [panel, setPanel] = useState<'ninguno' | 'gasto' | 'invitado' | 'pago'>('ninguno')
   const [error, setError] = useState<string | null>(null)
   const [enVuelo, iniciar] = useTransition()
@@ -277,6 +300,117 @@ export function SharedSpaceDetail({
           {t('compartidos.miembros', { cantidad: miembros.length })}
         </p>
       </Card>
+
+      {/* --- Integrantes --------------------------------------------------- */}
+      <section className="flex flex-col gap-2.5">
+        <h2 className="aurem-caps text-[11px] text-on-surface-variant/75">
+          {t('compartidos.integrantes')}
+        </h2>
+
+        <ul className="flex flex-col gap-2">
+          {miembros.map((m) => {
+            const esElCreador = !!m.user_id && m.user_id === espacio.created_by
+            const soyYo = m.id === miMiembroId
+            // Al creador no se lo saca: es quien estrena la llave del grupo.
+            // A uno mismo tampoco — eso es irse, que es otra cosa y todavía no
+            // está. Prometer un botón que hace algo distinto sería peor.
+            const sePuedeSacar = soyAdmin && !soyYo && !esElCreador
+
+            return (
+              <li
+                key={m.id}
+                className="flex flex-col gap-2 rounded-xl border border-glass-stroke/40 px-3 py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-xs text-on-background">
+                    {nombre(m.id)}
+                  </span>
+
+                  {esElCreador && (
+                    <span className="flex shrink-0 items-center gap-1 text-[10px] text-gold-leaf">
+                      <Crown className="size-3" aria-hidden />
+                      {t('compartidos.rolCreador')}
+                    </span>
+                  )}
+                  {!esElCreador && m.role === 'ADMIN' && (
+                    <span className="flex shrink-0 items-center gap-1 text-[10px] text-on-surface-variant">
+                      <ShieldCheck className="size-3" aria-hidden />
+                      {t('compartidos.rolAdmin')}
+                    </span>
+                  )}
+                  {!m.user_id && (
+                    <span className="shrink-0 text-[10px] text-subtle">
+                      {t('compartidos.rolInvitado')}
+                    </span>
+                  )}
+
+                  {sePuedeSacar && porSacar !== m.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorAlSacar(null)
+                        setPorSacar(m.id)
+                      }}
+                      aria-label={t('compartidos.sacar')}
+                      className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg border border-glass-stroke/50 text-on-surface-variant transition hover:border-expense/60 hover:text-expense"
+                    >
+                      <UserMinus className="size-3.5" aria-hidden />
+                    </button>
+                  )}
+                </div>
+
+                {porSacar === m.id && (
+                  <div className="flex flex-col gap-2 rounded-lg border border-expense/30 bg-expense/5 p-2.5">
+                    <p className="text-[11px] leading-snug text-on-surface-variant">
+                      {m.user_id
+                        ? t('compartidos.sacarAviso', { nombre: nombre(m.id) })
+                        : t('compartidos.sacarAvisoInvitado', { nombre: nombre(m.id) })}
+                    </p>
+
+                    {errorAlSacar && (
+                      <p role="alert" className="text-[11px] leading-snug text-expense">
+                        {errorAlSacar}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={enVuelo}
+                        onClick={() => {
+                          setPorSacar(null)
+                          setErrorAlSacar(null)
+                        }}
+                        className="cursor-pointer rounded-lg border border-glass-stroke/50 px-3 py-1.5 text-[11px] text-on-surface-variant transition active:scale-95 disabled:opacity-60"
+                      >
+                        {t('compartidos.cancelar')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={enVuelo}
+                        onClick={() =>
+                          iniciar(async () => {
+                            const r = await alExpulsar(m.id)
+                            if (!r.ok) {
+                              setErrorAlSacar(r.error)
+                              return
+                            }
+                            setPorSacar(null)
+                          })
+                        }
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-expense/90 px-3 py-1.5 text-[11px] font-semibold text-midnight-navy transition active:scale-95 disabled:opacity-60"
+                      >
+                        {enVuelo && <Loader2 className="size-3 animate-spin" aria-hidden />}
+                        {t('compartidos.sacarConfirmar')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </section>
 
       {/* --- Liquidación pendiente ----------------------------------------- */}
       <section className="flex flex-col gap-2.5">

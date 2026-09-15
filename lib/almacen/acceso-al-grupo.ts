@@ -62,12 +62,24 @@ export async function entrarAlGrupo(
     spaceId: string
     miMiembroId: string
     soyElCreador: boolean
-    /** `shared_spaces.generacion`: la vigente del grupo. */
-    generacion: number
     claves: Claves
   }
 ): Promise<AccesoAlGrupo> {
-  const { userId, spaceId, miMiembroId, soyElCreador, generacion } = opciones
+  const { userId, spaceId, miMiembroId, soyElCreador } = opciones
+
+  // --- 0. La generación vigente, leída acá -----------------------------------
+  // Venía por parámetro, desde las props que armó el servidor. Después de una
+  // expulsión eso queda viejo por un render, y escribir con la generación
+  // anterior guarda un gasto que el grupo ya no puede abrir. Es una lectura
+  // más y una manera menos de equivocarse.
+  const { data: espacio, error: errorEspacio } = await supabase
+    .from('shared_spaces')
+    .select('generacion')
+    .eq('id', spaceId)
+    .maybeSingle<{ generacion: number | null }>()
+
+  if (errorEspacio) throw new ErrorDelAlmacen(errorEspacio.message, errorEspacio.code)
+  const generacion = Number(espacio?.generacion ?? 1)
 
   // --- 1. El par de claves del usuario ---------------------------------------
   const sobreGuardado = await leerSobre(supabase)

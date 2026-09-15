@@ -38,7 +38,7 @@ export default async function SharedSpacePage({
   const backend = await backendDelUsuario(supabase, user.id)
   if (!backendSoportaModulo(backend, 'shared_expenses')) return <CompartidosSoloBoveda />
 
-  const { espacio, miembros, generacion, error } = await cargarBaseDelEspacio(supabase, id)
+  const { espacio, miembros, error } = await cargarBaseDelEspacio(supabase, id)
 
   if (error) {
     return (
@@ -91,7 +91,6 @@ export default async function SharedSpacePage({
       <EspacioEnCliente
         espacio={espacio}
         miembros={miembros}
-        generacion={generacion}
         miMiembroId={miMiembro.id}
         soyElCreador={espacio.created_by === user.id}
         soyAdmin={miMiembro.role === 'ADMIN'}

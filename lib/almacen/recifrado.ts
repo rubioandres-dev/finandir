@@ -58,8 +58,8 @@ const OBJETIVO_EN_BLANCO = {
 /**
  * Cifra las filas que `abrirEspacio` marcó como legibles.
  *
- * Devuelve cuántas se escribieron. Cero significa que el grupo ya estaba
- * cifrado entero, que es el estado normal después de la primera vez.
+ * Devuelve cuántas se escribieron DE VERDAD. Cero significa que el grupo ya
+ * estaba cifrado entero, que es el estado normal después de la primera vez.
  */
 export async function recifrarPendientes(
   supabase: SupabaseClient,
@@ -100,6 +100,25 @@ export function recifrarTodo(
   })
 }
 
+/**
+ * Escribe una fila y devuelve 1 si de verdad se escribió.
+ *
+ * El `.select('id')` no es adorno: un UPDATE que la RLS descarta devuelve éxito
+ * habiendo tocado cero filas. Contar intentos en vez de escrituras haría que
+ * una rotación a medias se reporte como completa, que es exactamente el error
+ * que nadie ve hasta que alguien lee lo que no debería.
+ */
+async function escribir(
+  supabase: SupabaseClient,
+  tabla: string,
+  id: string,
+  cambios: Record<string, unknown>
+): Promise<number> {
+  const { data, error } = await supabase.from(tabla).update(cambios).eq('id', id).select('id')
+  if (error) return 0
+  return (data ?? []).length > 0 ? 1 : 0
+}
+
 async function recifrar(
   supabase: SupabaseClient,
   entrada: {
@@ -114,39 +133,27 @@ async function recifrar(
   let escritas = 0
 
   for (const gasto of entrada.gastos) {
-    const { error } = await supabase
-      .from('shared_transactions')
-      .update({
-        ...GASTO_EN_BLANCO,
-        payload_cifrado: await cifrarGasto(gek, payloadDelGasto(gasto)),
-        generacion,
-      })
-      .eq('id', gasto.id)
-    if (!error) escritas++
+    escritas += await escribir(supabase, 'shared_transactions', gasto.id, {
+      ...GASTO_EN_BLANCO,
+      payload_cifrado: await cifrarGasto(gek, payloadDelGasto(gasto)),
+      generacion,
+    })
   }
 
   for (const pago of entrada.liquidaciones) {
-    const { error } = await supabase
-      .from('shared_settlements')
-      .update({
-        ...PAGO_EN_BLANCO,
-        payload_cifrado: await cifrarPago(gek, payloadDelPago(pago)),
-        generacion,
-      })
-      .eq('id', pago.id)
-    if (!error) escritas++
+    escritas += await escribir(supabase, 'shared_settlements', pago.id, {
+      ...PAGO_EN_BLANCO,
+      payload_cifrado: await cifrarPago(gek, payloadDelPago(pago)),
+      generacion,
+    })
   }
 
   for (const objetivo of entrada.objetivos) {
-    const { error } = await supabase
-      .from('shared_goals')
-      .update({
-        ...OBJETIVO_EN_BLANCO,
-        payload_cifrado: await cifrarObjetivo(gek, payloadDelObjetivo(objetivo)),
-        generacion,
-      })
-      .eq('id', objetivo.id)
-    if (!error) escritas++
+    escritas += await escribir(supabase, 'shared_goals', objetivo.id, {
+      ...OBJETIVO_EN_BLANCO,
+      payload_cifrado: await cifrarObjetivo(gek, payloadDelObjetivo(objetivo)),
+      generacion,
+    })
   }
 
   // Los repartos viejos viven en `shared_splits`, en claro. Una vez que el

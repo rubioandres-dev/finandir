@@ -81,5 +81,19 @@ export async function expulsarDelGrupo(
 
   const recifradas = await recifrarTodo(supabase, abierto, rotacion.gek, rotacion.generacion)
 
+  // Lo que no se reescribió sigue cifrado con la llave que el expulsado tiene.
+  // No es un detalle de conteo: es la diferencia entre haberlo sacado y creer
+  // que se lo sacó. Se avisa en vez de devolver un número que nadie mira.
+  const total =
+    abierto.gastos.length + abierto.liquidaciones.length + abierto.objetivos.length
+  if (recifradas < total) {
+    throw new ErrorDelAlmacen(
+      `Se rotó la llave pero quedaron ${total - recifradas} de ${total} registros con la ` +
+        'anterior, que es la que tiene quien sacaste. Volvé a abrir el grupo para reintentar; ' +
+        'si sigue pasando, corré migrations/025_rotar_siendo_admin.sql.',
+      'RECIFRADO_INCOMPLETO'
+    )
+  }
+
   return { generacion: rotacion.generacion, recifradas }
 }

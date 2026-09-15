@@ -1,11 +1,13 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Lock } from 'lucide-react'
 import { GuardianDeBoveda } from '@/components/guardian-de-boveda'
 import { useEstadoDelLibro } from '@/components/libro-provider'
 import { SharedSpaceDetail } from '@/components/shared-space-detail'
 import { entrarAlGrupo, repartirLlavePendiente } from '@/lib/almacen/acceso-al-grupo'
+import { expulsarDelGrupo } from '@/lib/almacen/expulsion'
 import { abrirEspacio, type EspacioAbierto } from '@/lib/almacen/compartidos'
 import { miembrosDelEspacio } from '@/lib/almacen/espacios'
 import { recifrarPendientes } from '@/lib/almacen/recifrado'
@@ -40,7 +42,6 @@ import { createClient } from '@/lib/supabase/client'
 export function EspacioEnCliente(props: {
   espacio: Espacio
   miembros: Miembro[]
-  generacion: number
   miMiembroId: string
   soyElCreador: boolean
   soyAdmin: boolean
@@ -60,6 +61,9 @@ type Estado =
       fase: 'listo'
       abierto: EspacioAbierto
       llave: { gek: CryptoKey; generacion: number } | null
+      /** Todas las que puedo abrir. Hacen falta para re-cifrar al expulsar. */
+      llaves: Map<number, CryptoKey>
+      generacion: number
       sinLlave: boolean
     }
   | { fase: 'error'; mensaje: string }
@@ -67,7 +71,6 @@ type Estado =
 function ContenidoDelEspacio({
   espacio,
   miembros,
-  generacion,
   miMiembroId,
   soyElCreador,
   soyAdmin,
@@ -76,13 +79,13 @@ function ContenidoDelEspacio({
 }: {
   espacio: Espacio
   miembros: Miembro[]
-  generacion: number
   miMiembroId: string
   soyElCreador: boolean
   soyAdmin: boolean
   userId: string
   nombres: Record<string, string>
 }) {
+  const router = useRouter()
   const estadoDelLibro = useEstadoDelLibro()
   const claves = estadoDelLibro.fase === 'abierto' ? estadoDelLibro.claves : null
 
@@ -105,7 +108,6 @@ function ContenidoDelEspacio({
           spaceId: espacio.id,
           miMiembroId,
           soyElCreador,
-          generacion,
           claves,
         })
 
@@ -140,6 +142,8 @@ function ContenidoDelEspacio({
           fase: 'listo',
           abierto,
           llave: acceso.gek ? { gek: acceso.gek, generacion: acceso.generacion } : null,
+          llaves: acceso.llaves,
+          generacion: acceso.generacion,
           sinLlave: acceso.sinLlave,
         })
       } catch (error) {
@@ -154,7 +158,7 @@ function ContenidoDelEspacio({
     return () => {
       vigente = false
     }
-  }, [claves, espacio.id, generacion, miMiembroId, soyElCreador, soyAdmin, userId, version])
+  }, [claves, espacio.id, miMiembroId, soyElCreador, soyAdmin, userId, version])
 
   if (estado.fase === 'cargando') {
     return (
@@ -175,7 +179,52 @@ function ContenidoDelEspacio({
     )
   }
 
-  const { abierto, llave, sinLlave } = estado
+  const { abierto, llave, llaves, generacion, sinLlave } = estado
+
+  /**
+   * Saca a alguien del grupo.
+   *
+   * Vive acá y no en la pantalla porque necesita la llave abierta: rotar y
+   * re-cifrar es lo que hace que expulsar signifique algo. La pantalla sólo
+   * pregunta y muestra el error.
+   */
+  async function expulsar(memberId: string) {
+    const supabase = createClient()
+    const miembro = miembros.find((m) => m.id === memberId)
+
+    try {
+      if (!miembro?.user_id) {
+        // Un invitado sin cuenta nunca tuvo llave: no hay nada que rotar, y
+        // rotar igual le renovaría la clave a todo el grupo por nada.
+        const { error } = await supabase.from('shared_space_members').delete().eq('id', memberId)
+        if (error) throw new Error(error.message)
+      } else {
+        const otros = (await miembrosDelEspacio(supabase, espacio.id, generacion))
+          .filter((m) => m.memberId !== memberId && m.publica)
+          .map((m) => ({ memberId: m.memberId, publica: m.publica as JsonWebKey }))
+
+        await expulsarDelGrupo(supabase, {
+          spaceId: espacio.id,
+          memberIdExpulsado: memberId,
+          generacionActual: generacion,
+          llaves,
+          quedan: otros,
+        })
+      }
+    } catch (error) {
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : 'No se pudo sacar del grupo.',
+      }
+    }
+
+    // Dos recargas porque hay dos fuentes: la lista de miembros la arma el
+    // servidor, y los gastos —ahora con llave y generación nuevas— los trae
+    // este componente.
+    router.refresh()
+    recargar()
+    return { ok: true as const }
+  }
 
   const balances = calcularBalances(
     abierto.gastos,
@@ -210,6 +259,8 @@ function ContenidoDelEspacio({
         miMiembroId={miMiembroId}
         llave={llave}
         alCambiar={recargar}
+        soyAdmin={soyAdmin}
+        alExpulsar={expulsar}
       />
     </div>
   )

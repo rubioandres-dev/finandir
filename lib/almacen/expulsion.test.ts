@@ -67,6 +67,18 @@ function supabaseFalso() {
   }
 
   const cliente = {
+    // La 025: subir la generación pasa por una función, porque `shared_spaces`
+    // sólo lo puede escribir su creador y rotar lo puede hacer cualquier admin.
+    async rpc(nombre: string, args: Record<string, unknown>) {
+      if (nombre !== 'subir_generacion_del_espacio') {
+        return { data: null, error: { code: 'PGRST202', message: 'sin funcion' } }
+      }
+      const espacio = tablas.shared_spaces.find((e) => e.id === args.p_space_id)
+      if (!espacio) return { data: null, error: { code: 'P0002', message: 'sin espacio' } }
+      const pedida = Number(args.p_generacion)
+      if (pedida > Number(espacio.generacion)) espacio.generacion = pedida
+      return { data: espacio.generacion, error: null }
+    },
     from(nombre: string) {
       const tabla = tablas[nombre]
       return {
@@ -79,10 +91,17 @@ function supabaseFalso() {
           for (const f of Array.isArray(filas) ? filas : [filas]) tabla.push(f)
           return { error: null }
         },
+        // `.select()` después del update porque el real devuelve las filas
+        // tocadas, y ahí es donde se ve que la RLS descartó la escritura.
         update: (cambios: Fila) => ({
-          async eq(col: string, valor: unknown) {
-            for (const f of tabla) if (f[col] === valor) Object.assign(f, cambios)
-            return { error: null }
+          eq(col: string, valor: unknown) {
+            const tocadas = tabla.filter((f) => f[col] === valor)
+            for (const f of tocadas) Object.assign(f, cambios)
+            const salida = { data: tocadas.map((f) => ({ id: f.id })), error: null }
+            return {
+              select: async () => salida,
+              then: (r: (v: { error: null }) => unknown) => r({ error: null }),
+            }
           },
         }),
         delete: () => ({

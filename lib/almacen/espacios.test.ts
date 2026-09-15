@@ -77,6 +77,16 @@ function supabaseFalso(miembros: Fila[]) {
   }
 
   const cliente = {
+    async rpc(nombre: string, args: Record<string, unknown>) {
+      if (nombre !== 'subir_generacion_del_espacio') {
+        return { data: null, error: { code: 'PGRST202', message: 'sin funcion' } }
+      }
+      const espacio = espacios.find((e) => e.id === args.p_space_id)
+      if (!espacio) return { data: null, error: { code: 'P0002', message: 'sin espacio' } }
+      const pedida = Number(args.p_generacion)
+      if (pedida > Number(espacio.generacion)) espacio.generacion = pedida
+      return { data: espacio.generacion, error: null }
+    },
     from(nombre: string) {
       const tabla =
         nombre === 'shared_space_members'
@@ -97,9 +107,14 @@ function supabaseFalso(miembros: Fila[]) {
         },
         update(cambios: Fila) {
           return {
-            async eq(col: string, valor: unknown) {
-              for (const f of tabla) if (f[col] === valor) Object.assign(f, cambios)
-              return { error: null }
+            eq(col: string, valor: unknown) {
+              const tocadas = tabla.filter((f) => f[col] === valor)
+              for (const f of tocadas) Object.assign(f, cambios)
+              const salida = { data: tocadas.map((f) => ({ id: f.id })), error: null }
+              return {
+                select: async () => salida,
+                then: (r: (v: { error: null }) => unknown) => r({ error: null }),
+              }
             },
           }
         },

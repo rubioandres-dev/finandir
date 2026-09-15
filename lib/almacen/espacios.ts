@@ -317,11 +317,60 @@ export async function expulsarYRotar(
   )
   if (errorClaves) fallar(errorClaves)
 
-  const { error: errorEspacio } = await supabase
-    .from('shared_spaces')
-    .update({ generacion: rotacion.generacion })
-    .eq('id', spaceId)
-  if (errorEspacio) fallar(errorEspacio)
+  await subirGeneracion(supabase, spaceId, rotacion.generacion)
 
   return { generacion: rotacion.generacion, gek: rotacion.gek }
+}
+
+/**
+ * Deja escrito en el espacio cuál es la generación vigente.
+ *
+ * Va por una función y no por un UPDATE porque `shared_spaces` sólo lo puede
+ * escribir su creador (011), y rotar la llave lo puede hacer cualquier admin.
+ * Sin esto, un admin que no es el creador repartía las llaves nuevas, re-cifraba
+ * todo, y dejaba el espacio diciendo que la vigente seguía siendo la vieja — la
+ * que el expulsado tiene. La siguiente escritura usaba esa.
+ *
+ * Y se VERIFICA el resultado. Un UPDATE que la RLS descarta devuelve éxito
+ * habiendo tocado cero filas: es la misma trampa que escondía el borrado del
+ * miembro, y la única defensa es mirar cómo quedó.
+ */
+async function subirGeneracion(
+  supabase: SupabaseClient,
+  spaceId: string,
+  generacion: number
+): Promise<void> {
+  const { data, error } = await supabase.rpc('subir_generacion_del_espacio', {
+    p_space_id: spaceId,
+    p_generacion: generacion,
+  })
+
+  // Sin la 025 la función no existe. Se intenta igual por el camino viejo, que
+  // funciona cuando quien rota es el creador del grupo.
+  if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+    const { error: errorUpdate } = await supabase
+      .from('shared_spaces')
+      .update({ generacion })
+      .eq('id', spaceId)
+    if (errorUpdate) fallar(errorUpdate)
+  } else if (error) {
+    fallar(error)
+  } else if (Number(data) === generacion) {
+    return
+  }
+
+  const { data: espacio, error: errorLectura } = await supabase
+    .from('shared_spaces')
+    .select('generacion')
+    .eq('id', spaceId)
+    .maybeSingle<{ generacion: number | null }>()
+  if (errorLectura) fallar(errorLectura)
+
+  if (Number(espacio?.generacion ?? 0) !== generacion) {
+    throw new ErrorDelAlmacen(
+      'La llave se rotó pero el grupo quedó apuntando a la anterior. ' +
+        'Corré migrations/025_rotar_siendo_admin.sql y volvé a intentarlo.',
+      'GENERACION_NO_SUBIO'
+    )
+  }
 }
