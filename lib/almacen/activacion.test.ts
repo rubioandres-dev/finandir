@@ -18,8 +18,17 @@ type Fila = Record<string, unknown>
 type Opciones = {
   /** Hace fallar la escritura del bloque numero N. */
   fallarBloqueEn?: number
-  /** Rompe el saldo guardado para que la verificacion no cierre. */
-  saldoFalso?: number
+  /**
+   * Mete un movimiento que el migrador no puede ubicar —fecha sin año válido,
+   * así que no entra en ningún shard— pero que `accounts.balance` sí incluía.
+   *
+   * Acá había un `saldoFalso` que ponía `balance` en 999 con movimientos que
+   * sumaban 700 y esperaba que eso fuera una discrepancia. Dejó de serlo, y con
+   * razón: esos 299 son el saldo inicial de la cuenta, un dato que ahora viaja
+   * en las aperturas en vez de perderse. Para probar que la verificación
+   * funciona hace falta romper algo que de verdad esté roto.
+   */
+  movimientoPerdido?: boolean
 }
 
 /**
@@ -40,7 +49,7 @@ function supabaseFalso(opciones: Opciones = {}) {
         name: 'Banco',
         type: 'BANK',
         currency: 'ARS',
-        balance: String(opciones.saldoFalso ?? 700),
+        balance: '700.00',
         is_liquid: true,
         created_at: '2025-01-01T00:00:00Z',
       },
@@ -57,6 +66,14 @@ function supabaseFalso(opciones: Opciones = {}) {
         id: 't2', user_id: 'u1', account_id: 'c1', amount: '300.00',
         type: 'EXPENSE', date: '2026-02-05', currency: 'ARS', category_id: 'cat1',
       },
+      ...(opciones.movimientoPerdido
+        ? [
+            {
+              id: 't3', user_id: 'u1', account_id: 'c1', amount: '500.00',
+              type: 'EXPENSE', date: 'sin-fecha', currency: 'ARS',
+            },
+          ]
+        : []),
     ],
     user_profiles: [{ user_id: 'u1', display_name: 'Ana', selected_currencies: ['ARS'] }],
   }
@@ -65,6 +82,14 @@ function supabaseFalso(opciones: Opciones = {}) {
     from(tabla: string) {
       if (tabla === 'almacen_bloques') {
         return {
+          // Activar arranca borrando: un intento anterior deja bloques
+          // cifrados con una clave que ya no existe.
+          delete: () => ({
+            async eq() {
+              bloques.clear()
+              return { error: null }
+            },
+          }),
           select() {
             return {
               eq(_col: string, clave: string) {
@@ -186,16 +211,16 @@ describe('activar Bóveda', () => {
   })
 
   it('SI LA VERIFICACION NO CIERRA, el puntero no se mueve', async () => {
-    // `accounts.balance` dice 999 pero los movimientos suman 700: el modelo de
-    // saldos derivados no reproduce lo que habia, asi que no se activa nada.
-    const fake = supabaseFalso({ saldoFalso: 999 })
+    // Un movimiento que no llega a ningun shard: el saldo derivado no puede
+    // reproducir el numero que traia `accounts.balance`, asi que no se activa.
+    const fake = supabaseFalso({ movimientoPerdido: true })
 
     const r = await activarBoveda(fake.cliente, 'u1', 'x')
 
     expect(r.ok).toBe(false)
     expect(fake.backend()).toBe('SUPABASE')
     if (r.ok) return
-    expect(r.discrepancias).toHaveLength(1)
+    expect(r.discrepancias.length).toBeGreaterThan(0)
     expect(r.error).toContain('siguen como estaban')
   })
 

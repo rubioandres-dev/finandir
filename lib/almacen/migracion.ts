@@ -218,15 +218,42 @@ export async function migrarDesdeSupabase(
     await libro.mutarMovimientos(anio, (shard) => ({ ...shard, movimientos: delAnio }))
   }
 
-  // Los shards se escribieron con `movimientos` ya puestos, así que la herencia
-  // automática vio datos a medio cargar. Esto los deja bien de una.
-  await recalcularAperturas(libro)
+  /**
+   * EL SALDO INICIAL, QUE NO ESTÁ EN NINGÚN MOVIMIENTO
+   *
+   * `accounts.balance` no es la suma de los movimientos: es lo que la cuenta
+   * tenía al crearse MÁS todos los movimientos. Ese "al crearse" no existe como
+   * fila en ningún lado, y en el modelo de documentos vive en las aperturas del
+   * primer ejercicio.
+   *
+   * Sin esto, migrar dejaba a cada cuenta corrida exactamente por su saldo
+   * inicial. La verificación lo agarraba y abortaba el cambio de modo — que es
+   * para lo que está— pero el usuario se quedaba sin poder activar la Bóveda y
+   * sin saber por qué.
+   *
+   * Se resta TODO el movimiento, futuro incluido, porque eso es lo que el
+   * trigger `apply_transaction_to_balance` metió en la columna: se comprobó
+   * contra la base que suma sin mirar la fecha.
+   */
+  const iniciales = saldosDeApertura(cuentasCrudas, movimientos)
+
+  if (anios.length > 0) {
+    // Los shards se escribieron con `movimientos` ya puestos, así que la
+    // herencia automática vio datos a medio cargar. Esto los deja bien de una.
+    await recalcularAperturas(libro, iniciales)
+  } else {
+    // Una cuenta con saldo y sin un solo movimiento igual tiene que valer lo
+    // que vale. Se abre el ejercicio en curso para que el número tenga dónde ir.
+    const anioEnCurso = Number(new Date().toISOString().slice(0, 4))
+    await libro.mutarMovimientos(anioEnCurso, (shard) => ({ ...shard, aperturas: iniciales }))
+  }
 
   // --- Verificación ----------------------------------------------------------
   const discrepancias = await verificar(libro, {
     cuentas,
     categorias,
     movimientos,
+    anios,
     saldosOriginales: new Map(
       cuentasCrudas.map((c) => [c.id as string, num(c.balance)])
     ),
@@ -249,12 +276,41 @@ export async function migrarDesdeSupabase(
 /** Un centavo de tolerancia: `numeric(16,2)` contra flotantes de JavaScript. */
 const TOLERANCIA = 0.011
 
+/**
+ * El saldo de cada cuenta antes de su primer movimiento.
+ *
+ * `balance - (todo lo que se movió)`. Para una cuenta que nació en cero da
+ * cero; para una que nació con plata adentro da esa plata.
+ */
+function saldosDeApertura(
+  cuentasCrudas: Fila[],
+  movimientos: Transaccion[]
+): Record<string, number> {
+  const movido = new Map<string, number>()
+  for (const m of movimientos) {
+    const delta = m.type === 'INCOME' ? m.amount : -m.amount
+    movido.set(m.account_id, (movido.get(m.account_id) ?? 0) + delta)
+  }
+
+  const iniciales: Record<string, number> = {}
+  for (const c of cuentasCrudas) {
+    const id = c.id as string
+    const apertura = num(c.balance) - (movido.get(id) ?? 0)
+    // Cero no se escribe: una cuenta que nació vacía no necesita una apertura
+    // que diga que está vacía.
+    if (Math.abs(apertura) > 0.0001) iniciales[id] = apertura
+  }
+
+  return iniciales
+}
+
 async function verificar(
   libro: Libro,
   origen: {
     cuentas: CuentaGuardada[]
     categorias: CategoriaGuardada[]
     movimientos: Transaccion[]
+    anios: number[]
     saldosOriginales: Map<string, number>
   }
 ): Promise<Discrepancia[]> {
@@ -288,11 +344,24 @@ async function verificar(
     })
   }
 
-  // LA PRUEBA DE FUEGO. El saldo derivado tiene que dar lo mismo que venía
-  // calculando el trigger `apply_transaction_to_balance`. Si no da, el modelo
-  // de saldos derivados está mal y este es el único momento barato de saberlo.
-  const hoy = new Date().toISOString().slice(0, 10)
-  const derivados = await libro.saldos(hoy)
+  /**
+   * LA PRUEBA DE FUEGO. El saldo derivado tiene que dar lo mismo que venía
+   * calculando el trigger `apply_transaction_to_balance`.
+   *
+   * Se mide al CIERRE DEL ÚLTIMO EJERCICIO y no "hoy". El trigger sumaba cada
+   * movimiento al insertarlo, sin mirar la fecha —comprobado contra la base—,
+   * así que `balance` incluye las cuotas que todavía no vencieron. El saldo
+   * derivado a hoy, en cambio, las excluye a propósito: comprar en doce cuotas
+   * no descuenta el total de una.
+   *
+   * Comparar a hoy era comparar dos cosas que miden distinto, y cualquiera con
+   * un plan de cuotas abierto no podía activar la Bóveda.
+   */
+  const cierre =
+    origen.anios.length > 0
+      ? `${Math.max(...origen.anios)}-12-31`
+      : new Date().toISOString().slice(0, 10)
+  const derivados = await libro.saldos(cierre)
 
   for (const [id, original] of origen.saldosOriginales) {
     const derivado = derivados[id] ?? 0

@@ -197,14 +197,34 @@ async function ejecutarMover(
  * Va en orden ascendente y NO en paralelo a propósito: el cierre de un año
  * depende de la apertura del anterior, así que el orden es la corrección.
  */
-export async function recalcularAperturas(libro: Libro): Promise<void> {
-  await libro.diferir('cerrar-ejercicio', {}, () => ejecutarRecalculo(libro))
+/**
+ * `iniciales` es el saldo de cada cuenta ANTES del primer movimiento.
+ *
+ * Existe porque hay un dato que no sale de ningún movimiento: lo que la cuenta
+ * ya tenía cuando el usuario la creó. En el modelo de documentos ese número
+ * vive en las aperturas del primer ejercicio, y es el único lugar donde puede
+ * vivir. Arrancar el recálculo en cero lo borraba, y el saldo de todas las
+ * cuentas quedaba corrido por esa diferencia — sin ningún error a la vista.
+ *
+ * Viaja en el diario, no como argumento suelto: si el replay volviera a correr
+ * el recálculo sin él, lo perdería de nuevo.
+ */
+export async function recalcularAperturas(
+  libro: Libro,
+  iniciales: Record<string, number> = {}
+): Promise<void> {
+  await libro.diferir('cerrar-ejercicio', { iniciales }, () =>
+    ejecutarRecalculo(libro, iniciales)
+  )
 }
 
-async function ejecutarRecalculo(libro: Libro): Promise<void> {
+async function ejecutarRecalculo(
+  libro: Libro,
+  iniciales: Record<string, number> = {}
+): Promise<void> {
   const anios = [...(await libro.aniosConMovimientos())].sort((a, b) => a - b)
 
-  let aperturas: Record<string, number> = {}
+  let aperturas: Record<string, number> = iniciales
 
   for (const anio of anios) {
     const propias = aperturas
@@ -242,5 +262,6 @@ export const REPLAYS: Replays = {
   'mover-movimiento-de-anio': (libro, p) =>
     ejecutarMover(libro, p.movimiento as Transaccion, Number(p.anioViejo)),
 
-  'cerrar-ejercicio': (libro) => ejecutarRecalculo(libro),
+  'cerrar-ejercicio': (libro, p) =>
+    ejecutarRecalculo(libro, (p.iniciales ?? {}) as Record<string, number>),
 }

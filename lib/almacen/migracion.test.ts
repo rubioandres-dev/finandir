@@ -61,7 +61,17 @@ describe('migrar desde Supabase', () => {
     expect(resumen.anios).toEqual([2025, 2026])
   })
 
-  it('avisa cuando el saldo NO cierra, en vez de dar por buena la migracion', async () => {
+  /**
+   * Acá había un test que decía lo contrario: con `balance` 999 y movimientos
+   * que suman 800, esperaba una discrepancia. Estaba mal, y le costó al usuario
+   * no poder activar la Bóveda.
+   *
+   * Esos 199 de diferencia no son un error: son lo que la cuenta tenía ANTES de
+   * su primer movimiento. No existen como fila en ningún lado, y el modelo de
+   * documentos los guarda en las aperturas del primer ejercicio. El migrador
+   * los tiraba y después se quejaba de que faltaban.
+   */
+  it('el saldo inicial de la cuenta sobrevive a la migracion', async () => {
     const libro = crearLibro(crearAlmacenEnMemoria())
     const resumen = await migrarDesdeSupabase(
       supabaseFalso({
@@ -71,8 +81,56 @@ describe('migrar desde Supabase', () => {
       libro
     )
 
-    expect(resumen.discrepancias).toHaveLength(1)
-    expect(resumen.discrepancias[0]).toMatchObject({ esperado: 999, obtenido: 800 })
+    expect(resumen.discrepancias).toEqual([])
+    // 199 de apertura + 1000 - 150.50 - 49.50 = 999, el numero del trigger.
+    expect((await libro.saldos('2026-12-31')).c1).toBeCloseTo(999, 2)
+    // Y antes del primer movimiento la cuenta vale su saldo inicial y nada mas.
+    expect((await libro.saldos('2025-01-01')).c1).toBeCloseTo(199, 2)
+  })
+
+  /**
+   * Lo que el test viejo creía estar probando: que la verificación se entere
+   * cuando el modelo NO reproduce el número del trigger.
+   *
+   * Se induce con un movimiento que el migrador no puede ubicar —fecha sin año
+   * válido, así que no entra en ningún shard— pero que el `balance` sí incluía.
+   */
+  it('avisa cuando un movimiento no llega al destino', async () => {
+    const libro = crearLibro(crearAlmacenEnMemoria())
+    const resumen = await migrarDesdeSupabase(
+      supabaseFalso({
+        accounts: [CUENTA],
+        transactions: [
+          ...MOVIMIENTOS,
+          { id: 't4', user_id: 'u1', account_id: 'c1', amount: '500.00', type: 'EXPENSE', date: 'sin-fecha', currency: 'ARS' },
+        ],
+      }),
+      libro
+    )
+
+    expect(resumen.discrepancias.length).toBeGreaterThan(0)
+  })
+
+  it('las cuotas futuras no descuentan hoy, pero si cuentan en el saldo final', async () => {
+    const libro = crearLibro(crearAlmacenEnMemoria())
+    const conCuota = [
+      ...MOVIMIENTOS,
+      { id: 't9', user_id: 'u1', account_id: 'c1', amount: '300.00', type: 'EXPENSE', date: '2026-11-01', currency: 'ARS' },
+    ]
+
+    // El trigger sumaba todo sin mirar la fecha: 800 - 300 = 500.
+    const resumen = await migrarDesdeSupabase(
+      supabaseFalso({ accounts: [{ ...CUENTA, balance: '500.00' }], transactions: conCuota }),
+      libro
+    )
+
+    // La verificacion mide al cierre del ultimo ejercicio, no "hoy". Medir hoy
+    // era comparar con algo que incluye cuotas que todavia no vencieron, y
+    // cualquiera con un plan abierto no podia activar la Boveda.
+    expect(resumen.discrepancias).toEqual([])
+    expect((await libro.saldos('2026-12-31')).c1).toBeCloseTo(500, 2)
+    // Antes de que venza la cuota, todavia no descuenta.
+    expect((await libro.saldos('2026-06-01')).c1).toBeCloseTo(800, 2)
   })
 
   it('los importes quedan como numeros, no como strings', async () => {

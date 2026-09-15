@@ -34,12 +34,12 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fijarBackend, libroDelNavegador } from './acceso'
+import { backendDelUsuario, fijarBackend, libroDelNavegador } from './acceso'
 import { todosLosMovimientos } from './consultas'
 import { COLECCIONES, type NombreDeColeccion } from './documentos'
 import { crearSobre, type Claves } from './cripto'
 import { migrarDesdeSupabase, type Discrepancia } from './migracion'
-import { guardarSobre } from './nube'
+import { guardarSobre, TABLA_BLOQUES } from './nube'
 import { crearLibroRelacional } from './relacional'
 
 export type ResultadoDeActivacion =
@@ -74,6 +74,42 @@ export async function activarBoveda(
   userId: string,
   contrasena: string
 ): Promise<ResultadoDeActivacion> {
+  // --- 0. Empezar de cero ----------------------------------------------------
+  //
+  // POR QUÉ HAY QUE BORRAR BLOQUES ANTES DE ESCRIBIRLOS
+  //
+  // Un intento anterior que falló —o una vuelta a Estándar— deja bloques
+  // cifrados con una DEK que ya no existe. Acá abajo se crea un sobre NUEVO, y
+  // escribir una colección es leerla primero: leer un bloque viejo con la clave
+  // nueva no descifra, y el error que sale es "la contraseña no es correcta",
+  // que manda al usuario a dudar de lo único que estaba bien.
+  //
+  // El comentario de arriba decía que la próxima corrida "pisa entera" la
+  // anterior. Era la intención y no era verdad: se pisa después de leer.
+  //
+  // No se pierde nada. En modo Estándar la verdad está en las tablas, y esto
+  // copia desde ahí; un bloque que quedó de un intento fallido no es un dato,
+  // es basura que nadie puede abrir.
+  try {
+    const backend = await backendDelUsuario(supabase, userId)
+    if (backend !== 'SUPABASE') {
+      return {
+        ok: false,
+        discrepancias: [],
+        error: 'Esta cuenta ya está en modo cifrado.',
+      }
+    }
+
+    const { error } = await supabase.from(TABLA_BLOQUES).delete().eq('user_id', userId)
+    if (error) throw new Error(error.message)
+  } catch (error) {
+    return {
+      ok: false,
+      discrepancias: [],
+      error: mensajeDe(error, 'No se pudo preparar el almacén cifrado.'),
+    }
+  }
+
   // --- 1. Las claves ---------------------------------------------------------
   let sobreNuevo
   try {
